@@ -25,6 +25,7 @@ hardfork!(
     /// When building a list of hardforks for a chain, it's still expected to zip with
     /// [`EthereumHardfork`].
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Default)]
     OpHardfork {
         /// Bedrock: <https://blog.oplabs.co/introducing-optimism-bedrock>.
         Bedrock,
@@ -41,6 +42,7 @@ hardfork!(
         /// Holocene: <https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/superchain-upgrades.md#holocene>
         Holocene,
         /// Isthmus: <https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/isthmus/overview.md>
+        #[default]
         Isthmus,
         /// TODO: add interop hardfork overview when available
         Interop,
