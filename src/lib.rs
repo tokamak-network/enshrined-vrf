@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 use alloy_chains::{Chain, NamedChain};
 use alloy_hardforks::{EthereumHardfork, hardfork};
 pub use alloy_hardforks::{EthereumHardforks, ForkCondition};
+use alloy_primitives::U256;
 use core::ops::Index;
 
 pub mod optimism;
@@ -279,9 +280,7 @@ impl OpChainHardforks {
 
 impl EthereumHardforks for OpChainHardforks {
     fn ethereum_fork_activation(&self, fork: EthereumHardfork) -> ForkCondition {
-        use EthereumHardfork::{
-            Amsterdam, Bpo1, Bpo2, Bpo3, Bpo4, Bpo5, Cancun, Osaka, Prague, Shanghai,
-        };
+        use EthereumHardfork::{Cancun, Prague, Shanghai};
         use OpHardfork::{Canyon, Ecotone, Isthmus};
 
         if self.forks.is_empty() {
@@ -294,7 +293,6 @@ impl EthereumHardforks for OpChainHardforks {
             Shanghai if forks_len <= Canyon.idx() => ForkCondition::Never,
             Cancun if forks_len <= Ecotone.idx() => ForkCondition::Never,
             Prague if forks_len <= Isthmus.idx() => ForkCondition::Never,
-            Osaka | Bpo1 | Bpo2 | Bpo3 | Bpo4 | Bpo5 | Amsterdam => ForkCondition::Never,
             _ => self[fork],
         }
     }
@@ -339,15 +337,28 @@ impl Index<EthereumHardfork> for OpChainHardforks {
         use OpHardfork::*;
 
         match hf {
-            Frontier | Homestead | Dao | Tangerine | SpuriousDragon | Byzantium
-            | Constantinople | Petersburg | Istanbul | MuirGlacier => &ForkCondition::ZERO_BLOCK,
+            Frontier | Homestead | Tangerine | SpuriousDragon | Byzantium | Constantinople
+            | Petersburg | Istanbul | MuirGlacier => &ForkCondition::ZERO_BLOCK,
+            // Dao Hardfork is not needed for OpChainHardforks
+            Dao => &ForkCondition::Never,
             Berlin if self.is_op_mainnet() => &ForkCondition::Block(OP_MAINNET_BERLIN_BLOCK),
             Berlin => &ForkCondition::ZERO_BLOCK,
-            London | ArrowGlacier | GrayGlacier | Paris => &self[Bedrock],
+            London | ArrowGlacier | GrayGlacier => &self[Bedrock],
+            Paris if self.is_op_mainnet() => &ForkCondition::TTD {
+                activation_block_number: OP_MAINNET_BEDROCK_BLOCK,
+                fork_block: Some(OP_MAINNET_BEDROCK_BLOCK),
+                total_difficulty: U256::ZERO,
+            },
+            Paris => &ForkCondition::TTD {
+                activation_block_number: 0,
+                fork_block: Some(0),
+                total_difficulty: U256::ZERO,
+            },
             Shanghai => &self[Canyon],
             Cancun => &self[Ecotone],
             Prague => &self[Isthmus],
-            Osaka | Bpo1 | Bpo2 | Bpo3 | Bpo4 | Bpo5 | Amsterdam => panic!("index out of bounds"),
+            // Not activated for now
+            Osaka | Bpo1 | Bpo2 | Bpo3 | Bpo4 | Bpo5 | Amsterdam => &ForkCondition::Never,
             _ => unreachable!(),
         }
     }
