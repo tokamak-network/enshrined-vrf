@@ -2513,6 +2513,7 @@ workflows:
       - stale-check:
           context:
             - circleci-repo-optimism
+
   scheduled-sync-test-op-node:
     when:
       or:
@@ -2524,6 +2525,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-build: # needed for sysgo tests
+          build_args: --skip test
           context:
             - circleci-repo-readonly-authenticated-github-token
           requires:
@@ -2547,6 +2549,7 @@ workflows:
             parameters:
               network_preset: ["op-sepolia", "base-sepolia", "unichain-sepolia", "op-mainnet", "base-mainnet"]
               l2_cl_syncmode: ["consensus-layer", "execution-layer"]
+
   # Acceptance tests (post-merge to develop)
   acceptance-tests:
     when:
@@ -2562,6 +2565,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-build: # needed for sysgo tests
+          build_args: --skip test
           context:
             - circleci-repo-readonly-authenticated-github-token
           requires:
@@ -2599,6 +2603,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-build: # needed for sysgo tests
+          build_args: --skip test
           context:
             - circleci-repo-readonly-authenticated-github-token
           requires:
