@@ -156,6 +156,20 @@ impl OpHardfork {
         ]
     }
 
+    /// Devnet list of hardforks.
+    pub const fn devnet() -> [(Self, ForkCondition); 8] {
+        [
+            (Self::Bedrock, ForkCondition::ZERO_BLOCK),
+            (Self::Regolith, ForkCondition::ZERO_TIMESTAMP),
+            (Self::Canyon, ForkCondition::ZERO_TIMESTAMP),
+            (Self::Ecotone, ForkCondition::ZERO_TIMESTAMP),
+            (Self::Fjord, ForkCondition::ZERO_TIMESTAMP),
+            (Self::Granite, ForkCondition::ZERO_TIMESTAMP),
+            (Self::Holocene, ForkCondition::ZERO_TIMESTAMP),
+            (Self::Isthmus, ForkCondition::ZERO_TIMESTAMP),
+        ]
+    }
+
     /// Returns index of `self` in sorted canonical array.
     pub const fn idx(&self) -> usize {
         *self as usize
@@ -270,6 +284,11 @@ impl OpChainHardforks {
     /// Creates a new [`OpChainHardforks`] with Base Sepolia configuration.
     pub fn base_sepolia() -> Self {
         Self::new(OpHardfork::base_sepolia())
+    }
+
+    /// Creates a new [`OpChainHardforks`] with devnet configuration.
+    pub fn devnet() -> Self {
+        Self::new(OpHardfork::devnet())
     }
 
     /// Returns `true` if this is an OP mainnet instance.
