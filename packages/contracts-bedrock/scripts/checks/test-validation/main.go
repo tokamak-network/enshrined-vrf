@@ -41,12 +41,28 @@ func main() {
 	fmt.Println("✅ All contract test validations passed")
 }
 
-// Processes a single test artifact file and runs all validations
+// File processing
+
+// Processes a single test artifact file and runs all validations.
 func processFile(path string) (*common.Void, []error) {
+	// Skip validation for artifacts without corresponding source files
+	testFileName := extractTestFileName(path)
+	if !testFileExists(testFileName) {
+		fmt.Printf("Skipping validation for %s (test file not found in branch)\n", testFileName)
+		return nil, nil
+	}
+
 	// Read and parse the Forge artifact file
 	artifact, err := common.ReadForgeArtifact(path)
 	if err != nil {
 		return nil, []error{err}
+	}
+
+	// Skip validation for artifacts where the contract doesn't exist in the source file
+	testFilePath, contractName, _ := getCompilationTarget(artifact)
+	if !testContractExistsInFile(testFilePath, contractName) {
+		fmt.Printf("Skipping validation for %s (contract %s not found in source file)\n", testFileName, contractName)
+		return nil, nil
 	}
 
 	var errors []error
@@ -60,6 +76,55 @@ func processFile(path string) (*common.Void, []error) {
 	errors = append(errors, structureErrors...)
 
 	return nil, errors
+}
+
+// Test file validation
+
+// Extracts test filename from artifact path
+func extractTestFileName(path string) string {
+	pathParts := strings.Split(path, string(filepath.Separator))
+	for _, part := range pathParts {
+		if strings.HasSuffix(part, ".t.sol") {
+			return part
+		}
+	}
+	return ""
+}
+
+// Checks if test source file exists in the test directory
+func testFileExists(testFileName string) bool {
+	if testFileName == "" {
+		return false
+	}
+
+	// Search recursively in test directory for the file
+	found := false
+	_ = filepath.Walk("test", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() && filepath.Base(path) == testFileName {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found
+}
+
+// Checks if test contract exists in the specified test source file
+func testContractExistsInFile(testFilePath, contractName string) bool {
+	if testFilePath == "" || contractName == "" {
+		return false
+	}
+
+	// Read file and check if contract name exists
+	content, err := os.ReadFile(testFilePath)
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(string(content), "contract "+contractName)
 }
 
 // Test name validation
