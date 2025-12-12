@@ -1079,8 +1079,8 @@ jobs:
           path: ops/ai-eng/contracts-test-maintenance/log.json
           destination: log.json
       - run:
-          name: Prepare Slack notification
-          command: just prepare-slack-notification >> $BASH_ENV
+          name: Build Slack notification
+          command: just build-slack-notification >> $BASH_ENV
           working_directory: ops/ai-eng
           when: always
       - slack/notify:
