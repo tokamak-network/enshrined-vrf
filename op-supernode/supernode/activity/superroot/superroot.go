@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	cc "github.com/ethereum-optimism/optimism/op-supernode/supernode/chain_container"
@@ -60,8 +61,10 @@ func (s *Superroot) atTimestamp(ctx context.Context, timestamp uint64) (eth.Supe
 	}
 
 	notFound := false
+	chainIDs := make([]eth.ChainID, 0, len(s.chains))
 	// collect verified and optimistic L2 and L1 blocks at the given timestamp
 	for chainID, chain := range s.chains {
+		chainIDs = append(chainIDs, chainID)
 		// verifiedAt returns the L2 block which is fully verified at the given timestamp, and the minimum L1 block at which verification is possible
 		verifiedL2, verifiedL1, err := chain.VerifiedAt(ctx, timestamp)
 		if errors.Is(err, ethereum.NotFound) {
@@ -99,9 +102,13 @@ func (s *Superroot) atTimestamp(ctx context.Context, timestamp uint64) (eth.Supe
 		}
 	}
 
+	slices.SortFunc(chainIDs, func(a, b eth.ChainID) int {
+		return a.Cmp(b)
+	})
 	response := eth.SuperRootAtTimestampResponse{
 		CurrentL1:             minCurrentL1,
 		OptimisticAtTimestamp: optimistic,
+		ChainIDs:              chainIDs,
 	}
 	if !notFound {
 		// Build super root from collected outputs
