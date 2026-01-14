@@ -1,6 +1,11 @@
 mod actor;
 pub use actor::{DerivationActor, DerivationError};
 
+mod delegated;
+pub use delegated::{
+    DelegateDerivationActor, DerivationDelegateClient, DerivationDelegateClientError,
+};
+
 mod engine_client;
 pub use engine_client::{DerivationEngineClient, QueuedDerivationEngineClient};
 
