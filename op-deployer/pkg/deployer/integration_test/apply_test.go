@@ -860,6 +860,12 @@ func runEndToEndBootstrapAndApplyUpgradeTest(t *testing.T, afactsFS foundry.Stat
 			t.Log("Skipping superchain config upgrade; onchain version is already up to date")
 		}
 
+		// Run past upgrades before running the current upgrade.
+		// This is necessary when forking at a block before those upgrades were executed.
+		t.Run("run past upgrades", func(t *testing.T) {
+			shared.RunPastUpgrades(t, host, 11155111, superchainProxyAdminOwner, deployer.DefaultSystemConfigProxySepolia)
+		})
+
 		// Then run the OPCM upgrade
 		t.Run("upgrade opcm", func(t *testing.T) {
 			if deployer.IsDevFeatureEnabled(implementationsConfig.DevFeatureBitmap, deployer.OPCMV2DevFlag) {

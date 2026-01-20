@@ -5,6 +5,7 @@ pragma solidity 0.8.15;
 import { VmSafe } from "forge-std/Vm.sol";
 import { CommonTest } from "test/setup/CommonTest.sol";
 import { DisputeGames } from "test/setup/DisputeGames.sol";
+import { PastUpgrades } from "test/setup/PastUpgrades.sol";
 
 // Libraries
 import { Config } from "scripts/libraries/Config.sol";
@@ -32,7 +33,7 @@ import { IETHLockbox } from "interfaces/L1/IETHLockbox.sol";
 
 /// @title OPContractsManagerV2_TestInit
 /// @notice Base test initialization contract for OPContractsManagerV2.
-contract OPContractsManagerV2_TestInit is CommonTest, DisputeGames {
+contract OPContractsManagerV2_TestInit is CommonTest {
     /// @notice Fake prestate for Cannon games.
     Claim cannonPrestate = Claim.wrap(bytes32(keccak256("cannonPrestate")));
 
@@ -221,9 +222,6 @@ contract OPContractsManagerV2_Upgrade_TestInit is OPContractsManagerV2_TestInit 
     /// @notice Buffer percentage (relative to EIP-7825 gas limit) allowed for upgrades.
     uint256 public constant UPGRADE_GAS_BUFFER_PERCENTAGE = 50; // 50%
 
-    /// @notice Thrown when trying to run past upgrades on an unsupported chain.
-    error UnsupportedChainId();
-
     /// @notice Sets up the test suite.
     function setUp() public virtual override {
         super.disableUpgradedFork();
@@ -244,8 +242,8 @@ contract OPContractsManagerV2_Upgrade_TestInit is OPContractsManagerV2_TestInit 
         l2ChainId = uint256(uint160(address(artifacts.mustGetAddress("L2ChainId"))));
 
         // Set up the default v2 upgrade input dispute game configs.
-        address initialChallengerForV2 = permissionedGameChallenger(disputeGameFactory);
-        address initialProposerForV2 = permissionedGameProposer(disputeGameFactory);
+        address initialChallengerForV2 = DisputeGames.permissionedGameChallenger(disputeGameFactory);
+        address initialProposerForV2 = DisputeGames.permissionedGameProposer(disputeGameFactory);
         v2UpgradeInput.systemConfig = systemConfig;
         v2UpgradeInput.disputeGameConfigs.push(
             IOPContractsManagerUtils.DisputeGameConfig({
@@ -306,8 +304,8 @@ contract OPContractsManagerV2_Upgrade_TestInit is OPContractsManagerV2_TestInit 
         internal
     {
         // Grab some values before we upgrade, to be checked later
-        address initialChallenger = permissionedGameChallenger(disputeGameFactory);
-        address initialProposer = permissionedGameProposer(disputeGameFactory);
+        address initialChallenger = DisputeGames.permissionedGameChallenger(disputeGameFactory);
+        address initialProposer = DisputeGames.permissionedGameProposer(disputeGameFactory);
 
         // Execute the SuperchainConfig upgrade.
         prankDelegateCall(superchainPAO);
@@ -418,16 +416,8 @@ contract OPContractsManagerV2_Upgrade_TestInit is OPContractsManagerV2_TestInit 
     ///         upgrades from this function once they've been executed on mainnet and the
     ///         simulation block has been bumped beyond the execution block.
     /// @param _delegateCaller The address of the delegate caller to use for the upgrade.
-    function runPastUpgrades(address _delegateCaller) internal view {
-        // Run past upgrades depending on network.
-        if (block.chainid == 1) {
-            // Mainnet
-            // This is empty because the block number in the justfile is after the most recent upgrade so there are no
-            // past upgrades to run.
-            _delegateCaller;
-        } else {
-            revert UnsupportedChainId();
-        }
+    function runPastUpgrades(address _delegateCaller) internal {
+        PastUpgrades.runPastUpgrades(_delegateCaller, v2UpgradeInput.systemConfig, superchainConfig, disputeGameFactory);
     }
 
     /// @notice Executes the current V2 upgrade and checks the results.
@@ -745,8 +735,8 @@ contract OPContractsManagerV2_Upgrade_Test is OPContractsManagerV2_Upgrade_TestI
         v2UpgradeInput.disputeGameConfigs[1].gameArgs = abi.encode(
             IOPContractsManagerUtils.PermissionedDisputeGameConfig({
                 absolutePrestate: newPrestate,
-                proposer: permissionedGameProposer(disputeGameFactory),
-                challenger: permissionedGameChallenger(disputeGameFactory)
+                proposer: DisputeGames.permissionedGameProposer(disputeGameFactory),
+                challenger: DisputeGames.permissionedGameChallenger(disputeGameFactory)
             })
         );
 
@@ -1027,8 +1017,8 @@ contract OPContractsManagerV2_Deploy_Test is OPContractsManagerV2_TestInit {
         });
 
         // Set up dispute game configs using the same pattern as upgrade tests.
-        address initialChallenger = permissionedGameChallenger(disputeGameFactory);
-        address initialProposer = permissionedGameProposer(disputeGameFactory);
+        address initialChallenger = DisputeGames.permissionedGameChallenger(disputeGameFactory);
+        address initialProposer = DisputeGames.permissionedGameProposer(disputeGameFactory);
         deployConfig.disputeGameConfigs.push(
             IOPContractsManagerUtils.DisputeGameConfig({
                 enabled: true,
@@ -1184,8 +1174,8 @@ contract OPContractsManagerV2_Migrate_Test is OPContractsManagerV2_TestInit {
         returns (IOPContractsManagerV2.ChainContracts memory cts_)
     {
         // Set up dispute game configs first since they're needed for the struct literal.
-        address initialChallenger = permissionedGameChallenger(disputeGameFactory);
-        address initialProposer = permissionedGameProposer(disputeGameFactory);
+        address initialChallenger = DisputeGames.permissionedGameChallenger(disputeGameFactory);
+        address initialProposer = DisputeGames.permissionedGameProposer(disputeGameFactory);
         IOPContractsManagerUtils.DisputeGameConfig[] memory dgConfigs =
             new IOPContractsManagerUtils.DisputeGameConfig[](3);
         dgConfigs[0] = IOPContractsManagerUtils.DisputeGameConfig({
