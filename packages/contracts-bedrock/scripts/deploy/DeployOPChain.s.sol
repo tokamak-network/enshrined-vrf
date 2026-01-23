@@ -223,9 +223,13 @@ contract DeployOPChain is Script {
     /// @return output_ The output parameters.
     function _fromOPCMV2OutputToOutput(IOPContractsManagerV2.ChainContracts memory _chainContracts)
         internal
-        pure
+        view
         returns (Output memory output_)
     {
+        // PERMISSIONED_CANNON must be enabled.
+        address permissionedDgImpl =
+            address(_chainContracts.disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON));
+
         output_ = Output({
             opChainProxyAdmin: _chainContracts.proxyAdmin,
             addressManager: _chainContracts.addressManager,
@@ -238,10 +242,11 @@ contract DeployOPChain is Script {
             ethLockboxProxy: _chainContracts.ethLockbox,
             disputeGameFactoryProxy: _chainContracts.disputeGameFactory,
             anchorStateRegistryProxy: _chainContracts.anchorStateRegistry,
+            // Explicitly set to address(0) maintaining consistency with OPCM v1 behavior.
             faultDisputeGame: IFaultDisputeGame(address(0)),
-            permissionedDisputeGame: IPermissionedDisputeGame(address(0)),
+            permissionedDisputeGame: IPermissionedDisputeGame(permissionedDgImpl),
             delayedWETHPermissionedGameProxy: _chainContracts.delayedWETH,
-            delayedWETHPermissionlessGameProxy: IDelayedWETH(payable(address(0)))
+            delayedWETHPermissionlessGameProxy: IDelayedWETH(payable(_chainContracts.delayedWETH))
         });
     }
 
