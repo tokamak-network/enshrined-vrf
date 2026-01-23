@@ -39,6 +39,9 @@
 # Alloy OP Hardforks
 /alloy-op-hardforks         @ethereum-optimism/kona-reviewers
 
+# Alloy
+/alloy-op-evm           @ethereum-optimism/kona-reviewers
+
 # Ops
 /.cursor/rules/solidity-styles.mdc @ethereum-optimism/contract-reviewers
 
