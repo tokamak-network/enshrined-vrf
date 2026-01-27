@@ -33,6 +33,9 @@
 # Kona
 /kona                  @ethereum-optimism/kona-reviewers
 
+# op-reth
+/op-reth                  @ethereum-optimism/kona-reviewers
+
 # op-alloy
 /op-alloy                  @ethereum-optimism/kona-reviewers
 
