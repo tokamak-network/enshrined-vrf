@@ -68,6 +68,9 @@ parameters:
   alloy_op_evm_dispatch:
     type: boolean
     default: false
+  op_reth_dispatch:
+    type: boolean
+    default: false
   github-event-type:
     type: string
     default: "__not_set__"
@@ -141,6 +144,10 @@ workflows:
             alloy-op-evm/.* alloy_op_evm_dispatch true .circleci/continue/alloy-op-evm.yml
             alloy-op-evm/.* default_docker_image << pipeline.parameters.default_docker_image >> .circleci/continue/alloy-op-evm.yml
             alloy-op-evm/.* base_image << pipeline.parameters.base_image >> .circleci/continue/alloy-op-evm.yml
+            op-reth/.* op_reth_dispatch true .circleci/continue/op-reth.yml
+            op-reth/.* default_docker_image << pipeline.parameters.default_docker_image >> .circleci/continue/op-reth.yml
+            op-reth/.* base_image << pipeline.parameters.base_image >> .circleci/continue/op-reth.yml
+            op-reth/.* go-cache-version << pipeline.parameters.go-cache-version >> .circleci/continue/op-reth.yml
 
   setup-tag:
     when:
