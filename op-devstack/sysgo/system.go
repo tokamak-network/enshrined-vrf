@@ -219,6 +219,60 @@ func DefaultSupernodeTwoL2System(dest *DefaultTwoL2SystemIDs) stack.Option[*Orch
 	return opt
 }
 
+// DefaultSupernodeInteropTwoL2System runs two L2 chains with a shared supernode that has
+// interop verification enabled. Use delaySeconds=0 for interop at genesis, or a positive value
+// to test the transition from normal safety to interop-verified safety.
+func DefaultSupernodeInteropTwoL2System(dest *DefaultTwoL2SystemIDs, delaySeconds uint64) stack.Option[*Orchestrator] {
+	ids := NewDefaultTwoL2SystemIDs(DefaultL1ID, DefaultL2AID, DefaultL2BID)
+	opt := stack.Combine[*Orchestrator]()
+	opt.Add(stack.BeforeDeploy(func(o *Orchestrator) {
+		if delaySeconds == 0 {
+			o.P().Logger().Info("Setting up (supernode with interop)")
+		} else {
+			o.P().Logger().Info("Setting up (supernode with delayed interop)", "delay_seconds", delaySeconds)
+		}
+	}))
+
+	opt.Add(WithMnemonicKeys(devkeys.TestMnemonic))
+
+	opt.Add(WithDeployer(),
+		WithDeployerOptions(
+			WithLocalContractSources(),
+			WithCommons(ids.L1.ChainID()),
+			WithPrefundedL2(ids.L1.ChainID(), ids.L2A.ChainID()),
+			WithPrefundedL2(ids.L1.ChainID(), ids.L2B.ChainID()),
+			WithInteropAtGenesis(), // Enable interop contracts
+		),
+	)
+
+	opt.Add(WithL1Nodes(ids.L1EL, ids.L1CL))
+
+	opt.Add(WithL2ELNode(ids.L2AEL))
+	opt.Add(WithL2ELNode(ids.L2BEL))
+
+	// Shared supernode for both L2 chains with interop enabled
+	cls := []L2CLs{{CLID: ids.L2ACL, ELID: ids.L2AEL}, {CLID: ids.L2BCL, ELID: ids.L2BEL}}
+	if delaySeconds == 0 {
+		opt.Add(WithSharedSupernodeCLsInterop(ids.Supernode, cls, ids.L1CL, ids.L1EL))
+	} else {
+		opt.Add(WithSharedSupernodeCLsInteropDelayed(ids.Supernode, cls, ids.L1CL, ids.L1EL, delaySeconds))
+	}
+
+	opt.Add(WithBatcher(ids.L2ABatcher, ids.L1EL, ids.L2ACL, ids.L2AEL))
+	opt.Add(WithProposer(ids.L2AProposer, ids.L1EL, &ids.L2ACL, nil))
+
+	opt.Add(WithBatcher(ids.L2BBatcher, ids.L1EL, ids.L2BCL, ids.L2BEL))
+	opt.Add(WithProposer(ids.L2BProposer, ids.L1EL, &ids.L2BCL, nil))
+
+	opt.Add(WithFaucets([]stack.L1ELNodeID{ids.L1EL}, []stack.L2ELNodeID{ids.L2AEL, ids.L2BEL}))
+
+	opt.Add(stack.Finally(func(orch *Orchestrator) {
+		*dest = ids
+	}))
+
+	return opt
+}
+
 type DefaultMinimalSystemWithSyncTesterIDs struct {
 	DefaultMinimalSystemIDs
 
