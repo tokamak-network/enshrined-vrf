@@ -43,6 +43,7 @@ func WithDepset(ds *depset.StaticConfigDependencySet) Option {
 			return fmt.Errorf("failed to write dependency set config: %w", err)
 		}
 		c.Cannon.DepsetConfigPath = path
+		c.CannonKona.DepsetConfigPath = path
 		return nil
 	}
 }
@@ -177,6 +178,13 @@ func WithPermissionedGameType() Option {
 func WithSuperCannonGameType() Option {
 	return func(c *config.Config) error {
 		c.GameTypes = append(c.GameTypes, gameTypes.SuperCannonGameType)
+		return nil
+	}
+}
+
+func WithSuperCannonKonaGameType() Option {
+	return func(c *config.Config) error {
+		c.GameTypes = append(c.GameTypes, gameTypes.SuperCannonKonaGameType)
 		return nil
 	}
 }
