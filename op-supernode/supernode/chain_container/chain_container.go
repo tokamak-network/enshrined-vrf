@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-supernode/supernode/chain_container/engine_controller"
 	"github.com/ethereum-optimism/optimism/op-supernode/supernode/chain_container/virtual_node"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/core/types"
 	gethlog "github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -43,6 +44,11 @@ type ChainContainer interface {
 	// RewindEngine rewinds the engine to the highest block with timestamp less than or equal to the given timestamp.
 	RewindEngine(ctx context.Context, timestamp uint64) error
 	RegisterVerifier(v activity.VerificationActivity)
+	// FetchReceipts fetches the receipts for a given block by hash.
+	// Returns block info and receipts, or an error if the block or receipts cannot be fetched.
+	FetchReceipts(ctx context.Context, blockHash eth.BlockID) (eth.BlockInfo, types.Receipts, error)
+	// BlockTime returns the block time in seconds for this chain.
+	BlockTime() uint64
 }
 
 type virtualNodeFactory func(cfg *opnodecfg.Config, log gethlog.Logger, initOverrides *rollupNode.InitializationOverrides, appVersion string) virtual_node.VirtualNode
@@ -371,6 +377,22 @@ func (c *simpleChainContainer) OptimisticOutputAtTimestamp(ctx context.Context, 
 		return nil, fmt.Errorf("failed to get output at block %d: %w", l2Block.Number, err)
 	}
 	return out, nil
+}
+
+// FetchReceipts fetches the receipts for a given block by hash.
+func (c *simpleChainContainer) FetchReceipts(ctx context.Context, blockID eth.BlockID) (eth.BlockInfo, types.Receipts, error) {
+	if c.engine == nil {
+		return nil, nil, engine_controller.ErrNoEngineClient
+	}
+	return c.engine.FetchReceipts(ctx, blockID.Hash)
+}
+
+// BlockTime returns the block time in seconds for this chain from the rollup config.
+func (c *simpleChainContainer) BlockTime() uint64 {
+	if c.vncfg == nil {
+		return 0
+	}
+	return c.vncfg.Rollup.BlockTime
 }
 
 // attachInProcRollupClient creates a new in-proc rollup RPC client bound to the current rpcHandler.

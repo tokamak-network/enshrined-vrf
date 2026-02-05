@@ -39,8 +39,10 @@ type Interop struct {
 	log                 log.Logger
 	chains              map[eth.ChainID]cc.ChainContainer
 	activationTimestamp uint64
+	dataDir             string
 
 	verifiedDB *VerifiedDB
+	logsDBs    map[eth.ChainID]LogsDB
 
 	mu      sync.RWMutex
 	ctx     context.Context
@@ -68,10 +70,29 @@ func New(
 		log.Error("failed to open verified DB", "err", err)
 		return nil
 	}
+
+	// Initialize logsDBs for each chain
+	logsDBs := make(map[eth.ChainID]LogsDB)
+	for chainID := range chains {
+		logsDB, err := openLogsDB(log, chainID, dataDir)
+		if err != nil {
+			log.Error("failed to open logs DB for chain", "chainID", chainID, "err", err)
+			// Clean up already created logsDBs
+			for _, db := range logsDBs {
+				_ = db.Close()
+			}
+			_ = verifiedDB.Close()
+			return nil
+		}
+		logsDBs[chainID] = logsDB
+	}
+
 	i := &Interop{
 		log:                 log,
 		chains:              chains,
 		verifiedDB:          verifiedDB,
+		logsDBs:             logsDBs,
+		dataDir:             dataDir,
 		currentL1:           eth.BlockID{},
 		activationTimestamp: activationTimestamp,
 	}
@@ -118,6 +139,12 @@ func (i *Interop) Stop(ctx context.Context) error {
 	defer i.mu.Unlock()
 	if i.cancel != nil {
 		i.cancel()
+	}
+	// Close all logsDBs
+	for chainID, db := range i.logsDBs {
+		if err := db.Close(); err != nil {
+			i.log.Error("failed to close logs DB", "chainID", chainID, "err", err)
+		}
 	}
 	if i.verifiedDB != nil {
 		return i.verifiedDB.Close()
@@ -261,6 +288,14 @@ func (i *Interop) handleResult(result Result) error {
 	return nil
 }
 
+// invalidateBlock handles an invalid block by notifying the chain to reorg.
+func (i *Interop) invalidateBlock(chainID eth.ChainID, blockID eth.BlockID) error {
+	// TODO(#18944): Implement block invalidation
+	// This should trigger the chain container to reorg away from the invalid block
+	i.log.Warn("invalidateBlock called but not implemented", "chainID", chainID, "blockID", blockID)
+	return nil
+}
+
 // checkChainsReady checks if all chains are ready to process the next timestamp.
 // Queries all chains in parallel for better performance.
 func (i *Interop) checkChainsReady(ts uint64) (map[eth.ChainID]eth.BlockID, error) {
@@ -295,26 +330,6 @@ func (i *Interop) checkChainsReady(ts uint64) (map[eth.ChainID]eth.BlockID, erro
 	}
 
 	return blocksAtTimestamp, nil
-}
-
-// TODO(#18743): Interop Algorithm
-func (i *Interop) loadLogs(ts uint64) error {
-	return nil
-}
-
-// TODO(#18743): Interop Algorithm
-func (i *Interop) verifyInteropMessages(ts uint64, blocksAtTimestamp map[eth.ChainID]eth.BlockID) (Result, error) {
-	result := Result{Timestamp: ts, L2Heads: make(map[eth.ChainID]eth.BlockID)}
-	for _, chain := range i.chains {
-		blockID := blocksAtTimestamp[chain.ID()]
-		result.L2Heads[chain.ID()] = blockID
-	}
-	return result, nil
-}
-
-// TODO(#18944): Invalidate Block
-func (i *Interop) invalidateBlock(chainID eth.ChainID, blockID eth.BlockID) error {
-	return nil
 }
 
 func (i *Interop) commitVerifiedResult(timestamp uint64, verifiedResult VerifiedResult) error {
