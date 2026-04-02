@@ -516,7 +516,8 @@ type ChainConfig struct {
 	HoloceneTime *uint64 `json:"holoceneTime,omitempty"` // Holocene switch time (nil = no fork, 0 = already on Optimism Holocene)
 	IsthmusTime  *uint64 `json:"isthmusTime,omitempty"`  // Isthmus switch time (nil = no fork, 0 = already on Optimism Isthmus)
 	JovianTime   *uint64 `json:"jovianTime,omitempty"`   // Jovian switch time (nil = no fork, 0 = already on Optimism Jovian)
-	KarstTime    *uint64 `json:"karstTime,omitempty"`    // Karst switch time (nil = no fork, 0 = already on Optimism Karst)
+	KarstTime          *uint64 `json:"karstTime,omitempty"`          // Karst switch time (nil = no fork, 0 = already on Optimism Karst)
+	EnshrainedVRFTime  *uint64 `json:"enshrainedVRFTime,omitempty"`  // EnshrainedVRF switch time (nil = no fork, 0 = already on Optimism EnshrainedVRF)
 
 	InteropTime *uint64 `json:"interopTime,omitempty"` // Interop switch time (nil = no fork, 0 = already on optimism interop)
 
@@ -1023,6 +1024,10 @@ func (c *ChainConfig) IsJovian(time uint64) bool {
 
 func (c *ChainConfig) IsKarst(time uint64) bool {
 	return isTimestampForked(c.KarstTime, time)
+}
+
+func (c *ChainConfig) IsEnshrainedVRF(time uint64) bool {
+	return isTimestampForked(c.EnshrainedVRFTime, time)
 }
 
 func (c *ChainConfig) IsInterop(time uint64) bool {
@@ -1623,6 +1628,7 @@ type Rules struct {
 	IsOptimismCanyon, IsOptimismFjord                       bool
 	IsOptimismGranite, IsOptimismHolocene                   bool
 	IsOptimismIsthmus, IsOptimismJovian                     bool
+	IsOptimismEnshrainedVRF                                 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -1657,8 +1663,9 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool, timestamp uint64) Rules 
 		IsOptimismFjord:    isMerge && c.IsOptimismFjord(timestamp),
 		IsOptimismGranite:  isMerge && c.IsOptimismGranite(timestamp),
 		IsOptimismHolocene: isMerge && c.IsOptimismHolocene(timestamp),
-		IsOptimismIsthmus:  isMerge && c.IsOptimismIsthmus(timestamp),
-		IsOptimismJovian:   isMerge && c.IsOptimismJovian(timestamp),
+		IsOptimismIsthmus:      isMerge && c.IsOptimismIsthmus(timestamp),
+		IsOptimismJovian:       isMerge && c.IsOptimismJovian(timestamp),
+		IsOptimismEnshrainedVRF: isMerge && c.IsEnshrainedVRF(timestamp),
 	}
 }
 

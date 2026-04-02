@@ -85,6 +85,9 @@ type PayloadAttributes struct {
 	// MinBaseFee is a field for rollups implementing the minimum base fee feature.
 	// See https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/jovian/exec-engine.md#minimum-base-fee-in-payloadattributesv3
 	MinBaseFee *uint64 `json:"minBaseFee,omitempty" gencodec:"optional"`
+	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1).
+	// Set post-EnshrainedVRF fork activation.
+	VRFPublicKey []byte `json:"vrfPublicKey,omitempty" gencodec:"optional"`
 }
 
 // JSON type overrides for PayloadAttributes.

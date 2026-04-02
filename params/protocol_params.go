@@ -181,6 +181,8 @@ const (
 	P256VerifyGasFjord uint64 = 3450 // secp256r1 elliptic curve signature verifier gas price (RIP-7212 value)
 	P256VerifyGas      uint64 = 6900 // secp256r1 elliptic curve signature verifier gas price
 
+	EcvrfVerifyGas uint64 = 3000 // ECVRF-SECP256K1-SHA256-TAI verify gas price (EnshrainedVRF)
+
 	Bls12381G1MulMaxInputSizeIsthmus   uint64 = 513760 // Maximum input size for BLS12-381 G1 multiple-scalar-multiply operation
 	Bls12381G2MulMaxInputSizeIsthmus   uint64 = 488448 // Maximum input size for BLS12-381 G2 multiple-scalar-multiply operation
 	Bls12381PairingMaxInputSizeIsthmus uint64 = 235008 // Maximum input size for BLS12-381 pairing check
