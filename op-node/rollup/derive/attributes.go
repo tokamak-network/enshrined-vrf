@@ -226,5 +226,8 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	if ba.rollupCfg.IsJovian(nextL2Time) {
 		r.MinBaseFee = &sysConfig.MinBaseFee
 	}
+	if ba.rollupCfg.IsEnshrainedVRF(nextL2Time) {
+		r.VRFPublicKey = sysConfig.VRFPublicKey
+	}
 	return r, nil
 }

@@ -105,4 +105,6 @@ func applyHardforks(cfg *Config, hardforks superchain.HardforkConfig) {
 	cfg.InteropTime = hardforks.InteropTime
 	cfg.JovianTime = hardforks.JovianTime
 	cfg.KarstTime = hardforks.KarstTime
+	// EnshrainedVRF is not yet in superchain-registry, set via rollup config directly.
+	// cfg.EnshrainedVRFTime = hardforks.EnshrainedVRFTime
 }

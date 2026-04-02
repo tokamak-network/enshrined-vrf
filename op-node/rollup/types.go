@@ -137,6 +137,10 @@ type Config struct {
 	// Active if InteropTime != nil && L2 block timestamp >= *InteropTime, inactive otherwise.
 	InteropTime *uint64 `json:"interop_time,omitempty"`
 
+	// EnshrainedVRFTime sets the activation time of the EnshrainedVRF network upgrade.
+	// Active if EnshrainedVRFTime != nil && L2 block timestamp >= *EnshrainedVRFTime, inactive otherwise.
+	EnshrainedVRFTime *uint64 `json:"enshrined_vrf_time,omitempty"`
+
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
 
@@ -496,6 +500,11 @@ func (c *Config) IsInterop(timestamp uint64) bool {
 	return c.IsForkActive(forks.Interop, timestamp)
 }
 
+// IsEnshrainedVRF returns true if the EnshrainedVRF hardfork is active at or past the given timestamp.
+func (c *Config) IsEnshrainedVRF(timestamp uint64) bool {
+	return c.IsForkActive(forks.EnshrainedVRF, timestamp)
+}
+
 func (c *Config) IsRegolithActivationBlock(l2BlockTime uint64) bool {
 	return c.IsRegolith(l2BlockTime) &&
 		l2BlockTime >= c.BlockTime &&
@@ -579,6 +588,8 @@ func (c *Config) IsInteropActivationBlock(l2BlockTime uint64) bool {
 func (c *Config) ActivationTime(fork ForkName) *uint64 {
 	// NEW FORKS MUST BE ADDED HERE
 	switch fork {
+	case forks.EnshrainedVRF:
+		return c.EnshrainedVRFTime
 	case forks.Interop:
 		return c.InteropTime
 	case forks.Karst:
@@ -614,6 +625,8 @@ func (c *Config) ActivationTime(fork ForkName) *uint64 {
 func (c *Config) SetActivationTime(fork ForkName, timestamp *uint64) {
 	// NEW FORKS MUST BE ADDED HERE
 	switch fork {
+	case forks.EnshrainedVRF:
+		c.EnshrainedVRFTime = timestamp
 	case forks.Interop:
 		c.InteropTime = timestamp
 	case forks.Karst:

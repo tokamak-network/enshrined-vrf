@@ -521,6 +521,9 @@ type PayloadAttributes struct {
 	EIP1559Params *Bytes8 `json:"eip1559Params,omitempty"`
 	// MinBaseFee is the minimum base fee, to be specified only post-Jovian
 	MinBaseFee *uint64 `json:"minBaseFee,omitempty"`
+	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1),
+	// to be specified only post-EnshrainedVRF
+	VRFPublicKey []byte `json:"vrfPublicKey,omitempty"`
 }
 
 // IsDepositsOnly returns whether all transactions of the PayloadAttributes are of Deposit
@@ -617,6 +620,9 @@ type SystemConfig struct {
 	MinBaseFee uint64 `json:"minBaseFee"`
 	// DAFootprintGasScalar identifies the DA footprint gas scalar.
 	DAFootprintGasScalar uint16 `json:"daFootprintGasScalar"`
+	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1).
+	// Set via SystemConfig.setVRFPublicKey() on L1.
+	VRFPublicKey []byte `json:"vrfPublicKey,omitempty"`
 	// More fields can be added for future SystemConfig versions.
 
 	// MarshalPreHolocene indicates whether or not this struct should be
