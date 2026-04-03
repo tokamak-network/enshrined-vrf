@@ -130,6 +130,9 @@ library Predeploys {
     /// @notice Address of the L2DevFeatureFlags predeploy.
     address internal constant L2_DEV_FEATURE_FLAGS = 0x420000000000000000000000000000000000002d;
 
+    /// @notice Address of the EnshrainedVRF predeploy.
+    address internal constant ENSHRINED_VRF = 0x42000000000000000000000000000000000000f0;
+
     /// @notice Returns the name of the predeploy at the given address.
     function getName(address _addr) internal pure returns (string memory out_) {
         require(isPredeployNamespace(_addr), "Predeploys: address must be a predeploy");
@@ -167,6 +170,7 @@ library Predeploys {
         if (_addr == FEE_SPLITTER) return "FeeSplitter";
         if (_addr == CONDITIONAL_DEPLOYER) return "ConditionalDeployer";
         if (_addr == L2_DEV_FEATURE_FLAGS) return "L2DevFeatureFlags";
+        if (_addr == ENSHRINED_VRF) return "EnshrainedVRF";
         revert("Predeploys: unnamed predeploy");
     }
 

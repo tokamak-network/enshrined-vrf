@@ -25,6 +25,7 @@ var (
 	SystemConfigUpdateOperatorFeeParams    = common.Hash{31: 5}
 	SystemConfigUpdateMinBaseFee           = common.Hash{31: 6}
 	SystemConfigUpdateDAFootprintGasScalar = common.Hash{31: 7}
+	SystemConfigUpdateVRFPublicKey         = common.Hash{31: 8}
 )
 
 var (
@@ -155,6 +156,13 @@ func ProcessSystemConfigUpdateLogEvent(destSysCfg *eth.SystemConfig, ev *types.L
 			return err
 		}
 		destSysCfg.DAFootprintGasScalar = daFootprintGasScalar
+		return nil
+	case SystemConfigUpdateVRFPublicKey:
+		vrfPK, err := parseSystemConfigUpdateVRFPublicKey(ev.Data)
+		if err != nil {
+			return err
+		}
+		destSysCfg.VRFPublicKey = vrfPK
 		return nil
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownEventType, updateType)
@@ -295,4 +303,27 @@ func parseSystemConfigUpdateDAFootprintGasScalar(data []byte) (uint16, error) {
 		return 0, fmt.Errorf("%w: too many bytes", ErrParsingSystemConfig)
 	}
 	return daFootprintGasScalar, nil
+}
+
+func parseSystemConfigUpdateVRFPublicKey(data []byte) ([]byte, error) {
+	reader := bytes.NewReader(data)
+	// ABI encoding: pointer (32) + length (32) + data (padded)
+	if pointer, err := solabi.ReadUint64(reader); err != nil || pointer != 32 {
+		return nil, fmt.Errorf("%w: invalid pointer field", ErrParsingSystemConfig)
+	}
+	// The inner bytes: offset (32) + length (32) + data (padded to 64 for 33 bytes)
+	if innerPointer, err := solabi.ReadUint64(reader); err != nil || innerPointer != 32 {
+		return nil, fmt.Errorf("%w: invalid inner pointer field", ErrParsingSystemConfig)
+	}
+	length, err := solabi.ReadUint64(reader)
+	if err != nil || length != 33 {
+		return nil, fmt.Errorf("%w: invalid VRF public key length: %d", ErrParsingSystemConfig, length)
+	}
+	// Read 33 bytes of public key data (padded to 64 bytes in ABI encoding)
+	pk := make([]byte, 33)
+	n, err := reader.Read(pk)
+	if err != nil || n != 33 {
+		return nil, fmt.Errorf("%w: could not read VRF public key", ErrParsingSystemConfig)
+	}
+	return pk, nil
 }
