@@ -48,33 +48,27 @@ op-node ──── derives prevrandao ────▶ op-geth (sequencer)
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                        op-geth                                │
-│                                                              │
-│  ┌─────────────────┐   ┌──────────────┐   ┌──────────────┐  │
-│  │  crypto/ecvrf    │   │ PredeployedVRF│   │ ECVRF Verify │  │
-│  │  (Go library)   │   │ (0x42...f0)  │   │ Precompile   │  │
-│  │                 │   │              │   │ (0x0101)     │  │
-│  │  Prove()        │──▶│ commit()     │   │              │  │
-│  │  Verify()       │   │ getRandomness│◀──│ Verify()     │  │
-│  └─────────────────┘   └──────────────┘   └──────────────┘  │
-│                                                              │
-├──────────────────────────────────────────────────────────────┤
-│                        op-node                                │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │  Derivation Pipeline                                     │ │
-│  │  - EnshrainedVRFTime fork activation                    │ │
-│  │  - VRF public key from L1 SystemConfig                  │ │
-│  │  - VRF deposit tx creation                              │ │
-│  └─────────────────────────────────────────────────────────┘ │
-│                                                              │
-├──────────────────────────────────────────────────────────────┤
-│                     L1 Contracts                              │
-│                                                              │
-│  SystemConfig.setVRFPublicKey()    VRFVerifier (disputes)    │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph op-geth["op-geth (Execution Layer)"]
+        ecvrf["crypto/ecvrf<br/><i>Go library</i><br/>Prove() / Verify()"]
+        predeploy["PredeployedVRF<br/><i>0x42...f0</i><br/>commit() / getRandomness()"]
+        precompile["ECVRF Verify<br/><i>Precompile 0x0101</i><br/>Verify()"]
+        ecvrf -->|"deposit tx"| predeploy
+        precompile -.->|"on-chain verify"| predeploy
+    end
+
+    subgraph op-node["op-node (Consensus Layer)"]
+        derivation["Derivation Pipeline<br/>EnshrainedVRFTime fork activation<br/>VRF public key from L1 SystemConfig<br/>VRF deposit tx creation"]
+    end
+
+    subgraph l1["L1 Contracts (Ethereum)"]
+        sysconfig["SystemConfig<br/>setVRFPublicKey()"]
+        verifier["VRFVerifier<br/>dispute resolution"]
+    end
+
+    l1 -->|"prevrandao + VRF key"| op-node
+    op-node -->|"PayloadAttributes"| op-geth
 ```
 
 ## Components
