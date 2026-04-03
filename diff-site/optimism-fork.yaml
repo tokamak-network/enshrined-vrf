@@ -1,0 +1,60 @@
+title: "Enshrined VRF — optimism monorepo fork diff"
+footer: |
+  [Enshrined VRF](https://github.com/tokamak-network/enshrined-vrf) optimism fork diff,
+  based on [ethereum-optimism/optimism](https://github.com/ethereum-optimism/optimism).
+  Created with [forkdiff](https://github.com/protolambda/forkdiff).
+base:
+  name: ethereum-optimism/optimism
+  url: https://github.com/ethereum-optimism/optimism
+  ref: refs/heads/develop
+fork:
+  name: tokamak-network/enshrined-vrf (optimism)
+  url: https://github.com/tokamak-network/enshrined-vrf
+  ref: refs/heads/enshrined-vrf
+def:
+  title: "optimism Enshrined VRF changes"
+  description: |
+    Changes to the [optimism monorepo](https://github.com/ethereum-optimism/optimism) for
+    **Enshrined VRF**. Extends the derivation pipeline, fork configuration, and L1 contracts
+    to support VRF public key management and deposit transaction creation.
+  sub:
+    - title: "Fork Registration"
+      description: |
+        `EnshrainedVRF` fork name added to `forks.All` ordering (after Interop).
+        `EnshrainedVRFTime *uint64` in rollup config with `ActivationTime`/`SetActivationTime`.
+      globs:
+        - "op-core/forks/forks.go"
+        - "op-node/rollup/types.go"
+        - "op-node/rollup/superchain.go"
+    - title: "Derivation Pipeline"
+      description: |
+        `VRFPublicKey` added to `PayloadAttributes` (fork-gated by `IsEnshrainedVRF`).
+        VRF deposit tx creation functions for `setSequencerPublicKey` and `commitRandomness`.
+        SystemConfig event parser for `VRF_PUBLIC_KEY` update type (position 8).
+      globs:
+        - "op-node/rollup/derive/attributes.go"
+        - "op-node/rollup/derive/vrf_deposit.go"
+        - "op-node/rollup/derive/system_config.go"
+    - title: "Service Types"
+      description: |
+        `VRFPublicKey []byte` added to both `PayloadAttributes` and `SystemConfig` structs
+        in `op-service/eth/types.go`.
+      globs:
+        - "op-service/eth/types.go"
+    - title: "Predeploy Registration"
+      description: |
+        `EnshrainedVRF` predeploy registered at `0x42000000000000000000000000000000000000f0`
+        in both Go (`op-core/predeploys/addresses.go`) and Solidity (`Predeploys.sol`).
+      globs:
+        - "op-core/predeploys/addresses.go"
+        - "packages/contracts-bedrock/src/libraries/Predeploys.sol"
+    - title: "L1 SystemConfig Extension"
+      description: |
+        `UpdateType.VRF_PUBLIC_KEY` (position 8) added to the enum.
+        `VRF_PUBLIC_KEY_SLOT` named storage slot with `setVRFPublicKey()` owner-only setter
+        and `vrfPublicKey()` getter. 33-byte compressed SEC1 key stored across 2 slots.
+      globs:
+        - "packages/contracts-bedrock/src/L1/SystemConfig.sol"
+ignore:
+  - "*.sum"
+  - "go.mod"

@@ -1,0 +1,90 @@
+title: "Enshrined VRF — op-geth fork diff"
+footer: |
+  [Enshrined VRF](https://github.com/tokamak-network/enshrined-vrf) op-geth fork diff,
+  based on [ethereum-optimism/op-geth](https://github.com/ethereum-optimism/op-geth).
+  Created with [forkdiff](https://github.com/protolambda/forkdiff).
+base:
+  name: ethereum-optimism/op-geth
+  url: https://github.com/ethereum-optimism/op-geth
+  ref: refs/heads/optimism
+fork:
+  name: tokamak-network/enshrined-vrf (op-geth)
+  url: https://github.com/tokamak-network/enshrined-vrf
+  ref: refs/heads/enshrined-vrf
+def:
+  title: "op-geth Enshrined VRF changes"
+  description: |
+    Changes to [op-geth](https://github.com/ethereum-optimism/op-geth) for the
+    **Enshrined VRF** feature. Embeds ECVRF-SECP256K1-SHA256-TAI as a precompile and
+    integrates VRF proof generation into the sequencer block building pipeline.
+
+    **Design**: `Prove` runs as a Go library (not EVM precompile) to prevent secret key exposure.
+    Only the `Verify` precompile is registered in the EVM at `0x0101`.
+  sub:
+    - title: "ECVRF Cryptographic Library"
+      description: |
+        Pure Go implementation of ECVRF-SECP256K1-SHA256-TAI (RFC 9381, custom suite `0xFE`).
+        Uses `dcrd/dcrec/secp256k1/v4` for constant-time elliptic curve operations.
+
+        - `Prove(sk, alpha)` → `(beta [32]byte, pi [81]byte)`
+        - `Verify(pk, alpha, pi)` → `(valid, beta)`
+        - `ProofToHash(pi)` → `beta`
+
+        All secret-key scalar arithmetic uses `ModNScalar` (constant-time). Secret key bytes zeroed after use.
+      globs:
+        - "crypto/ecvrf/params.go"
+        - "crypto/ecvrf/ecvrf.go"
+    - title: "ECVRF Tests & Benchmarks"
+      description: |
+        22 unit tests, 2 fuzz targets (164K+ iterations), 4 benchmarks.
+        Covers round-trip, determinism, 648/648 bit-flip rejection, known test vector, beta distribution.
+      globs:
+        - "crypto/ecvrf/ecvrf_test.go"
+    - title: "EVM Verify Precompile"
+      description: |
+        ECVRF verify precompile registered at `0x0101` (OP Stack extended range, after P256 at `0x0100`).
+
+        - **Input**: 178 bytes `[33 PK][32 alpha][32 beta][81 pi]`
+        - **Output**: 1 byte `0x01` (valid) or `0x00` (invalid)
+        - **Gas**: 3,000
+
+        Added to `PrecompiledContractsEnshrainedVRF` map, gated by `rules.IsOptimismEnshrainedVRF`.
+      globs:
+        - "core/vm/contracts_ecvrf.go"
+        - "core/vm/contracts.go"
+    - title: "Fork Activation"
+      description: |
+        `EnshrainedVRFTime *uint64` fork activation timestamp.
+
+        - `ChainConfig.IsEnshrainedVRF(time)` method
+        - `Rules.IsOptimismEnshrainedVRF` for precompile gating
+        - `EcvrfVerifyGas = 3000` gas constant
+      globs:
+        - "params/config.go"
+        - "params/protocol_params.go"
+    - title: "Sequencer VRF Block Building"
+      description: |
+        During block production, the sequencer:
+        1. Reads VRF nonce from `PredeployedVRF` storage
+        2. Computes `seed = sha256(prevrandao, blockNumber, nonce)`
+        3. Calls `ecvrf.Prove(sk, seed)` → `(beta, pi)`
+        4. Creates deposit tx: `PredeployedVRF.commitRandomness(nonce, beta, pi)`
+        5. Injects after forced deposits, before mempool txs
+
+        `VRFConfig` holds the sequencer's private key (never exposed to EVM).
+      globs:
+        - "miner/vrf_builder.go"
+        - "miner/vrf_config.go"
+        - "miner/worker.go"
+        - "miner/miner.go"
+        - "miner/payload_building.go"
+    - title: "Engine API Extension"
+      description: |
+        `VRFPublicKey []byte` field added to `PayloadAttributes` and passed through
+        `BuildPayloadArgs` → `generateParams` to the block builder.
+      globs:
+        - "beacon/engine/types.go"
+        - "eth/catalyst/api.go"
+ignore:
+  - "*.sum"
+  - "go.mod"
