@@ -1,0 +1,8 @@
+[submodule "op-geth"]
+	path = op-geth
+	url = https://github.com/ethereum-optimism/op-geth.git
+	branch = optimism
+[submodule "optimism"]
+	path = optimism
+	url = https://github.com/ethereum-optimism/optimism.git
+	branch = develop
