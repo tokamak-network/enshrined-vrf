@@ -1,18 +1,13 @@
 package ecvrf
 
 import (
-	"crypto/hmac"
 	"crypto/sha256"
 	"errors"
-	"math/big"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
 var (
-	// curve order as big.Int for modular arithmetic in nonce/challenge steps
-	curveN = secp256k1.S256().N
-
 	ErrInvalidProof = errors.New("ecvrf: invalid proof")
 	ErrProveFailure = errors.New("ecvrf: prove failure")
 )
@@ -37,30 +32,34 @@ func Prove(sk *secp256k1.PrivateKey, alpha []byte) (beta [32]byte, pi [81]byte, 
 
 	// Step 4: nonce k = ECVRF_nonce_generation_RFC6979(sk, H)
 	hBytes := H.SerializeCompressed()
-	k := nonceGenerationRFC6979(sk, hBytes)
+	hHash := sha256.Sum256(hBytes)
+	skBytes := sk.Key.Bytes()
+	k := secp256k1.NonceRFC6979(skBytes[:], hHash[:], nil, nil, 0)
+	zeroBytes32(&skBytes)
 
 	// Step 5: U = k * G
-	var kScalar secp256k1.ModNScalar
-	kScalar.SetByteSlice(i2osp(k, QLen))
 	var U secp256k1.JacobianPoint
-	secp256k1.ScalarBaseMultNonConst(&kScalar, &U)
+	secp256k1.ScalarBaseMultNonConst(k, &U)
 
 	// Step 6: V = k * H
 	var V secp256k1.JacobianPoint
-	secp256k1.ScalarMultNonConst(&kScalar, &HJac, &V)
+	secp256k1.ScalarMultNonConst(k, &HJac, &V)
 
 	// Step 7: c = ECVRF_challenge_generation(Y, H, Gamma, U, V)
 	c := challengeGeneration(pk, H, GammaAff, &U, &V)
 
 	// Step 8: s = (k - c * sk) mod q
-	skBytes := sk.Key.Bytes()
-	skInt := new(big.Int).SetBytes(skBytes[:])
-	s := new(big.Int).Mul(c, skInt)
-	s.Sub(k, s)
-	s.Mod(s, curveN)
+	// Using ModNScalar for constant-time arithmetic.
+	// ModNScalar has no Sub, so compute: s = k + (-(c * sk))
+	var csk secp256k1.ModNScalar
+	csk.Set(&c).Mul(&sk.Key)
+	csk.Negate()
+	var s secp256k1.ModNScalar
+	s.Add2(k, &csk)
+	k.Zero()
 
 	// Step 9: encode proof
-	pi = encodeProof(GammaAff, c, s)
+	pi = encodeProof(GammaAff, &c, &s)
 
 	// Step 10: beta = ECVRF_proof_to_hash(pi)
 	beta, err = ProofToHash(pi)
@@ -88,34 +87,29 @@ func Verify(pk *secp256k1.PublicKey, alpha []byte, pi [81]byte) (bool, [32]byte,
 		return false, beta, err
 	}
 
-	// Convert scalars to ModNScalar
-	var cScalar, sScalar secp256k1.ModNScalar
-	cScalar.SetByteSlice(i2osp(c, QLen))
-	sScalar.SetByteSlice(i2osp(s, QLen))
-
 	// Step 3: U = s*G + c*Y
 	var sG, cY, U secp256k1.JacobianPoint
-	secp256k1.ScalarBaseMultNonConst(&sScalar, &sG)
+	secp256k1.ScalarBaseMultNonConst(s, &sG)
 	var pkJac secp256k1.JacobianPoint
 	pk.AsJacobian(&pkJac)
-	secp256k1.ScalarMultNonConst(&cScalar, &pkJac, &cY)
+	secp256k1.ScalarMultNonConst(c, &pkJac, &cY)
 	secp256k1.AddNonConst(&sG, &cY, &U)
 
 	// Step 4: V = s*H + c*Gamma
 	var sH, cGamma, V secp256k1.JacobianPoint
 	var HJac secp256k1.JacobianPoint
 	H.AsJacobian(&HJac)
-	secp256k1.ScalarMultNonConst(&sScalar, &HJac, &sH)
+	secp256k1.ScalarMultNonConst(s, &HJac, &sH)
 	var GammaJac secp256k1.JacobianPoint
 	Gamma.AsJacobian(&GammaJac)
-	secp256k1.ScalarMultNonConst(&cScalar, &GammaJac, &cGamma)
+	secp256k1.ScalarMultNonConst(c, &GammaJac, &cGamma)
 	secp256k1.AddNonConst(&sH, &cGamma, &V)
 
 	// Step 5: c' = ECVRF_challenge_generation(Y, H, Gamma, U, V)
 	cPrime := challengeGeneration(pk, H, Gamma, &U, &V)
 
 	// Step 6: If c == c', output "VALID" and beta
-	if c.Cmp(cPrime) != 0 {
+	if !c.Equals(&cPrime) {
 		return false, beta, nil
 	}
 
@@ -166,11 +160,11 @@ func encodeToCurveTAI(pk *secp256k1.PublicKey, alpha []byte) (*secp256k1.PublicK
 		hash := h.Sum(nil)
 
 		// Try to interpret hash as x-coordinate with 0x02 prefix (even y)
-		candidate := make([]byte, PtLen)
+		var candidate [PtLen]byte
 		candidate[0] = 0x02
 		copy(candidate[1:], hash)
 
-		point, err := secp256k1.ParsePubKey(candidate)
+		point, err := secp256k1.ParsePubKey(candidate[:])
 		if err != nil {
 			continue
 		}
@@ -182,7 +176,8 @@ func encodeToCurveTAI(pk *secp256k1.PublicKey, alpha []byte) (*secp256k1.PublicK
 }
 
 // challengeGeneration implements ECVRF_challenge_generation per RFC 9381 Section 5.4.3.
-func challengeGeneration(Y, H, Gamma *secp256k1.PublicKey, U, V *secp256k1.JacobianPoint) *big.Int {
+// Returns the truncated challenge as a ModNScalar (the value fits in CLen=16 bytes).
+func challengeGeneration(Y, H, Gamma *secp256k1.PublicKey, U, V *secp256k1.JacobianPoint) secp256k1.ModNScalar {
 	UAff := jacobianToPublicKey(U)
 	VAff := jacobianToPublicKey(V)
 
@@ -197,106 +192,63 @@ func challengeGeneration(Y, H, Gamma *secp256k1.PublicKey, U, V *secp256k1.Jacob
 	h.Write([]byte{0x00})
 	hash := h.Sum(nil)
 
-	// Truncate to CLen bytes
-	return new(big.Int).SetBytes(hash[:CLen])
-}
-
-// nonceGenerationRFC6979 generates a deterministic nonce k per RFC 6979.
-func nonceGenerationRFC6979(sk *secp256k1.PrivateKey, hBytes []byte) *big.Int {
-	// x = secret key as bytes
-	skBytes := sk.Key.Bytes()
-	x := skBytes[:]
-
-	// h1 = SHA256(hBytes)
-	h1Hash := sha256.Sum256(hBytes)
-	h1 := h1Hash[:]
-
-	// Step (b): V = 0x01 repeated
-	v := make([]byte, 32)
-	for i := range v {
-		v[i] = 0x01
-	}
-
-	// Step (c): K = 0x00 repeated
-	kk := make([]byte, 32)
-
-	// Step (d): K = HMAC_K(V || 0x00 || int2octets(x) || bits2octets(h1))
-	kk = hmacSHA256(kk, v, []byte{0x00}, x, h1)
-
-	// Step (e): V = HMAC_K(V)
-	v = hmacSHA256(kk, v)
-
-	// Step (f): K = HMAC_K(V || 0x01 || int2octets(x) || bits2octets(h1))
-	kk = hmacSHA256(kk, v, []byte{0x01}, x, h1)
-
-	// Step (g): V = HMAC_K(V)
-	v = hmacSHA256(kk, v)
-
-	// Step (h): Generate k
-	for {
-		v = hmacSHA256(kk, v)
-		k := new(big.Int).SetBytes(v)
-		if k.Sign() > 0 && k.Cmp(curveN) < 0 {
-			return k
-		}
-		kk = hmacSHA256(kk, v, []byte{0x00})
-		v = hmacSHA256(kk, v)
-	}
+	// Truncate to CLen bytes, then load into a ModNScalar.
+	// CLen=16 bytes always fits within the curve order (32 bytes), so
+	// SetByteSlice will never reduce mod N.
+	var c secp256k1.ModNScalar
+	c.SetByteSlice(hash[:CLen])
+	return c
 }
 
 // encodeProof serializes (Gamma, c, s) into an 81-byte proof.
-func encodeProof(Gamma *secp256k1.PublicKey, c, s *big.Int) [81]byte {
+func encodeProof(Gamma *secp256k1.PublicKey, c, s *secp256k1.ModNScalar) [81]byte {
 	var pi [81]byte
 	copy(pi[:PtLen], Gamma.SerializeCompressed())
-	copy(pi[PtLen:PtLen+CLen], i2osp(c, CLen))
-	copy(pi[PtLen+CLen:], i2osp(s, QLen))
+
+	// c is at most CLen (16) bytes; write zero-padded big-endian into the c field.
+	cBytes := c.Bytes()
+	copy(pi[PtLen:PtLen+CLen], cBytes[QLen-CLen:])
+
+	// s is a full 32-byte scalar.
+	sBytes := s.Bytes()
+	copy(pi[PtLen+CLen:], sBytes[:])
+
 	return pi
 }
 
 // decodeProof deserializes an 81-byte proof into (Gamma, c, s).
-func decodeProof(pi [81]byte) (*secp256k1.PublicKey, *big.Int, *big.Int, error) {
+func decodeProof(pi [81]byte) (*secp256k1.PublicKey, *secp256k1.ModNScalar, *secp256k1.ModNScalar, error) {
 	Gamma, err := secp256k1.ParsePubKey(pi[:PtLen])
 	if err != nil {
 		return nil, nil, nil, ErrInvalidProof
 	}
 
-	c := new(big.Int).SetBytes(pi[PtLen : PtLen+CLen])
-	s := new(big.Int).SetBytes(pi[PtLen+CLen:])
+	var c secp256k1.ModNScalar
+	c.SetByteSlice(pi[PtLen : PtLen+CLen])
 
-	if s.Cmp(curveN) >= 0 {
+	var s secp256k1.ModNScalar
+	// SetByteSlice returns true if the value was reduced mod N, meaning the
+	// original was >= N and therefore not a valid scalar in the proof.
+	if s.SetByteSlice(pi[PtLen+CLen:]) {
 		return nil, nil, nil, ErrInvalidProof
 	}
 
-	return Gamma, c, s, nil
+	return Gamma, &c, &s, nil
 }
 
 // --- Helper functions ---
 
-// i2osp converts a non-negative integer to a big-endian byte string of the given length.
-func i2osp(x *big.Int, length int) []byte {
-	b := x.Bytes()
-	if len(b) >= length {
-		return b[len(b)-length:]
-	}
-	result := make([]byte, length)
-	copy(result[length-len(b):], b)
-	return result
-}
-
-// hmacSHA256 computes HMAC-SHA256 with the given key and concatenated data.
-func hmacSHA256(key []byte, data ...[]byte) []byte {
-	mac := hmac.New(sha256.New, key)
-	for _, d := range data {
-		mac.Write(d)
-	}
-	return mac.Sum(nil)
-}
-
 // jacobianToPublicKey converts a Jacobian point to an affine PublicKey.
 func jacobianToPublicKey(j *secp256k1.JacobianPoint) *secp256k1.PublicKey {
-	// Make a copy to avoid mutating the input
 	var p secp256k1.JacobianPoint
 	p.Set(j)
 	p.ToAffine()
 	return secp256k1.NewPublicKey(&p.X, &p.Y)
+}
+
+// zeroBytes32 overwrites a 32-byte array with zeros.
+func zeroBytes32(b *[32]byte) {
+	for i := range b {
+		b[i] = 0
+	}
 }
