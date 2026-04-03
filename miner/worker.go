@@ -150,6 +150,7 @@ type generateParams struct {
 	interrupt     *atomic.Int32      // Optional interruption signal to pass down to worker.generateWork
 	isUpdate      bool               // Optional flag indicating that this is building a discardable update
 	minBaseFee    *uint64            // Optional minimum base fee
+	vrfPublicKey  []byte             // EnshrainedVRF: sequencer's VRF public key (33 bytes)
 
 	rpcCtx context.Context // context to control block-building RPC work. No RPC allowed if nil.
 }
@@ -194,6 +195,19 @@ func (miner *Miner) generateWork(genParam *generateParams, witness bool) *newPay
 		err = miner.commitTransaction(work, tx)
 		if err != nil {
 			return &newPayloadResult{err: fmt.Errorf("failed to force-include tx: %s type: %d sender: %s nonce: %d, err: %w", tx.Hash(), tx.Type(), from, tx.Nonce(), err)}
+		}
+	}
+
+	// EnshrainedVRF: inject VRF deposit tx after forced deposits
+	if miner.vrfConfig.Enabled && miner.chainConfig.IsEnshrainedVRF(work.header.Time) {
+		vrfTx, vrfErr := miner.buildVRFDepositTx(work, genParam)
+		if vrfErr != nil {
+			log.Error("Failed to build VRF deposit tx", "err", vrfErr)
+		} else if vrfTx != nil {
+			work.state.SetTxContext(vrfTx.Hash(), work.tcount)
+			if vrfErr = miner.commitTransaction(work, vrfTx); vrfErr != nil {
+				return &newPayloadResult{err: fmt.Errorf("failed to commit VRF deposit tx: %w", vrfErr)}
+			}
 		}
 	}
 	if !genParam.noTxs {

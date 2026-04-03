@@ -397,6 +397,7 @@ func (api *ConsensusAPI) forkchoiceUpdated(update engine.ForkchoiceStateV1, payl
 			Version:       payloadVersion,
 			EIP1559Params: eip1559Params,
 			MinBaseFee:    payloadAttributes.MinBaseFee,
+			VRFPublicKey:  payloadAttributes.VRFPublicKey,
 		}
 		id := args.Id()
 		// If we already are busy generating this work, then we do not need
