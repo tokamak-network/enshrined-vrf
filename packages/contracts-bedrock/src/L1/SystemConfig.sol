@@ -40,7 +40,8 @@ contract SystemConfig is ProxyAdminOwnedBase, OwnableUpgradeable, Reinitializabl
         EIP_1559_PARAMS,
         OPERATOR_FEE_PARAMS,
         MIN_BASE_FEE,
-        DA_FOOTPRINT_GAS_SCALAR
+        DA_FOOTPRINT_GAS_SCALAR,
+        VRF_PUBLIC_KEY
     }
 
     /// @notice Struct representing the addresses of L1 system contracts. These should be the
@@ -97,6 +98,9 @@ contract SystemConfig is ProxyAdminOwnedBase, OwnableUpgradeable, Reinitializabl
 
     /// @notice Storage slot for block at which the op-node can start searching for logs from.
     bytes32 public constant START_BLOCK_SLOT = bytes32(uint256(keccak256("systemconfig.startBlock")) - 1);
+
+    /// @notice Storage slot that the VRF public key is stored at.
+    bytes32 public constant VRF_PUBLIC_KEY_SLOT = bytes32(uint256(keccak256("systemconfig.vrfpublickey")) - 1);
 
     /// @notice The maximum gas limit that can be set for L2 blocks. This limit is used to enforce that the blocks
     ///         on L2 are not too large to process and prove. Over time, this value can be increased as various
@@ -497,6 +501,49 @@ contract SystemConfig is ProxyAdminOwnedBase, OwnableUpgradeable, Reinitializabl
 
         bytes memory data = abi.encode(_dAFootprintGasScalar);
         emit ConfigUpdate(VERSION, UpdateType.DA_FOOTPRINT_GAS_SCALAR, data);
+    }
+
+    /// @notice Updates the VRF public key. Can only be called by the owner.
+    /// @param _vrfPublicKey New compressed SEC1 public key (33 bytes).
+    function setVRFPublicKey(bytes memory _vrfPublicKey) external onlyOwner {
+        _setVRFPublicKey(_vrfPublicKey);
+    }
+
+    /// @notice Internal function for updating the VRF public key.
+    /// @param _vrfPublicKey New compressed SEC1 public key (33 bytes).
+    function _setVRFPublicKey(bytes memory _vrfPublicKey) internal {
+        require(_vrfPublicKey.length == 33, "SystemConfig: invalid VRF public key length");
+
+        // Store packed: first 32 bytes in the slot, last byte in the next slot
+        bytes32 part1;
+        assembly {
+            part1 := mload(add(_vrfPublicKey, 32))
+        }
+        uint8 part2 = uint8(_vrfPublicKey[32]);
+
+        Storage.setBytes32(VRF_PUBLIC_KEY_SLOT, part1);
+        Storage.setBytes32(bytes32(uint256(VRF_PUBLIC_KEY_SLOT) + 1), bytes32(uint256(part2)));
+
+        bytes memory data = abi.encode(_vrfPublicKey);
+        emit ConfigUpdate(VERSION, UpdateType.VRF_PUBLIC_KEY, data);
+    }
+
+    /// @notice Returns the VRF public key.
+    /// @return vrfPK_ Compressed SEC1 public key (33 bytes).
+    function vrfPublicKey() public view returns (bytes memory vrfPK_) {
+        bytes32 part1 = Storage.getBytes32(VRF_PUBLIC_KEY_SLOT);
+        uint8 part2 = uint8(uint256(Storage.getBytes32(bytes32(uint256(VRF_PUBLIC_KEY_SLOT) + 1))));
+
+        // Return empty if not set
+        if (part1 == bytes32(0) && part2 == 0) {
+            return new bytes(0);
+        }
+
+        vrfPK_ = new bytes(33);
+        assembly {
+            mstore(add(vrfPK_, 32), part1)
+        }
+        vrfPK_[32] = bytes1(part2);
     }
 
     /// @notice Sets the start block in a backwards compatible way. Proxies
