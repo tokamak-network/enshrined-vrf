@@ -2,14 +2,18 @@ package derive
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/tokamak-network/enshrined-vrf/crypto/ecvrf"
 )
 
 var (
@@ -102,18 +106,49 @@ func VRFCommitRandomnessDeposit(nonce uint64, beta [32]byte, pi [81]byte, source
 	}, nil
 }
 
-// ComputeVRFSeed computes the VRF seed from prevrandao, block number, and nonce.
-// seed = keccak256(abi.encodePacked(prevrandao, block.number, nonce))
-func ComputeVRFSeed(prevrandao common.Hash, blockNumber uint64, nonce uint64) [32]byte {
+// ComputeVRFSeed computes the VRF seed from prevrandao and block number.
+// seed = sha256(prevrandao || blockNumber)
+// The nonce is excluded from the seed to avoid cross-component state synchronization.
+// Block-level uniqueness is guaranteed by prevrandao + blockNumber.
+func ComputeVRFSeed(prevrandao common.Hash, blockNumber uint64) [32]byte {
 	h := sha256.New()
 	h.Write(prevrandao.Bytes())
 	blockNumBytes := common.BigToHash(new(big.Int).SetUint64(blockNumber))
 	h.Write(blockNumBytes.Bytes())
-	nonceBytes := common.BigToHash(new(big.Int).SetUint64(nonce))
-	h.Write(nonceBytes.Bytes())
 	var seed [32]byte
 	copy(seed[:], h.Sum(nil))
 	return seed
+}
+
+// ComputeVRFProof computes the VRF proof using the sequencer's private key.
+// This is called by op-node during block building. The private key never leaves op-node.
+func ComputeVRFProof(privateKey *secp256k1.PrivateKey, prevrandao common.Hash, blockNumber uint64) (beta [32]byte, pi [81]byte, err error) {
+	seed := ComputeVRFSeed(prevrandao, blockNumber)
+	return ecvrf.Prove(privateKey, seed[:])
+}
+
+// LoadVRFKey parses a hex-encoded secp256k1 private key for VRF proving.
+func LoadVRFKey(hexKey string) (*secp256k1.PrivateKey, error) {
+	hexKey = strings.TrimPrefix(hexKey, "0x")
+	if len(hexKey) != 64 {
+		return nil, fmt.Errorf("VRF key must be 32 bytes (64 hex characters), got %d", len(hexKey))
+	}
+	privECDSA, err := crypto.HexToECDSA(hexKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse VRF private key: %w", err)
+	}
+	return secp256k1.PrivKeyFromBytes(privECDSA.D.Bytes()), nil
+}
+
+// computeVRFSourceHash creates a unique source hash for VRF deposit txs.
+func computeVRFSourceHash(blockNumber, nonce uint64) common.Hash {
+	domain := common.Hash{0x02} // 0x02 = VRF deposit domain
+	data := crypto.Keccak256(
+		domain.Bytes(),
+		common.BigToHash(new(big.Int).SetUint64(blockNumber)).Bytes(),
+		common.BigToHash(new(big.Int).SetUint64(nonce)).Bytes(),
+	)
+	return common.BytesToHash(data)
 }
 
 // ShouldIncludeVRFDeposits returns true if the EnshrainedVRF fork is active
@@ -139,6 +174,21 @@ func CreateVRFSystemDeposits(rollupCfg *rollup.Config, attrs *eth.PayloadAttribu
 			return nil, err
 		}
 		deposits = append(deposits, pkDeposit)
+	}
+
+	// If VRF proof is present (computed by op-node), create the commit deposit
+	if len(attrs.VRFProofBeta) == 32 && len(attrs.VRFProofPi) == 81 && attrs.VRFNonce != nil {
+		var beta [32]byte
+		var pi [81]byte
+		copy(beta[:], attrs.VRFProofBeta)
+		copy(pi[:], attrs.VRFProofPi)
+
+		sourceHash := computeVRFSourceHash(uint64(attrs.Timestamp), *attrs.VRFNonce)
+		commitDeposit, err := VRFCommitRandomnessDeposit(*attrs.VRFNonce, beta, pi, sourceHash)
+		if err != nil {
+			return nil, err
+		}
+		deposits = append(deposits, commitDeposit)
 	}
 
 	return deposits, nil

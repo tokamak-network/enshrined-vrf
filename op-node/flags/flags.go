@@ -271,6 +271,12 @@ var (
 		Value:    false,
 		Category: SequencerCategory,
 	}
+	SequencerVRFKeyFlag = &cli.StringFlag{
+		Name:     "sequencer.vrf-key",
+		Usage:    "Hex-encoded secp256k1 private key for computing ECVRF proofs during block building. Required when EnshrainedVRF fork is active.",
+		EnvVars:  prefixEnvVars("SEQUENCER_VRF_KEY"),
+		Category: SequencerCategory,
+	}
 	SequencerSealingDurationFlag = &cli.DurationFlag{
 		Name: "sequencer.sealing-duration",
 		Usage: "This is the amount of the time the sequencer allocates to sealing the block " +
@@ -491,6 +497,7 @@ var optionalFlags = []cli.Flag{
 	SequencerMaxSafeLagFlag,
 	SequencerL1Confs,
 	SequencerRecoverMode,
+	SequencerVRFKeyFlag,
 	SequencerSealingDurationFlag,
 	FinalityLookbackFlag,
 	FinalityDelayFlag,

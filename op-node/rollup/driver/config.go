@@ -3,6 +3,7 @@ package driver
 import (
 	"time"
 
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/finality"
 )
 
@@ -38,4 +39,8 @@ type Config struct {
 
 	// Finalizer contains runtime configuration for finality behavior.
 	Finalizer *finality.Config `json:"finalizer,omitempty"`
+
+	// VRFKey is the sequencer's VRF private key for computing ECVRF proofs.
+	// Only used when EnshrainedVRF fork is active. Not serialized.
+	VRFKey *secp256k1.PrivateKey `json:"-"`
 }

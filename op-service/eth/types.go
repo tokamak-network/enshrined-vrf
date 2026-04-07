@@ -524,6 +524,12 @@ type PayloadAttributes struct {
 	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1),
 	// to be specified only post-EnshrainedVRF
 	VRFPublicKey []byte `json:"vrfPublicKey,omitempty"`
+	// VRFProofBeta is the VRF output hash (32 bytes), computed by op-node.
+	VRFProofBeta []byte `json:"vrfProofBeta,omitempty"`
+	// VRFProofPi is the VRF proof (81 bytes), computed by op-node.
+	VRFProofPi []byte `json:"vrfProofPi,omitempty"`
+	// VRFNonce is the commitment nonce for this VRF result.
+	VRFNonce *uint64 `json:"vrfNonce,omitempty"`
 }
 
 // IsDepositsOnly returns whether all transactions of the PayloadAttributes are of Deposit
