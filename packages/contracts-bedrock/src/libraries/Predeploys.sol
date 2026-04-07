@@ -221,7 +221,8 @@ library Predeploys {
             ) || (_fork >= uint256(Fork.INTEROP) && _isInteropDevFeatureEnabled && _useInterop && _addr == ETH_LIQUIDITY)
             || (_isCustomGasToken && _addr == LIQUIDITY_CONTROLLER)
             || (_isCustomGasToken && _addr == NATIVE_ASSET_LIQUIDITY) || (_useL2CM && _addr == CONDITIONAL_DEPLOYER)
-            || (_useL2CM && _addr == L2_DEV_FEATURE_FLAGS);
+            || (_useL2CM && _addr == L2_DEV_FEATURE_FLAGS)
+            || _addr == ENSHRINED_VRF;
     }
 
     /// @notice Returns true if the address is in the predeploy namespace.
@@ -257,7 +258,7 @@ library Predeploys {
     ///      Predeploys library should be listed here.
     ///      Excludes: WETH, GOVERNANCE_TOKEN (not proxied), legacy predeploys (not upgraded).
     function getUpgradeablePredeploys() internal pure returns (address[] memory predeploys_) {
-        predeploys_ = new address[](24);
+        predeploys_ = new address[](25);
         // Core predeploys
         predeploys_[0] = Predeploys.L2_CROSS_DOMAIN_MESSENGER;
         predeploys_[1] = Predeploys.GAS_PRICE_ORACLE;
@@ -286,5 +287,7 @@ library Predeploys {
         predeploys_[22] = Predeploys.LIQUIDITY_CONTROLLER;
         // Dev feature flags bitmap
         predeploys_[23] = Predeploys.L2_DEV_FEATURE_FLAGS;
+        // EnshrainedVRF
+        predeploys_[24] = Predeploys.ENSHRINED_VRF;
     }
 }

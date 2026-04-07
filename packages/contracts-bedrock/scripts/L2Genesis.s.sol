@@ -281,6 +281,7 @@ contract L2Genesis is Script {
         setEAS(); // 21
         setGovernanceToken(_input); // 42: OP (not behind a proxy)
         setFeeSplitter(_input); // 2B: FeeSplitter
+        setEnshrainedVRF(); // F0: EnshrainedVRF
         if (
             _input.fork >= uint256(Fork.INTEROP) && _input.useInterop
                 && DevFeatures.isDevFeatureEnabled(_input.devFeatureBitmap, DevFeatures.OPTIMISM_PORTAL_INTEROP)
@@ -610,6 +611,11 @@ contract L2Genesis is Script {
     /// @notice This predeploy is following the safety invariant #1.
     function setConditionalDeployer() internal {
         _setImplementationCode(Predeploys.CONDITIONAL_DEPLOYER);
+    }
+
+    /// @notice Sets up the EnshrainedVRF predeploy for verifiable randomness.
+    function setEnshrainedVRF() internal {
+        _setImplementationCode(Predeploys.ENSHRINED_VRF);
     }
 
     /// @notice Sets up the L2DevFeatureFlags predeploy with the development feature bitmap.
