@@ -1,14 +1,12 @@
 package miner
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecvrf"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -25,46 +23,37 @@ var (
 )
 
 // buildVRFDepositTx creates a system deposit transaction that commits VRF
-// randomness to the PredeployedVRF contract. This is called during block
-// building by the sequencer.
-//
-// The sequencer computes ecvrf.Prove(sk, seed) and encodes the result as
-// a deposit tx calling PredeployedVRF.commitRandomness(nonce, beta, pi).
+// randomness to the PredeployedVRF contract. The VRF proof is pre-computed
+// by op-node and passed via PayloadAttributes. op-geth never holds the
+// VRF private key.
 func (miner *Miner) buildVRFDepositTx(env *environment, genParam *generateParams) (*types.Transaction, error) {
-	if miner.vrfConfig.PrivateKey == nil {
-		return nil, fmt.Errorf("VRF private key not configured")
-	}
-
 	if !miner.chainConfig.IsEnshrainedVRF(env.header.Time) {
 		return nil, nil // fork not active
 	}
 
-	// Read the current commit nonce from PredeployedVRF storage
-	// Storage slot 1 = _commitNonce (after _sequencerPublicKey at slot 0)
-	nonceSlot := common.BigToHash(big.NewInt(1))
-	nonceBytes := env.state.GetState(enshrainedVRFAddr, nonceSlot)
-	nonce := new(big.Int).SetBytes(nonceBytes.Bytes())
-
-	// Compute seed = keccak256(prevrandao, block.number, nonce)
-	seed := computeVRFSeed(env.header.MixDigest, env.header.Number.Uint64(), nonce.Uint64())
-
-	// Compute VRF proof
-	beta, pi, err := ecvrf.Prove(miner.vrfConfig.PrivateKey, seed[:])
-	if err != nil {
-		return nil, fmt.Errorf("VRF prove failed: %w", err)
+	// VRF proof must be provided by op-node via PayloadAttributes
+	if len(genParam.vrfProofBeta) != 32 || len(genParam.vrfProofPi) != 81 || genParam.vrfNonce == nil {
+		return nil, fmt.Errorf("VRF proof not provided in PayloadAttributes (beta=%d, pi=%d bytes)",
+			len(genParam.vrfProofBeta), len(genParam.vrfProofPi))
 	}
 
-	log.Info("VRF randomness computed",
+	var beta [32]byte
+	var pi [81]byte
+	copy(beta[:], genParam.vrfProofBeta)
+	copy(pi[:], genParam.vrfProofPi)
+	nonce := *genParam.vrfNonce
+
+	log.Info("VRF deposit tx from op-node proof",
 		"blockNumber", env.header.Number,
 		"nonce", nonce,
 		"beta", common.Bytes2Hex(beta[:8]),
 	)
 
 	// Encode deposit tx data: commitRandomness(uint256 nonce, bytes32 beta, bytes pi)
-	data := encodeCommitRandomness(nonce, beta, pi)
+	data := encodeCommitRandomness(new(big.Int).SetUint64(nonce), beta, pi)
 
 	// Create source hash for the deposit tx
-	sourceHash := computeVRFSourceHash(env.header.Number.Uint64(), nonce.Uint64())
+	sourceHash := computeVRFSourceHash(env.header.Number.Uint64(), nonce)
 
 	depositTx := types.NewTx(&types.DepositTx{
 		SourceHash:          sourceHash,
@@ -78,19 +67,6 @@ func (miner *Miner) buildVRFDepositTx(env *environment, genParam *generateParams
 	})
 
 	return depositTx, nil
-}
-
-// computeVRFSeed computes seed = keccak256(abi.encodePacked(prevrandao, blockNumber, nonce))
-func computeVRFSeed(prevrandao common.Hash, blockNumber, nonce uint64) [32]byte {
-	h := sha256.New()
-	h.Write(prevrandao.Bytes())
-	blockNumBytes := common.BigToHash(new(big.Int).SetUint64(blockNumber))
-	h.Write(blockNumBytes.Bytes())
-	nonceBytes := common.BigToHash(new(big.Int).SetUint64(nonce))
-	h.Write(nonceBytes.Bytes())
-	var seed [32]byte
-	copy(seed[:], h.Sum(nil))
-	return seed
 }
 
 // computeVRFSourceHash creates a unique source hash for VRF deposit txs.

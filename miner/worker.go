@@ -151,6 +151,9 @@ type generateParams struct {
 	isUpdate      bool               // Optional flag indicating that this is building a discardable update
 	minBaseFee    *uint64            // Optional minimum base fee
 	vrfPublicKey  []byte             // EnshrainedVRF: sequencer's VRF public key (33 bytes)
+	vrfProofBeta  []byte             // EnshrainedVRF: VRF output hash (32 bytes), from op-node
+	vrfProofPi    []byte             // EnshrainedVRF: VRF proof (81 bytes), from op-node
+	vrfNonce      *uint64            // EnshrainedVRF: commitment nonce, from op-node
 
 	rpcCtx context.Context // context to control block-building RPC work. No RPC allowed if nil.
 }
@@ -199,7 +202,8 @@ func (miner *Miner) generateWork(genParam *generateParams, witness bool) *newPay
 	}
 
 	// EnshrainedVRF: inject VRF deposit tx after forced deposits
-	if miner.vrfConfig.Enabled && miner.chainConfig.IsEnshrainedVRF(work.header.Time) {
+	// VRF proof is pre-computed by op-node and passed via PayloadAttributes
+	if miner.chainConfig.IsEnshrainedVRF(work.header.Time) && genParam.vrfProofBeta != nil {
 		vrfTx, vrfErr := miner.buildVRFDepositTx(work, genParam)
 		if vrfErr != nil {
 			log.Error("Failed to build VRF deposit tx", "err", vrfErr)

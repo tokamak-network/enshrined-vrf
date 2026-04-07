@@ -1,18 +1,11 @@
 package miner
 
-import (
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
-)
-
-// VRFConfig holds the configuration for the Enshrined VRF system.
-// The sequencer uses this to compute VRF proofs during block building.
+// VRFConfig is kept for backward compatibility but is no longer used.
+// VRF proof computation has moved to op-node, which holds the sequencer's
+// VRF private key. VRF proofs are passed to op-geth via PayloadAttributes
+// in the Engine API.
 type VRFConfig struct {
-	// Enabled indicates whether VRF block building is active.
 	Enabled bool
-
-	// PrivateKey is the sequencer's VRF private key for computing proofs.
-	// This is only set in sequencer mode, never exposed to EVM execution.
-	PrivateKey *secp256k1.PrivateKey
 }
 
 // DefaultVRFConfig returns a disabled VRF configuration.

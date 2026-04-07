@@ -55,6 +55,9 @@ type BuildPayloadArgs struct {
 	EIP1559Params []byte               // Optimism addition: encodes Holocene EIP-1559 params
 	MinBaseFee    *uint64              // Optimism addition: encodes minimum base fee
 	VRFPublicKey  []byte               // EnshrainedVRF addition: sequencer's VRF public key (33 bytes)
+	VRFProofBeta  []byte               // EnshrainedVRF addition: VRF output hash (32 bytes), computed by op-node
+	VRFProofPi    []byte               // EnshrainedVRF addition: VRF proof (81 bytes), computed by op-node
+	VRFNonce      *uint64              // EnshrainedVRF addition: commitment nonce
 }
 
 // Id computes an 8-byte identifier by hashing the components of the payload arguments.
@@ -321,6 +324,9 @@ func (miner *Miner) buildPayload(args *BuildPayloadArgs, witness bool) (*Payload
 			eip1559Params: args.EIP1559Params,
 			minBaseFee:    args.MinBaseFee,
 			vrfPublicKey:  args.VRFPublicKey,
+			vrfProofBeta:  args.VRFProofBeta,
+			vrfProofPi:    args.VRFProofPi,
+			vrfNonce:      args.VRFNonce,
 			// No RPC requests allowed.
 			rpcCtx: nil,
 		}

@@ -88,6 +88,12 @@ type PayloadAttributes struct {
 	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1).
 	// Set post-EnshrainedVRF fork activation.
 	VRFPublicKey []byte `json:"vrfPublicKey,omitempty" gencodec:"optional"`
+	// VRFProofBeta is the VRF output hash (32 bytes), computed by op-node.
+	VRFProofBeta []byte `json:"vrfProofBeta,omitempty" gencodec:"optional"`
+	// VRFProofPi is the VRF proof (81 bytes), computed by op-node.
+	VRFProofPi []byte `json:"vrfProofPi,omitempty" gencodec:"optional"`
+	// VRFNonce is the commitment nonce for this VRF result.
+	VRFNonce *uint64 `json:"vrfNonce,omitempty" gencodec:"optional"`
 }
 
 // JSON type overrides for PayloadAttributes.

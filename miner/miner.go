@@ -107,8 +107,7 @@ type Miner struct {
 	pending     *pending
 	pendingMu   sync.Mutex // Lock protects the pending block
 
-	backend   Backend
-	vrfConfig VRFConfig // EnshrainedVRF: sequencer VRF configuration
+	backend Backend
 
 	lifeCtxCancel context.CancelFunc
 	lifeCtx       context.Context
@@ -136,10 +135,10 @@ func New(eth Backend, config Config, engine consensus.Engine) *Miner {
 	return miner
 }
 
-// SetVRFConfig configures the VRF settings for the miner.
-// This should be called by the sequencer during startup with the VRF private key.
+// SetVRFConfig is deprecated. VRF proof computation has moved to op-node.
+// VRF proofs are now received via PayloadAttributes in the Engine API.
 func (miner *Miner) SetVRFConfig(config VRFConfig) {
-	miner.vrfConfig = config
+	// no-op: VRF key is managed by op-node
 }
 
 // OP-Stack: startBackgroundInteropFailsafeDetection starts a background goroutine that periodically
