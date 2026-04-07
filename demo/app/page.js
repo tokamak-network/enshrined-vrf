@@ -113,7 +113,7 @@ export default function Home() {
           <p style={styles.subtitle}>Protocol-native verifiable randomness for the OP Stack</p>
         </div>
         <div style={styles.connStatus}>
-          <span style={{ ...styles.dot, background: connected ? "#3fb950" : mode === "mock" ? "#d29922" : "#f85149" }} />
+          <span style={{ ...styles.dot, background: connected ? "#16a34a" : mode === "mock" ? "#d97706" : "#dc2626" }} />
           <span style={styles.connText}>{connected ? `Live: ${rpcUrl}` : "Mock Mode"}</span>
         </div>
       </header>
@@ -145,7 +145,7 @@ export default function Home() {
                 <Row label="Randomness" value={truncate(lastRoll.randomness, 20)} mono />
                 <Row label="Block" value={`#${lastRoll.block}`} />
                 <Row label="Nonce" value={lastRoll.nonce} />
-                <Row label="Verified" value="Valid" color="#3fb950" />
+                <Row label="Verified" value="Valid" color="#16a34a" />
               </div>
             </div>
           )}
@@ -187,7 +187,7 @@ export default function Home() {
             <div style={styles.verifyCard}>
               <h3 style={styles.verifyTitle}>Proof Verification</h3>
               <Row label="Nonce" value={verifyResult.nonce} />
-              <Row label="Status" value={verifyResult.valid ? "VALID" : "INVALID"} color={verifyResult.valid ? "#3fb950" : "#f85149"} />
+              <Row label="Status" value={verifyResult.valid ? "VALID" : "INVALID"} color={verifyResult.valid ? "#16a34a" : "#dc2626"} />
               <Row label="Precompile" value="0x0101 (ECVRF Verify)" mono />
               <Row label="Gas" value="3,000" />
               <Row label="Latency" value={verifyResult.time} />
@@ -255,48 +255,48 @@ function truncate(s, len) {
 
 const styles = {
   container: { maxWidth: 1100, margin: "0 auto", padding: "0 24px", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 0 24px", borderBottom: "1px solid #222" },
-  title: { fontSize: 28, fontWeight: 700, color: "#fff", margin: 0 },
-  subtitle: { fontSize: 14, color: "#666", marginTop: 4 },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 0 24px", borderBottom: "1px solid #e5e7eb" },
+  title: { fontSize: 28, fontWeight: 700, color: "#111", margin: 0 },
+  subtitle: { fontSize: 14, color: "#6b7280", marginTop: 4 },
   connStatus: { display: "flex", alignItems: "center", gap: 8 },
   dot: { width: 8, height: 8, borderRadius: "50%", display: "inline-block" },
-  connText: { fontSize: 12, color: "#888" },
+  connText: { fontSize: 12, color: "#9ca3af" },
   grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 24 },
-  panel: { background: "#111", border: "1px solid #222", borderRadius: 12, padding: 24 },
-  panelTitle: { fontSize: 16, fontWeight: 600, color: "#ccc", marginTop: 0, marginBottom: 16 },
+  panel: { background: "#fafafa", border: "1px solid #e5e7eb", borderRadius: 12, padding: 24 },
+  panelTitle: { fontSize: 16, fontWeight: 600, color: "#374151", marginTop: 0, marginBottom: 16 },
   buttonRow: { display: "flex", gap: 10, marginBottom: 20 },
-  btn: { flex: 1, padding: "14px 0", border: "1px solid #333", borderRadius: 8, background: "#1a1a2e", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" },
-  btnSecondary: { background: "#0a0a15", borderColor: "#2a2a3e" },
+  btn: { flex: 1, padding: "14px 0", border: "1px solid #d1d5db", borderRadius: 8, background: "#4f46e5", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" },
+  btnSecondary: { background: "#6366f1", borderColor: "#a5b4fc" },
   btnIcon: { marginRight: 6, fontSize: 16 },
-  resultCard: { background: "#0d1117", border: "1px solid #1a3a1a", borderRadius: 10, padding: 20, marginBottom: 20 },
-  resultValue: { fontSize: 32, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 16 },
+  resultCard: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 20, marginBottom: 20 },
+  resultValue: { fontSize: 32, fontWeight: 700, color: "#111", textAlign: "center", marginBottom: 16 },
   resultMeta: { display: "flex", flexDirection: "column", gap: 6 },
   statsGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 },
-  statBox: { background: "#0d0d15", border: "1px solid #222", borderRadius: 8, padding: "12px 16px" },
-  statHighlight: { borderColor: "#1a4a1a", background: "#0d1510" },
-  statLabel: { fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" },
-  statValue: { fontSize: 20, fontWeight: 700, color: "#fff", marginTop: 4 },
-  pkBox: { background: "#0d0d15", border: "1px solid #222", borderRadius: 8, padding: "12px 16px" },
-  pkLabel: { fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: 6 },
-  pkValue: { fontSize: 11, color: "#58a6ff", wordBreak: "break-all" },
+  statBox: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "12px 16px" },
+  statHighlight: { borderColor: "#86efac", background: "#f0fdf4" },
+  statLabel: { fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px" },
+  statValue: { fontSize: 20, fontWeight: 700, color: "#111", marginTop: 4 },
+  pkBox: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "12px 16px" },
+  pkLabel: { fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: 6 },
+  pkValue: { fontSize: 11, color: "#4f46e5", wordBreak: "break-all" },
   feed: { display: "flex", flexDirection: "column", gap: 4, maxHeight: 300, overflowY: "auto", marginBottom: 16 },
-  feedItem: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#0d0d15", borderRadius: 6, cursor: "pointer", transition: "all 0.15s", border: "1px solid transparent" },
-  feedItemSelected: { borderColor: "#58a6ff", background: "#0d1520" },
-  feedNonce: { fontSize: 12, color: "#666", width: 40, flexShrink: 0 },
-  feedBeta: { fontSize: 11, color: "#8b949e", flex: 1, fontFamily: "monospace" },
-  feedBlock: { fontSize: 11, color: "#555", width: 60, textAlign: "right" },
-  feedVerify: { fontSize: 11, color: "#58a6ff", cursor: "pointer" },
-  verifyCard: { background: "#0d1510", border: "1px solid #1a3a1a", borderRadius: 10, padding: 20, marginBottom: 16 },
-  verifyTitle: { fontSize: 14, fontWeight: 600, color: "#3fb950", marginTop: 0, marginBottom: 12 },
-  archBox: { background: "#0d0d15", border: "1px solid #222", borderRadius: 8, padding: 16 },
-  archTitle: { fontSize: 12, color: "#666", marginTop: 0, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" },
-  archCode: { fontSize: 11, color: "#58a6ff", whiteSpace: "pre", display: "block", lineHeight: 1.6, fontFamily: "monospace" },
+  feedItem: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#fff", borderRadius: 6, cursor: "pointer", transition: "all 0.15s", border: "1px solid #e5e7eb" },
+  feedItemSelected: { borderColor: "#4f46e5", background: "#eef2ff" },
+  feedNonce: { fontSize: 12, color: "#9ca3af", width: 40, flexShrink: 0 },
+  feedBeta: { fontSize: 11, color: "#6b7280", flex: 1, fontFamily: "monospace" },
+  feedBlock: { fontSize: 11, color: "#9ca3af", width: 60, textAlign: "right" },
+  feedVerify: { fontSize: 11, color: "#4f46e5", cursor: "pointer" },
+  verifyCard: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 20, marginBottom: 16 },
+  verifyTitle: { fontSize: 14, fontWeight: 600, color: "#16a34a", marginTop: 0, marginBottom: 12 },
+  archBox: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 },
+  archTitle: { fontSize: 12, color: "#9ca3af", marginTop: 0, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" },
+  archCode: { fontSize: 11, color: "#4f46e5", whiteSpace: "pre", display: "block", lineHeight: 1.6, fontFamily: "monospace" },
   row: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" },
-  rowLabel: { fontSize: 12, color: "#666" },
-  rowValue: { fontSize: 12, color: "#ccc", fontWeight: 500 },
+  rowLabel: { fontSize: 12, color: "#9ca3af" },
+  rowValue: { fontSize: 12, color: "#374151", fontWeight: 500 },
   mono: { fontFamily: "monospace", fontSize: 11 },
-  rpcBar: { display: "flex", gap: 8, marginTop: 24, padding: "16px 0", borderTop: "1px solid #222" },
-  rpcInput: { flex: 1, padding: "8px 12px", background: "#111", border: "1px solid #333", borderRadius: 6, color: "#ccc", fontSize: 13, fontFamily: "monospace" },
-  rpcBtn: { padding: "8px 20px", background: "#1a1a2e", border: "1px solid #333", borderRadius: 6, color: "#58a6ff", fontSize: 13, cursor: "pointer", fontWeight: 600 },
-  footer: { textAlign: "center", padding: "24px 0 32px", fontSize: 12, color: "#444" },
+  rpcBar: { display: "flex", gap: 8, marginTop: 24, padding: "16px 0", borderTop: "1px solid #e5e7eb" },
+  rpcInput: { flex: 1, padding: "8px 12px", background: "#fff", border: "1px solid #d1d5db", borderRadius: 6, color: "#374151", fontSize: 13, fontFamily: "monospace" },
+  rpcBtn: { padding: "8px 20px", background: "#4f46e5", border: "1px solid #4338ca", borderRadius: 6, color: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 },
+  footer: { textAlign: "center", padding: "24px 0 32px", fontSize: 12, color: "#9ca3af" },
 };
