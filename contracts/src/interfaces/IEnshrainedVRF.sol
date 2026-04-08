@@ -20,9 +20,10 @@ interface IEnshrainedVRF {
 
     /// @notice Retrieves a historical VRF result by nonce.
     /// @param nonce The nonce of the desired result.
+    /// @return seed The VRF seed used for proof generation.
     /// @return beta The VRF output hash.
     /// @return pi   The VRF proof (81 bytes).
-    function getResult(uint256 nonce) external view returns (bytes32 beta, bytes memory pi);
+    function getResult(uint256 nonce) external view returns (bytes32 seed, bytes32 beta, bytes memory pi);
 
     /// @notice Returns the sequencer's VRF public key.
     /// @return pk Compressed SEC1 public key (33 bytes).
@@ -30,4 +31,20 @@ interface IEnshrainedVRF {
 
     /// @notice Returns the current commitment nonce (total commitments made).
     function commitNonce() external view returns (uint256);
+
+    /// @notice Returns the current consumer nonce.
+    function consumeNonce() external view returns (uint256);
+
+    /// @notice Commits VRF randomness for consumption by user contracts.
+    /// @dev    Only callable by DEPOSITOR_ACCOUNT via system deposit transaction.
+    /// @param nonce The expected sequential nonce (must equal current commitNonce).
+    /// @param seed  The VRF seed used for proof generation (32 bytes).
+    /// @param beta  The VRF output hash (32 bytes).
+    /// @param pi    The VRF proof (81 bytes).
+    function commitRandomness(uint256 nonce, bytes32 seed, bytes32 beta, bytes calldata pi) external;
+
+    /// @notice Updates the sequencer's VRF public key.
+    /// @dev    Only callable by DEPOSITOR_ACCOUNT via system deposit transaction.
+    /// @param pk The new compressed SEC1 public key (33 bytes).
+    function setSequencerPublicKey(bytes calldata pk) external;
 }

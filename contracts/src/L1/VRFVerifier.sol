@@ -27,6 +27,9 @@ contract VRFVerifier {
     /// @notice The VRF suite string for ECVRF-SECP256K1-SHA256-TAI.
     uint8 internal constant SUITE_STRING = 0xFE;
 
+    /// @notice Thrown when the proof has invalid length.
+    error InvalidProofLength();
+
     /// @notice Result of a VRF verification.
     struct VrfProof {
         bytes32 gammaX;  // x-coordinate of Gamma point
@@ -35,13 +38,20 @@ contract VRFVerifier {
         bytes32 s;       // response scalar
     }
 
-    /// @notice Verifies that a VRF proof is valid for the given public key and seed.
+    /// @notice Performs partial VRF verification: checks proof structure and
+    ///         beta consistency (proof-to-hash), but does NOT perform full
+    ///         elliptic curve verification (encode_to_curve, scalar multiply).
+    ///
+    ///         Full EC verification is delegated to the fault proof VM via
+    ///         op-program re-execution, which includes the ECVRF verify
+    ///         precompile at 0x0101.
+    ///
     /// @param pk    The sequencer's compressed public key (33 bytes).
-    /// @param seed  The VRF seed (32 bytes).
+    /// @param seed  The VRF seed (32 bytes), reserved for future full verification.
     /// @param beta  The claimed VRF output (32 bytes).
     /// @param pi    The VRF proof (81 bytes: 33 gamma + 16 c + 32 s).
-    /// @return valid True if the proof is valid and beta matches.
-    function verify(
+    /// @return valid True if proof structure is valid and beta matches proof-to-hash.
+    function verifyProofStructure(
         bytes memory pk,
         bytes32 seed, // solhint-disable-line no-unused-vars
         bytes32 beta,
@@ -52,10 +62,7 @@ contract VRFVerifier {
         if (pi.length != 81) return false;
 
         // Decode proof components
-        bytes memory gammaBytes = new bytes(33);
-        for (uint256 i = 0; i < 33; i++) {
-            gammaBytes[i] = pi[i];
-        }
+        bytes memory gammaBytes = _extractGamma(pi);
 
         // Extract c (16 bytes) and s (32 bytes) from proof
         uint128 c;
@@ -76,34 +83,23 @@ contract VRFVerifier {
         // Check beta matches
         if (computedBeta != beta) return false;
 
-        // Full ECVRF verification requires elliptic curve operations
-        // (encode_to_curve, scalar multiplication, point addition)
-        // which are expensive in Solidity. For production use,
-        // this would leverage ecrecover tricks or precompiles.
-        //
-        // For the fault proof system, the primary verification path is
-        // through op-program re-execution (which includes the ECVRF
-        // verify precompile). This contract serves as a supplementary
-        // verification mechanism.
-        //
-        // The beta check above confirms proof-to-hash consistency.
-        // Full EC verification is delegated to the fault proof VM.
-
         return true;
     }
 
     /// @notice Verifies that the VRF seed was correctly constructed.
     /// @param prevrandao  The L1 block's RANDAO value.
     /// @param blockNumber The L2 block number.
+    /// @param nonce       The VRF nonce for this block.
     /// @param expectedSeed The seed to verify.
     /// @return valid True if the seed matches the expected construction.
     function verifySeed(
         bytes32 prevrandao,
         uint256 blockNumber,
+        uint256 nonce,
         bytes32 expectedSeed
     ) external pure returns (bool valid) {
         bytes32 computedSeed = sha256(
-            abi.encodePacked(prevrandao, blockNumber)
+            abi.encodePacked(prevrandao, blockNumber, nonce)
         );
         return computedSeed == expectedSeed;
     }
@@ -122,25 +118,31 @@ contract VRFVerifier {
     /// @notice Computes the VRF seed from components.
     /// @param prevrandao  The L1 RANDAO value.
     /// @param blockNumber The L2 block number.
+    /// @param nonce       The VRF nonce for this block.
     /// @return seed The computed seed.
     function computeSeed(
         bytes32 prevrandao,
-        uint256 blockNumber
+        uint256 blockNumber,
+        uint256 nonce
     ) external pure returns (bytes32 seed) {
-        seed = sha256(abi.encodePacked(prevrandao, blockNumber));
+        seed = sha256(abi.encodePacked(prevrandao, blockNumber, nonce));
     }
 
     /// @notice Extracts beta from a VRF proof using proof_to_hash.
     /// @param pi The VRF proof (81 bytes).
     /// @return beta The VRF output hash.
     function proofToHash(bytes memory pi) external pure returns (bytes32 beta) {
-        require(pi.length == 81, "VRFVerifier: invalid proof length");
+        if (pi.length != 81) revert InvalidProofLength();
 
-        bytes memory gammaBytes = new bytes(33);
+        bytes memory gammaBytes = _extractGamma(pi);
+        beta = sha256(abi.encodePacked(SUITE_STRING, uint8(0x03), gammaBytes, uint8(0x00)));
+    }
+
+    /// @dev Extracts the 33-byte compressed Gamma point from the proof.
+    function _extractGamma(bytes memory pi) internal pure returns (bytes memory gammaBytes) {
+        gammaBytes = new bytes(33);
         for (uint256 i = 0; i < 33; i++) {
             gammaBytes[i] = pi[i];
         }
-
-        beta = sha256(abi.encodePacked(SUITE_STRING, uint8(0x03), gammaBytes, uint8(0x00)));
     }
 }

@@ -29,7 +29,7 @@ contract VRFVerifierTest is Test {
     }
 
     function test_proofToHash_revertInvalidLength() public {
-        vm.expectRevert("VRFVerifier: invalid proof length");
+        vm.expectRevert(VRFVerifier.InvalidProofLength.selector);
         verifier.proofToHash(hex"0102");
     }
 
@@ -60,7 +60,7 @@ contract VRFVerifierTest is Test {
         uint256 nonce = 0;
 
         bytes32 seed = verifier.computeSeed(prevrandao, blockNumber, nonce);
-        bytes32 expected = keccak256(abi.encodePacked(prevrandao, blockNumber, nonce));
+        bytes32 expected = sha256(abi.encodePacked(prevrandao, blockNumber, nonce));
         assertEq(seed, expected);
     }
 
@@ -93,7 +93,7 @@ contract VRFVerifierTest is Test {
         uint256 blockNumber = 100;
         uint256 nonce = 0;
 
-        bytes32 seed = keccak256(abi.encodePacked(prevrandao, blockNumber, nonce));
+        bytes32 seed = sha256(abi.encodePacked(prevrandao, blockNumber, nonce));
         assertTrue(verifier.verifySeed(prevrandao, blockNumber, nonce, seed));
     }
 
@@ -110,7 +110,7 @@ contract VRFVerifierTest is Test {
         bytes32 prevrandao = keccak256("randao");
         uint256 blockNumber = 100;
 
-        bytes32 seed = keccak256(abi.encodePacked(prevrandao, blockNumber, uint256(0)));
+        bytes32 seed = sha256(abi.encodePacked(prevrandao, blockNumber, uint256(0)));
         // Verify with wrong nonce
         assertFalse(verifier.verifySeed(prevrandao, blockNumber, 1, seed));
     }
@@ -129,37 +129,37 @@ contract VRFVerifierTest is Test {
         assertFalse(verifier.verifyNonceSequence(5, 3));  // backward
     }
 
-    // ========== verify ==========
+    // ========== verifyProofStructure ==========
 
-    function test_verify_betaMatchesProof() public view {
+    function test_verifyProofStructure_betaMatchesProof() public view {
         bytes memory pk = hex"02b4632d08485ff1df2db55b9dafd23347d1c47a457072a1e87be26a2c20f4b524";
 
         // Use known proof and beta
-        bool valid = verifier.verify(pk, bytes32(0), KNOWN_BETA, KNOWN_PI);
+        bool valid = verifier.verifyProofStructure(pk, bytes32(0), KNOWN_BETA, KNOWN_PI);
         assertTrue(valid);
     }
 
-    function test_verify_betaMismatch() public view {
+    function test_verifyProofStructure_betaMismatch() public view {
         bytes memory pk = hex"02b4632d08485ff1df2db55b9dafd23347d1c47a457072a1e87be26a2c20f4b524";
 
         bytes32 wrongBeta = keccak256("wrong");
-        bool valid = verifier.verify(pk, bytes32(0), wrongBeta, KNOWN_PI);
+        bool valid = verifier.verifyProofStructure(pk, bytes32(0), wrongBeta, KNOWN_PI);
         assertFalse(valid);
     }
 
-    function test_verify_invalidPKLength() public view {
-        bool valid = verifier.verify(hex"0102", bytes32(0), KNOWN_BETA, KNOWN_PI);
+    function test_verifyProofStructure_invalidPKLength() public view {
+        bool valid = verifier.verifyProofStructure(hex"0102", bytes32(0), KNOWN_BETA, KNOWN_PI);
         assertFalse(valid);
     }
 
-    function test_verify_invalidProofLength() public view {
+    function test_verifyProofStructure_invalidProofLength() public view {
         bytes memory pk = hex"02b4632d08485ff1df2db55b9dafd23347d1c47a457072a1e87be26a2c20f4b524";
 
-        bool valid = verifier.verify(pk, bytes32(0), KNOWN_BETA, hex"0102");
+        bool valid = verifier.verifyProofStructure(pk, bytes32(0), KNOWN_BETA, hex"0102");
         assertFalse(valid);
     }
 
-    function test_verify_invalidS() public view {
+    function test_verifyProofStructure_invalidS() public view {
         bytes memory pk = hex"02b4632d08485ff1df2db55b9dafd23347d1c47a457072a1e87be26a2c20f4b524";
 
         // Create proof with s >= N (curve order)
@@ -175,7 +175,7 @@ contract VRFVerifierTest is Test {
             badPi[i] = bytes1(0xFF);
         }
 
-        bool valid = verifier.verify(pk, bytes32(0), bytes32(0), badPi);
+        bool valid = verifier.verifyProofStructure(pk, bytes32(0), bytes32(0), badPi);
         assertFalse(valid);
     }
 
@@ -195,11 +195,11 @@ contract VRFVerifierTest is Test {
         emit log_named_uint("computeSeed gas", gasUsed);
     }
 
-    function test_gas_verify() public {
+    function test_gas_verifyProofStructure() public {
         bytes memory pk = hex"02b4632d08485ff1df2db55b9dafd23347d1c47a457072a1e87be26a2c20f4b524";
         uint256 gasBefore = gasleft();
-        verifier.verify(pk, bytes32(0), KNOWN_BETA, KNOWN_PI);
+        verifier.verifyProofStructure(pk, bytes32(0), KNOWN_BETA, KNOWN_PI);
         uint256 gasUsed = gasBefore - gasleft();
-        emit log_named_uint("verify gas", gasUsed);
+        emit log_named_uint("verifyProofStructure gas", gasUsed);
     }
 }

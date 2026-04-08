@@ -19,10 +19,16 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"os"
 	"testing"
 )
 
-const l2RPC = "http://localhost:8545"
+var l2RPC = func() string {
+	if url := os.Getenv("L2_RPC_URL"); url != "" {
+		return url
+	}
+	return "http://localhost:8545"
+}()
 
 // ethCall performs an eth_call RPC against the L2 node.
 func ethCall(to string, data string) (string, error) {

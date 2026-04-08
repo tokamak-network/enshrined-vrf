@@ -13,6 +13,9 @@ contract PredeployedVRFTest is Test {
     address constant USER = address(0xBEEF);
 
     // Sample VRF data
+    bytes32 constant SEED_0 = keccak256("seed0");
+    bytes32 constant SEED_1 = keccak256("seed1");
+    bytes32 constant SEED_2 = keccak256("seed2");
     bytes32 constant BETA_0 = keccak256("beta0");
     bytes32 constant BETA_1 = keccak256("beta1");
     bytes32 constant BETA_2 = keccak256("beta2");
@@ -94,7 +97,7 @@ contract PredeployedVRFTest is Test {
         bytes memory pi = _samplePi();
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
 
         assertEq(vrf.commitNonce(), 1);
     }
@@ -105,38 +108,38 @@ contract PredeployedVRFTest is Test {
         vm.prank(DEPOSITOR);
         vm.expectEmit(true, true, true, true);
         emit IEnshrainedVRF.RandomnessCommitted(0, BETA_0, DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
     }
 
     function test_commitRandomness_revertNotDepositor() public {
         vm.prank(USER);
         vm.expectRevert(PredeployedVRF.OnlyDepositor.selector);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
     }
 
     function test_commitRandomness_revertNonceMismatch() public {
         vm.prank(DEPOSITOR);
         vm.expectRevert(PredeployedVRF.NonceMismatch.selector);
-        vrf.commitRandomness(1, BETA_0, _samplePi()); // expected 0
+        vrf.commitRandomness(1, SEED_0, BETA_0, _samplePi()); // expected 0
     }
 
     function test_commitRandomness_revertInvalidProofLength() public {
         vm.prank(DEPOSITOR);
         vm.expectRevert(PredeployedVRF.InvalidProofLength.selector);
-        vrf.commitRandomness(0, BETA_0, hex"0102"); // 2 bytes, not 81
+        vrf.commitRandomness(0, SEED_0, BETA_0, hex"0102"); // 2 bytes, not 81
     }
 
     function test_commitRandomness_sequential() public {
         bytes memory pi = _samplePi();
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(1, BETA_1, pi);
+        vrf.commitRandomness(1, SEED_1, BETA_1, pi);
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(2, BETA_2, pi);
+        vrf.commitRandomness(2, SEED_2, BETA_2, pi);
 
         assertEq(vrf.commitNonce(), 3);
     }
@@ -145,12 +148,12 @@ contract PredeployedVRFTest is Test {
         bytes memory pi = _samplePi();
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
 
         // Try to skip nonce 1
         vm.prank(DEPOSITOR);
         vm.expectRevert(PredeployedVRF.NonceMismatch.selector);
-        vrf.commitRandomness(2, BETA_2, pi);
+        vrf.commitRandomness(2, SEED_2, BETA_2, pi);
     }
 
     // ========== getRandomness ==========
@@ -158,7 +161,7 @@ contract PredeployedVRFTest is Test {
     function test_getRandomness_success() public {
         // Commit one value
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         // Consume it
         vm.prank(USER);
@@ -171,9 +174,9 @@ contract PredeployedVRFTest is Test {
 
         // Commit 3 values
         vm.startPrank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
-        vrf.commitRandomness(1, BETA_1, pi);
-        vrf.commitRandomness(2, BETA_2, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
+        vrf.commitRandomness(1, SEED_1, BETA_1, pi);
+        vrf.commitRandomness(2, SEED_2, BETA_2, pi);
         vm.stopPrank();
 
         // Consume in order
@@ -195,7 +198,7 @@ contract PredeployedVRFTest is Test {
     function test_getRandomness_revertExhausted() public {
         // Commit one, consume one, then try again
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         vm.prank(USER);
         vrf.getRandomness(); // consume
@@ -207,7 +210,7 @@ contract PredeployedVRFTest is Test {
 
     function test_getRandomness_anyoneCanCall() public {
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         // Different users can consume
         vm.prank(address(0x1111));
@@ -221,9 +224,10 @@ contract PredeployedVRFTest is Test {
         bytes memory pi = _samplePi();
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
 
-        (bytes32 beta, bytes memory storedPi) = vrf.getResult(0);
+        (bytes32 seed, bytes32 beta, bytes memory storedPi) = vrf.getResult(0);
+        assertEq(seed, SEED_0);
         assertEq(beta, BETA_0);
         assertEq(keccak256(storedPi), keccak256(pi));
     }
@@ -232,13 +236,13 @@ contract PredeployedVRFTest is Test {
         bytes memory pi = _samplePi();
 
         vm.startPrank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
-        vrf.commitRandomness(1, BETA_1, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
+        vrf.commitRandomness(1, SEED_1, BETA_1, pi);
         vm.stopPrank();
 
         // Both are retrievable
-        (bytes32 beta0,) = vrf.getResult(0);
-        (bytes32 beta1,) = vrf.getResult(1);
+        (, bytes32 beta0,) = vrf.getResult(0);
+        (, bytes32 beta1,) = vrf.getResult(1);
 
         assertEq(beta0, BETA_0);
         assertEq(beta1, BETA_1);
@@ -251,7 +255,7 @@ contract PredeployedVRFTest is Test {
 
     function test_getResult_revertFutureNonce() public {
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         vm.expectRevert(PredeployedVRF.NonceNotCommitted.selector);
         vrf.getResult(1); // only nonce 0 committed
@@ -261,14 +265,14 @@ contract PredeployedVRFTest is Test {
         bytes memory pi = _samplePi();
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
 
         // Consume
         vm.prank(USER);
         vrf.getRandomness();
 
         // Historical query still works
-        (bytes32 beta,) = vrf.getResult(0);
+        (, bytes32 beta,) = vrf.getResult(0);
         assertEq(beta, BETA_0);
     }
 
@@ -279,7 +283,7 @@ contract PredeployedVRFTest is Test {
         assertEq(vrf.consumeNonce(), 0);
 
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         assertEq(vrf.commitNonce(), 1);
         assertEq(vrf.consumeNonce(), 0);
@@ -303,7 +307,7 @@ contract PredeployedVRFTest is Test {
 
     function test_coinFlipExample() public {
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         CoinFlip coinFlip = new CoinFlip(address(vrf));
 
@@ -323,7 +327,8 @@ contract PredeployedVRFTest is Test {
         vm.startPrank(DEPOSITOR);
         for (uint256 i = 0; i < batchSize; i++) {
             bytes32 beta = keccak256(abi.encodePacked("beta", i));
-            vrf.commitRandomness(i, beta, pi);
+            bytes32 seed = keccak256(abi.encodePacked("seed", i));
+            vrf.commitRandomness(i, seed, beta, pi);
         }
         vm.stopPrank();
 
@@ -347,7 +352,7 @@ contract PredeployedVRFTest is Test {
 
         vm.prank(DEPOSITOR);
         uint256 gasBefore = gasleft();
-        vrf.commitRandomness(0, BETA_0, pi);
+        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
         uint256 gasUsed = gasBefore - gasleft();
 
         // Log for report
@@ -356,7 +361,7 @@ contract PredeployedVRFTest is Test {
 
     function test_gasGetRandomness() public {
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         vm.prank(USER);
         uint256 gasBefore = gasleft();
@@ -368,7 +373,7 @@ contract PredeployedVRFTest is Test {
 
     function test_gasGetResult() public {
         vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, BETA_0, _samplePi());
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         uint256 gasBefore = gasleft();
         vrf.getResult(0);

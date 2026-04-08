@@ -26,8 +26,9 @@ contract PredeployedVRF is IEnshrainedVRF {
     /// @notice The ECVRF verify precompile address in the OP Stack extended range.
     address public constant ECVRF_VERIFY_PRECOMPILE = address(0x0101);
 
-    /// @notice A VRF result containing the output hash and proof.
+    /// @notice A VRF result containing the seed, output hash, and proof.
     struct VrfResult {
+        bytes32 seed;
         bytes32 beta;
         bytes pi;
         uint256 blockNumber;
@@ -78,13 +79,15 @@ contract PredeployedVRF is IEnshrainedVRF {
     ///         The sequencer creates this deposit tx during block building after
     ///         computing ECVRF.Prove(sk, seed) in Go code.
     /// @param nonce The expected sequential nonce (must equal _commitNonce).
+    /// @param seed  The VRF seed used for proof generation (32 bytes).
     /// @param beta  The VRF output hash (32 bytes).
     /// @param pi    The VRF proof (81 bytes).
-    function commitRandomness(uint256 nonce, bytes32 beta, bytes calldata pi) external onlyDepositor {
+    function commitRandomness(uint256 nonce, bytes32 seed, bytes32 beta, bytes calldata pi) external onlyDepositor {
         if (nonce != _commitNonce) revert NonceMismatch();
         if (pi.length != 81) revert InvalidProofLength();
 
         _results[nonce] = VrfResult({
+            seed: seed,
             beta: beta,
             pi: pi,
             blockNumber: block.number
@@ -114,12 +117,13 @@ contract PredeployedVRF is IEnshrainedVRF {
 
     /// @notice Retrieves a historical VRF result by nonce.
     /// @param nonce The nonce of the desired result.
+    /// @return seed The VRF seed used for proof generation.
     /// @return beta The VRF output hash.
     /// @return pi   The VRF proof (81 bytes).
-    function getResult(uint256 nonce) external view returns (bytes32 beta, bytes memory pi) {
+    function getResult(uint256 nonce) external view returns (bytes32 seed, bytes32 beta, bytes memory pi) {
         if (nonce >= _commitNonce) revert NonceNotCommitted();
         VrfResult storage result = _results[nonce];
-        return (result.beta, result.pi);
+        return (result.seed, result.beta, result.pi);
     }
 
     /// @notice Returns the sequencer's VRF public key.

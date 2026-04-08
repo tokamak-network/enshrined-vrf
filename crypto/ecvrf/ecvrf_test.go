@@ -410,20 +410,18 @@ func TestKnownVector(t *testing.T) {
 		t.Fatal("known vector beta mismatch")
 	}
 
-	// Record the expected values so future changes are detected.
-	// If you change the algorithm, update these values.
-	expectedBeta := hex.EncodeToString(beta[:])
-	expectedPi := hex.EncodeToString(pi[:])
-	t.Logf("Known vector beta: %s", expectedBeta)
-	t.Logf("Known vector pi:   %s", expectedPi)
+	// Fixed expected values — update these only when intentionally changing the algorithm.
+	const wantBeta = "d466c22e14dc3b7fd169668dd3ee9ac6351429a24aebc5e8af61a0f0de89b65a"
+	const wantPi = "0338ec99b5d0f94ebcc2c704c04af3de8b4289df8798e5fb9f920d7f5d77ac03d7718b9677d1c9348649ac2ec4f7ecbe512fdb380ec6ac688f38434354e8905edbc8defc09e0e649882ab1ae633119cb8f"
 
-	// Run again to confirm determinism
-	beta2, pi2, _ := Prove(sk, alpha)
-	if hex.EncodeToString(beta2[:]) != expectedBeta {
-		t.Fatal("known vector beta is not deterministic")
+	gotBeta := hex.EncodeToString(beta[:])
+	gotPi := hex.EncodeToString(pi[:])
+
+	if gotBeta != wantBeta {
+		t.Fatalf("known vector beta changed: got %s, want %s", gotBeta, wantBeta)
 	}
-	if hex.EncodeToString(pi2[:]) != expectedPi {
-		t.Fatal("known vector pi is not deterministic")
+	if gotPi != wantPi {
+		t.Fatalf("known vector pi changed: got %s, want %s", gotPi, wantPi)
 	}
 }
 

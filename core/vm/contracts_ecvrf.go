@@ -5,6 +5,7 @@
 package vm
 
 import (
+	"bytes"
 	"errors"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -78,23 +79,10 @@ func (c *EcvrfVerify) Run(input []byte) ([]byte, error) {
 	}
 
 	// Check that the computed beta matches the expected beta
-	if !bytesEqual(beta[:], expectedBeta) {
+	if !bytes.Equal(beta[:], expectedBeta) {
 		return ecvrfInvalid, nil
 	}
 
 	return ecvrfValid, nil
 }
 
-// bytesEqual compares two byte slices in constant time is not needed here
-// since this is a public verification, but we use simple comparison.
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
