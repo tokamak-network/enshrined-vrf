@@ -61,5 +61,14 @@ func checkOptimismPayloadAttributes(payloadAttributes *engine.PayloadAttributes,
 
 	// Note: PayloadAttributes don't contain the Isthmus withdrawalsRoot, it's set during block assembly.
 
+	// EnshrainedVRF - VRF public key
+	if cfg.IsEnshrainedVRF(payloadAttributes.Timestamp) {
+		if len(payloadAttributes.VRFPublicKey) == 0 {
+			return errors.New("vrfPublicKey required post-EnshrainedVRF")
+		}
+	} else if len(payloadAttributes.VRFPublicKey) > 0 {
+		return errors.New("non-empty vrfPublicKey pre-EnshrainedVRF")
+	}
+
 	return nil
 }

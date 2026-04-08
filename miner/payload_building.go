@@ -359,6 +359,9 @@ func (miner *Miner) buildPayload(args *BuildPayloadArgs, witness bool) (*Payload
 		eip1559Params: args.EIP1559Params,
 		minBaseFee:    args.MinBaseFee,
 		vrfPublicKey:  args.VRFPublicKey,
+		vrfProofBeta:  args.VRFProofBeta,
+		vrfProofPi:    args.VRFProofPi,
+		vrfNonce:      args.VRFNonce,
 	}
 
 	// Since we skip building the empty block when using the tx pool, we need to explicitly
