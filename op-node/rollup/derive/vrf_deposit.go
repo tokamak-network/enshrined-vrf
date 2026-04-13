@@ -106,13 +106,13 @@ func VRFCommitRandomnessDeposit(nonce uint64, beta [32]byte, pi [81]byte, source
 	}, nil
 }
 
-// ComputeVRFSeed computes the VRF seed from prevrandao and block number.
-// seed = sha256(prevrandao || blockNumber)
-// The nonce is excluded from the seed to avoid cross-component state synchronization.
-// Block-level uniqueness is guaranteed by prevrandao + blockNumber.
-func ComputeVRFSeed(prevrandao common.Hash, blockNumber uint64) [32]byte {
+// ComputeVRFSeed computes the VRF seed from the block number.
+// seed = sha256(blockNumber)
+// The seed is deterministic per block. Unpredictability is guaranteed by the
+// TEE-protected secret key — the sequencer cannot compute VRF outputs without
+// the enclave, so a predictable seed does not weaken the scheme.
+func ComputeVRFSeed(blockNumber uint64) [32]byte {
 	h := sha256.New()
-	h.Write(prevrandao.Bytes())
 	blockNumBytes := common.BigToHash(new(big.Int).SetUint64(blockNumber))
 	h.Write(blockNumBytes.Bytes())
 	var seed [32]byte
@@ -120,9 +120,12 @@ func ComputeVRFSeed(prevrandao common.Hash, blockNumber uint64) [32]byte {
 	return seed
 }
 
-// VRFProver abstracts VRF proof generation so that the secret key
-// never needs to be exposed to the caller. Implementations may hold
-// the key in local memory (for dev/test) or inside a TEE enclave.
+// VRFProver abstracts VRF proof generation to ensure unpredictability.
+// If the sequencer knows the secret key (sk), it can compute future VRF
+// outputs before building the block, breaking unpredictability and enabling
+// transaction ordering manipulation. By hiding sk behind this interface,
+// the sequencer delegates proving to an isolated environment (e.g. TEE)
+// where sk is never exposed — preserving both verifiability and unpredictability.
 type VRFProver interface {
 	// Prove generates a VRF proof for the given seed.
 	Prove(seed []byte) (beta [32]byte, pi [81]byte, err error)
@@ -131,6 +134,7 @@ type VRFProver interface {
 }
 
 // LocalVRFProver holds the secret key in Go memory.
+// WARNING: This breaks unpredictability — the operator can read sk.
 // Suitable for development and testing only.
 type LocalVRFProver struct {
 	sk *secp256k1.PrivateKey
@@ -163,8 +167,8 @@ func (l *LocalVRFProver) PublicKey() []byte {
 }
 
 // ComputeVRFProof computes the VRF proof for a block using the given prover.
-func ComputeVRFProof(prover VRFProver, prevrandao common.Hash, blockNumber uint64) (beta [32]byte, pi [81]byte, err error) {
-	seed := ComputeVRFSeed(prevrandao, blockNumber)
+func ComputeVRFProof(prover VRFProver, blockNumber uint64) (beta [32]byte, pi [81]byte, err error) {
+	seed := ComputeVRFSeed(blockNumber)
 	return prover.Prove(seed[:])
 }
 

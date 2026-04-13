@@ -12,7 +12,10 @@ import (
 )
 
 // TEEVRFProver delegates VRF proof generation to a TEE enclave over gRPC.
-// The secret key lives exclusively inside the enclave and is never exposed.
+// The secret key lives exclusively inside the enclave and is never exposed
+// to the sequencer operator. This ensures unpredictability: even though the
+// sequencer builds blocks, it cannot predict VRF outputs because it never
+// has access to sk.
 type TEEVRFProver struct {
 	conn   *grpc.ClientConn
 	client pb.VRFEnclaveClient

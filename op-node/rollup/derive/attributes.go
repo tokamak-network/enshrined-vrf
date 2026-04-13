@@ -238,9 +238,8 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		r.VRFPublicKey = sysConfig.VRFPublicKey
 		// Compute VRF proof if we have a prover configured
 		if ba.vrfProver != nil {
-			prevrandao := common.Hash(l1Info.MixDigest())
 			nextBlockNumber := l2Parent.Number + 1
-			beta, pi, err := ComputeVRFProof(ba.vrfProver, prevrandao, nextBlockNumber)
+			beta, pi, err := ComputeVRFProof(ba.vrfProver, nextBlockNumber)
 			if err != nil {
 				log.Error("Failed to compute VRF proof", "err", err)
 			} else {
