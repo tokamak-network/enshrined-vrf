@@ -43,243 +43,76 @@ op-node ────────────────────────
 4. **Anyone** can verify proofs on-chain using the ECVRF verify precompile at `0x0101`
 5. **Fault proofs** detect invalid VRF outputs — the sequencer cannot cheat
 
-## Architecture
+## Operating Modes
 
-```mermaid
-graph TB
-    subgraph op-geth["op-geth (Execution Layer)"]
-        ecvrf["crypto/ecvrf<br/><i>Go library</i><br/>Prove() / Verify()"]
-        predeploy["PredeployedVRF<br/><i>0x42...f0</i><br/>commit() / getRandomness()"]
-        precompile["ECVRF Verify<br/><i>Precompile 0x0101</i><br/>Verify()"]
-        ecvrf -->|"deposit tx"| predeploy
-        precompile -.->|"on-chain verify"| predeploy
-    end
+The VRF prover runs in two modes, selected via `--sequencer.vrf-mode`:
 
-    subgraph vrf-enclave["TEE Enclave"]
-        enclave["VRF Enclave<br/><i>gRPC server</i><br/>sk sealed in TEE<br/>Prove(seed) → (beta, pi)"]
-    end
+| | Local (Dev) | TEE (Production) |
+|---|---|---|
+| **Secret key** | In op-node process memory | Inside TEE enclave only |
+| **Operator access to sk** | Can read sk | Cannot access sk |
+| **Unpredictability** | Broken — operator knows sk | Guaranteed by hardware isolation |
 
-    subgraph op-node["op-node (Consensus Layer)"]
-        derivation["Derivation Pipeline<br/>EnshrainedVRFTime fork activation<br/>VRF public key from L1 SystemConfig<br/>VRF deposit tx creation"]
-    end
+```bash
+# Local mode (development only — sk is exposed to operator)
+op-node \
+  --sequencer.vrf-mode=local \
+  --sequencer.vrf-key=<hex-encoded-sk>
 
-    subgraph l1["L1 Contracts (Ethereum)"]
-        sysconfig["SystemConfig<br/>setVRFPublicKey()"]
-        verifier["VRFVerifier<br/>dispute resolution"]
-    end
-
-    l1 -->|"VRF key"| op-node
-    op-node -->|"seed"| vrf-enclave
-    vrf-enclave -->|"beta, pi"| op-node
-    op-node -->|"PayloadAttributes"| op-geth
+# TEE mode (production — sk never leaves enclave)
+vrf-enclave --listen unix:///var/run/vrf-enclave.sock --seal-dir /secure/sealed
+op-node \
+  --sequencer.vrf-mode=tee \
+  --sequencer.vrf-tee-endpoint=unix:///var/run/vrf-enclave.sock
 ```
 
 ## Components
 
 | Component | Location | Description |
 |-----------|----------|-------------|
-| **ECVRF Library** | `crypto/ecvrf/` | ECVRF-SECP256K1-SHA256-TAI (RFC 9381), constant-time ModNScalar |
+| **ECVRF Library** | `crypto/ecvrf/` | ECVRF-SECP256K1-SHA256-TAI (RFC 9381) |
 | **Verify Precompile** | `core/vm/` | EVM precompile at `0x0101`, 3,000 gas |
-| **PredeployedVRF** | `contracts/src/` | L2 predeploy at `0x42...f0`, dual-nonce design |
-| **VRFVerifier** | `contracts/src/L1/` | L1 dispute resolution (proof-to-hash, seed verification) |
-| **TEE Enclave** | `vrf-enclave/` | gRPC server holding sk in TEE, key sealing, attestation |
-| **Block Builder** | `op-geth/miner/` | Sequencer VRF prove + deposit tx injection |
-| **Derivation** | `optimism/op-node/` | Fork config, payload attributes, event parsing |
-| **SystemConfig** | `optimism/.../L1/` | VRF public key management on L1 |
+| **PredeployedVRF** | `contracts/src/` | L2 predeploy at `0x42...f0` |
+| **VRFVerifier** | `contracts/src/L1/` | L1 dispute resolution |
+| **TEE Enclave** | `vrf-enclave/` | gRPC server, key sealing, attestation |
+| **Derivation** | `optimism/op-node/` | Fork config, payload attributes |
+
+## Quick Start
+
+```bash
+# Clone
+git clone --recursive https://github.com/tokamak-network/enshrined-vrf.git
+
+# Run all tests
+go test ./crypto/ecvrf/ ./core/vm/ -v
+cd contracts && forge test -v
+
+# TEE integration tests
+cd optimism/op-node/rollup/derive && go test -run TestTEEVRFProver -v
+
+# Start enclave server (dev mode)
+cd vrf-enclave && go run ./cmd/vrf-enclave/ --listen localhost:50051 --seal-dir ./sealed
+```
+
+See [docs/testing-guide.md](docs/testing-guide.md) for the full testing guide including devnet setup and troubleshooting.
 
 ## Specifications
 
 | Parameter | Value |
 |-----------|-------|
 | Algorithm | ECVRF-SECP256K1-SHA256-TAI (RFC 9381) |
-| Suite string | `0xFE` (custom) |
-| Proof size | 81 bytes (33 point + 16 challenge + 32 scalar) |
+| Proof size | 81 bytes |
 | Output size | 32 bytes |
 | Precompile address | `0x0101` |
 | Predeploy address | `0x42000000000000000000000000000000000000f0` |
 | Verify gas | 3,000 |
-| Prove latency | ~0.35ms |
-| Verify latency | ~0.42ms |
 | Fork name | `EnshrainedVRF` |
 
 ## Security
 
-- **TEE-protected secret key**: The VRF private key lives exclusively inside the TEE enclave — the sequencer operator cannot access it, ensuring unpredictability
-- **Seed simplicity**: `seed = sha256(blockNumber)` — the seed is deterministic and publicly known. Security relies entirely on TEE key isolation, not seed entropy
-- **Tamper detection**: 100% bit-flip rejection rate across all 648 proof bits
-- **Constant-time arithmetic**: All secret scalar operations use `ModNScalar` to prevent timing side channels
-- **Fault provable**: Invalid VRF outputs cause state root divergence, detectable by Cannon/Asterisc
-
-## Testing
-
-```
-82 tests | 164K+ fuzz iterations | 0 crashes | 100% bit-flip rejection
-```
-
-| Suite | Tests | Coverage |
-|-------|-------|----------|
-| ECVRF Go library | 22 + 2 fuzz | Prove/Verify round-trip, determinism, tampering, distribution |
-| Verify precompile | 9 | All input variants, gas calibration |
-| PredeployedVRF | 31 | Access control, nonce, events, batch, integration |
-| VRFVerifier | 20 + fuzz | Proof-to-hash, seed, nonce sequence, known vectors |
-
-```bash
-# Run Go tests
-go test ./crypto/ecvrf/ -v
-go test ./core/vm/ -v
-
-# Run Solidity tests
-cd contracts && forge test -v
-
-# Run fuzz (30 seconds)
-go test ./crypto/ecvrf/ -fuzz=FuzzProveVerify -fuzztime=30s
-```
-
-## Fork Diff
-
-View the exact changes against upstream OP Stack:
-
-```bash
-cd diff-site && bash generate.sh && open out/index.html
-```
-
-Generated with [protolambda/forkdiff](https://github.com/protolambda/forkdiff), showing structured diffs for both [op-geth](https://github.com/ethereum-optimism/op-geth) and [optimism](https://github.com/ethereum-optimism/optimism).
-
-## Repository Structure
-
-```
-enshrined-vrf/
-├── crypto/ecvrf/              # ECVRF Go library (standalone)
-├── core/vm/                   # Verify precompile (standalone)
-├── contracts/                 # Solidity contracts + Foundry tests
-│   ├── src/
-│   │   ├── PredeployedVRF.sol          # L2 predeploy
-│   │   ├── interfaces/IEnshrainedVRF.sol
-│   │   └── L1/VRFVerifier.sol          # L1 dispute resolution
-│   └── test/
-├── vrf-enclave/               # TEE enclave gRPC server
-│   ├── enclave/                        # Server, key sealing, attestation
-│   ├── proto/                          # Protobuf definitions
-│   └── cmd/vrf-enclave/                # Entrypoint
-├── op-geth/                   # Forked op-geth (submodule)
-├── optimism/                  # Forked optimism (submodule)
-├── diff-site/                 # forkdiff viewer
-├── e2e/                       # E2E test scaffolding
-└── docs/
-    ├── PRD.md
-    ├── architecture.md
-    ├── security-audit-checklist.md
-    └── phase-{1,2,3,4}-report.md
-```
-
-## Building
-
-```bash
-# Clone with submodules
-git clone --recursive https://github.com/tokamak-network/enshrined-vrf.git
-
-# Build ECVRF library
-go build ./crypto/ecvrf/
-
-# Build Solidity contracts
-cd contracts && forge build
-
-# Run all tests
-go test ./crypto/ecvrf/ ./core/vm/
-cd contracts && forge test
-```
-
-## Local Testing Guide
-
-### Prerequisites
-
-```bash
-go version    # Go 1.24+
-forge --version  # Foundry
-```
-
-### Step 1: Unit Tests
-
-```bash
-# ECVRF Go library (22 tests)
-go test ./crypto/ecvrf/ -v
-
-# Verify precompile (9 tests)
-go test ./core/vm/ -v
-
-# Solidity contracts (51 tests)
-cd contracts && forge test -v
-
-# Fuzz tests (30 seconds each)
-go test ./crypto/ecvrf/ -fuzz=FuzzProveVerify -fuzztime=30s
-go test ./crypto/ecvrf/ -fuzz=FuzzVerifyRejectsRandom -fuzztime=30s
-```
-
-### Step 2: TEE Enclave Server
-
-```bash
-# Build and run the enclave server (dev mode)
-cd vrf-enclave
-go run ./cmd/vrf-enclave/ --listen localhost:50051 --seal-dir ./sealed
-
-# In another terminal, test with grpcurl
-grpcurl -plaintext localhost:50051 vrf.VRFEnclave/GetPublicKey
-```
-
-### Step 3: TEE Integration Tests
-
-```bash
-# Tests the full op-node → TEE enclave → verify path
-cd optimism/op-node/rollup/derive
-go test -run TestTEEVRFProver -v
-```
-
-### Step 4: Devnet E2E (Full Stack)
-
-See `optimism/docs/public-docs/create-l2-rollup-example/` for the Docker Compose based devnet. Requires a Sepolia L1 RPC endpoint.
-
-```bash
-cd optimism/docs/public-docs/create-l2-rollup-example
-
-# 1. Initialize and configure
-make init
-# Edit .env: set L1_RPC_URL, L1_BEACON_URL, PRIVATE_KEY
-
-# 2. Add VRF fork activation to rollup config
-# rollup.json: "enshrined_vrf_time": 0
-# chain config: "enshrainedVRFTime": 0
-
-# 3. Set VRF private key for sequencer
-export VRF_PRIVATE_KEY=c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721
-
-# 4. Deploy and start
-make setup && make up
-
-# 5. Verify VRF is working
-cast code 0x42000000000000000000000000000000000000f0 --rpc-url http://localhost:8545
-cast call 0x42000000000000000000000000000000000000f0 "commitNonce()(uint256)" --rpc-url http://localhost:8545
-cast call 0x42000000000000000000000000000000000000f0 "sequencerPublicKey()(bytes)" --rpc-url http://localhost:8545
-```
-
-### Step 5: Demo — CoinFlip
-
-```bash
-# Deploy CoinFlip example contract
-cd contracts
-forge create src/examples/CoinFlip.sol:CoinFlip \
-  --rpc-url http://localhost:8545 \
-  --private-key <TEST_PRIVATE_KEY>
-
-# Flip a coin (calls getRandomness() internally)
-cast send <COINFLIP_ADDR> "flip()(bool)" \
-  --rpc-url http://localhost:8545 \
-  --private-key <TEST_PRIVATE_KEY>
-
-# Check the event log for the result
-cast logs --from-block latest --address <COINFLIP_ADDR> --rpc-url http://localhost:8545
-```
-
-See [docs/testing-guide.md](docs/testing-guide.md) for the full testing guide including troubleshooting.
+- **TEE-protected secret key**: sk lives exclusively inside the TEE enclave — the sequencer operator cannot access it
+- **Deterministic seed**: `seed = sha256(blockNumber)` — security relies on TEE key isolation, not seed entropy
+- **Fault provable**: invalid VRF outputs cause state root divergence, detectable by Cannon/Asterisc
 
 ## License
 
