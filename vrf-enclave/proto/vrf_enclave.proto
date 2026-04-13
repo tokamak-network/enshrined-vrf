@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package vrfenclave;
+
+option go_package = "github.com/tokamak-network/enshrined-vrf/vrf-enclave/proto";
+
+// VRFEnclave runs inside a TEE. The secret key never leaves the enclave.
+service VRFEnclave {
+  // Prove generates a VRF proof for the given seed.
+  rpc Prove(ProveRequest) returns (ProveResponse);
+
+  // GetPublicKey returns the compressed secp256k1 public key (33 bytes).
+  rpc GetPublicKey(GetPublicKeyRequest) returns (GetPublicKeyResponse);
+
+  // GetAttestation returns a remote attestation report that proves
+  // the enclave is running the expected code and holds the key.
+  rpc GetAttestation(GetAttestationRequest) returns (GetAttestationResponse);
+}
+
+message ProveRequest {
+  bytes seed = 1; // 32-byte VRF seed
+}
+
+message ProveResponse {
+  bytes beta = 1; // 32-byte VRF output
+  bytes pi = 2;   // 81-byte VRF proof
+}
+
+message GetPublicKeyRequest {}
+
+message GetPublicKeyResponse {
+  bytes public_key = 1; // 33-byte compressed secp256k1 public key
+}
+
+message GetAttestationRequest {
+  bytes challenge = 1; // optional freshness nonce
+}
+
+message GetAttestationResponse {
+  bytes report = 1;     // platform-specific attestation report (e.g. SGX quote)
+  bytes public_key = 2; // 33-byte public key bound to the attestation
+}
