@@ -15,7 +15,9 @@ import (
 )
 
 // Server implements the VRFEnclave gRPC service.
-// The secret key is held exclusively in this process's memory.
+// The secret key is held exclusively in this process's memory, ensuring
+// unpredictability: the sequencer operator cannot access sk and therefore
+// cannot predict future VRF outputs or manipulate randomness.
 type Server struct {
 	pb.UnimplementedVRFEnclaveServer
 
@@ -86,14 +88,17 @@ func (s *Server) GetPublicKey(ctx context.Context, req *pb.GetPublicKeyRequest) 
 }
 
 func (s *Server) GetAttestation(ctx context.Context, req *pb.GetAttestationRequest) (*pb.GetAttestationResponse, error) {
-	// TODO(production): Generate a real TEE attestation report here:
-	//   - SGX: sgx_create_report() → sgx_get_quote()
-	//   - TDX: TDX.TDREPORT with challenge bound to REPORTDATA
-	//   - SEV-SNP: SNP_GET_REPORT with challenge
-	//
-	// The report should bind the public key so a verifier can confirm
-	// that this specific key lives inside a genuine enclave.
-	return nil, status.Errorf(codes.Unimplemented, "attestation not yet implemented — requires TEE platform SDK")
+	// TODO(production): Replace CreateDevAttestation with a real TEE
+	// attestation report (SGX quote / TDX report / SEV-SNP report).
+	// The dev report proves key possession via HMAC but does NOT prove
+	// the code runs inside a secure enclave.
+	skBytes := s.sk.Key.Bytes()
+	report := CreateDevAttestation(skBytes[:], s.pk, req.Challenge)
+
+	return &pb.GetAttestationResponse{
+		Report:    report,
+		PublicKey: s.pk,
+	}, nil
 }
 
 func generateKey() (*secp256k1.PrivateKey, error) {

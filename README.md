@@ -236,18 +236,26 @@ go test -run TestTEEVRFProver -v
 
 ### Step 4: Devnet E2E (Full Stack)
 
-```bash
-# 1. Configure fork activation (genesis부터 활성화)
-# rollup config에 추가: "enshrined_vrf_time": 0
-# op-geth chain config에 추가: "enshrainedVRFTime": 0
+See `optimism/docs/public-docs/create-l2-rollup-example/` for the Docker Compose based devnet. Requires a Sepolia L1 RPC endpoint.
 
-# 2. Set VRF private key for sequencer
+```bash
+cd optimism/docs/public-docs/create-l2-rollup-example
+
+# 1. Initialize and configure
+make init
+# Edit .env: set L1_RPC_URL, L1_BEACON_URL, PRIVATE_KEY
+
+# 2. Add VRF fork activation to rollup config
+# rollup.json: "enshrined_vrf_time": 0
+# chain config: "enshrainedVRFTime": 0
+
+# 3. Set VRF private key for sequencer
 export VRF_PRIVATE_KEY=c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721
 
-# 3. Start devnet
-cd optimism && make devnet-up
+# 4. Deploy and start
+make setup && make up
 
-# 4. Verify VRF is working
+# 5. Verify VRF is working
 cast code 0x42000000000000000000000000000000000000f0 --rpc-url http://localhost:8545
 cast call 0x42000000000000000000000000000000000000f0 "commitNonce()(uint256)" --rpc-url http://localhost:8545
 cast call 0x42000000000000000000000000000000000000f0 "sequencerPublicKey()(bytes)" --rpc-url http://localhost:8545

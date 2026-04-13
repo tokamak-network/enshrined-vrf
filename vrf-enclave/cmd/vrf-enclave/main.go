@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/tokamak-network/enshrined-vrf/vrf-enclave/enclave"
 	pb "github.com/tokamak-network/enshrined-vrf/vrf-enclave/proto"
@@ -33,6 +34,7 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 	pb.RegisterVRFEnclaveServer(grpcServer, srv)
+	reflection.Register(grpcServer)
 
 	// Graceful shutdown on SIGINT/SIGTERM
 	go func() {
