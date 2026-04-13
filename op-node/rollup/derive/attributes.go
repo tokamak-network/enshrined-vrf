@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -39,7 +38,7 @@ type FetchingAttributesBuilder struct {
 	depSet        DependencySet
 	l1            L1ReceiptsFetcher
 	l2            SystemConfigL2Fetcher
-	vrfKey        *secp256k1.PrivateKey // EnshrainedVRF: sequencer's VRF private key (nil if not sequencer)
+	vrfProver     VRFProver // EnshrainedVRF: proof generator (nil if not sequencer)
 	// whether to skip the L1 origin timestamp check - only for testing purposes
 	testSkipL1OriginCheck bool
 }
@@ -57,10 +56,10 @@ func NewFetchingAttributesBuilder(rollupCfg *rollup.Config, l1ChainConfig *param
 	}
 }
 
-// SetVRFKey sets the sequencer's VRF private key for computing proofs.
+// SetVRFProver sets the VRF proof generator for the sequencer.
 // This should be called during sequencer startup.
-func (ba *FetchingAttributesBuilder) SetVRFKey(key *secp256k1.PrivateKey) {
-	ba.vrfKey = key
+func (ba *FetchingAttributesBuilder) SetVRFProver(prover VRFProver) {
+	ba.vrfProver = prover
 }
 
 // TestSkipL1OriginCheck skips the L1 origin timestamp check for testing purposes.
@@ -237,11 +236,11 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	}
 	if ba.rollupCfg.IsEnshrainedVRF(nextL2Time) {
 		r.VRFPublicKey = sysConfig.VRFPublicKey
-		// Compute VRF proof if we have the sequencer's VRF key
-		if ba.vrfKey != nil {
+		// Compute VRF proof if we have a prover configured
+		if ba.vrfProver != nil {
 			prevrandao := common.Hash(l1Info.MixDigest())
 			nextBlockNumber := l2Parent.Number + 1
-			beta, pi, err := ComputeVRFProof(ba.vrfKey, prevrandao, nextBlockNumber)
+			beta, pi, err := ComputeVRFProof(ba.vrfProver, prevrandao, nextBlockNumber)
 			if err != nil {
 				log.Error("Failed to compute VRF proof", "err", err)
 			} else {

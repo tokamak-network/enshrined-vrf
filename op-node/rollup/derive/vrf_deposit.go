@@ -120,15 +120,25 @@ func ComputeVRFSeed(prevrandao common.Hash, blockNumber uint64) [32]byte {
 	return seed
 }
 
-// ComputeVRFProof computes the VRF proof using the sequencer's private key.
-// This is called by op-node during block building. The private key never leaves op-node.
-func ComputeVRFProof(privateKey *secp256k1.PrivateKey, prevrandao common.Hash, blockNumber uint64) (beta [32]byte, pi [81]byte, err error) {
-	seed := ComputeVRFSeed(prevrandao, blockNumber)
-	return ecvrf.Prove(privateKey, seed[:])
+// VRFProver abstracts VRF proof generation so that the secret key
+// never needs to be exposed to the caller. Implementations may hold
+// the key in local memory (for dev/test) or inside a TEE enclave.
+type VRFProver interface {
+	// Prove generates a VRF proof for the given seed.
+	Prove(seed []byte) (beta [32]byte, pi [81]byte, err error)
+	// PublicKey returns the compressed 33-byte secp256k1 public key.
+	PublicKey() []byte
 }
 
-// LoadVRFKey parses a hex-encoded secp256k1 private key for VRF proving.
-func LoadVRFKey(hexKey string) (*secp256k1.PrivateKey, error) {
+// LocalVRFProver holds the secret key in Go memory.
+// Suitable for development and testing only.
+type LocalVRFProver struct {
+	sk *secp256k1.PrivateKey
+	pk []byte // cached compressed public key
+}
+
+// NewLocalVRFProver creates a LocalVRFProver from a hex-encoded private key.
+func NewLocalVRFProver(hexKey string) (*LocalVRFProver, error) {
 	hexKey = strings.TrimPrefix(hexKey, "0x")
 	if len(hexKey) != 64 {
 		return nil, fmt.Errorf("VRF key must be 32 bytes (64 hex characters), got %d", len(hexKey))
@@ -137,7 +147,25 @@ func LoadVRFKey(hexKey string) (*secp256k1.PrivateKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse VRF private key: %w", err)
 	}
-	return secp256k1.PrivKeyFromBytes(privECDSA.D.Bytes()), nil
+	sk := secp256k1.PrivKeyFromBytes(privECDSA.D.Bytes())
+	return &LocalVRFProver{
+		sk: sk,
+		pk: sk.PubKey().SerializeCompressed(),
+	}, nil
+}
+
+func (l *LocalVRFProver) Prove(seed []byte) (beta [32]byte, pi [81]byte, err error) {
+	return ecvrf.Prove(l.sk, seed)
+}
+
+func (l *LocalVRFProver) PublicKey() []byte {
+	return l.pk
+}
+
+// ComputeVRFProof computes the VRF proof for a block using the given prover.
+func ComputeVRFProof(prover VRFProver, prevrandao common.Hash, blockNumber uint64) (beta [32]byte, pi [81]byte, err error) {
+	seed := ComputeVRFSeed(prevrandao, blockNumber)
+	return prover.Prove(seed[:])
 }
 
 // computeVRFSourceHash creates a unique source hash for VRF deposit txs.

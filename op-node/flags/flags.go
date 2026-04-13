@@ -273,8 +273,21 @@ var (
 	}
 	SequencerVRFKeyFlag = &cli.StringFlag{
 		Name:     "sequencer.vrf-key",
-		Usage:    "Hex-encoded secp256k1 private key for computing ECVRF proofs during block building. Required when EnshrainedVRF fork is active.",
+		Usage:    "Hex-encoded secp256k1 private key for local VRF proving (dev/test only). Ignored when --sequencer.vrf-mode=tee.",
 		EnvVars:  prefixEnvVars("SEQUENCER_VRF_KEY"),
+		Category: SequencerCategory,
+	}
+	SequencerVRFModeFlag = &cli.StringFlag{
+		Name:     "sequencer.vrf-mode",
+		Usage:    "VRF proving mode: 'local' uses an in-memory key, 'tee' delegates to a TEE enclave.",
+		EnvVars:  prefixEnvVars("SEQUENCER_VRF_MODE"),
+		Value:    "local",
+		Category: SequencerCategory,
+	}
+	SequencerVRFTEEEndpointFlag = &cli.StringFlag{
+		Name:     "sequencer.vrf-tee-endpoint",
+		Usage:    "gRPC endpoint of the TEE VRF enclave (e.g. unix:///var/run/vrf-enclave.sock or localhost:50051). Required when --sequencer.vrf-mode=tee.",
+		EnvVars:  prefixEnvVars("SEQUENCER_VRF_TEE_ENDPOINT"),
 		Category: SequencerCategory,
 	}
 	SequencerSealingDurationFlag = &cli.DurationFlag{
@@ -498,6 +511,8 @@ var optionalFlags = []cli.Flag{
 	SequencerL1Confs,
 	SequencerRecoverMode,
 	SequencerVRFKeyFlag,
+	SequencerVRFModeFlag,
+	SequencerVRFTEEEndpointFlag,
 	SequencerSealingDurationFlag,
 	FinalityLookbackFlag,
 	FinalityDelayFlag,

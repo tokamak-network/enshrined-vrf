@@ -1,6 +1,6 @@
 module github.com/ethereum-optimism/optimism
 
-go 1.24.0
+go 1.24.11
 
 toolchain go1.24.13
 
@@ -18,7 +18,7 @@ require (
 	github.com/consensys/gnark-crypto v0.18.1
 	github.com/crate-crypto/go-kzg-4844 v1.1.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
 	github.com/ethereum-optimism/go-ethereum-hdwallet v0.1.4-0.20251001155152-4eb15ccedf7e
 	github.com/ethereum-optimism/superchain-registry/validation v0.0.0-20260115192958-fb86a23cd30e
 	github.com/ethereum/go-ethereum v1.17.0
@@ -60,12 +60,12 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	go.opentelemetry.io/otel v1.40.0
 	go.opentelemetry.io/otel/trace v1.40.0
-	golang.org/x/crypto v0.46.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
-	golang.org/x/mod v0.30.0
+	golang.org/x/mod v0.31.0
 	golang.org/x/sync v0.19.0
-	golang.org/x/term v0.38.0
-	golang.org/x/text v0.32.0
+	golang.org/x/term v0.39.0
+	golang.org/x/text v0.33.0
 	golang.org/x/time v0.14.0
 	gonum.org/v1/plot v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -76,7 +76,8 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/grafana/pyroscope-go v1.2.7 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9 // indirect
-	golang.org/x/telemetry v0.0.0-20251111182119-bc8e575c7b54 // indirect
+	github.com/tokamak-network/enshrined-vrf v0.0.0-20260408133951-753896ba7d96 // indirect
+	golang.org/x/telemetry v0.0.0-20251203150158-8fff8a5912fc // indirect
 )
 
 require (
@@ -113,7 +114,7 @@ require (
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
-	github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
+	github.com/decred/dcrd/crypto/blake256 v1.1.0 // indirect
 	github.com/deepmap/oapi-codegen v1.8.2 // indirect
 	github.com/dgraph-io/ristretto v0.0.3-0.20200630154024-f66de99634de // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
@@ -268,12 +269,12 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/image v0.25.0 // indirect
-	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/tools v0.39.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20251222181119-0a764e51fe1b // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251222181119-0a764e51fe1b // indirect
-	google.golang.org/grpc v1.79.3 // indirect
+	golang.org/x/tools v0.40.0
+	google.golang.org/genproto/googleapis/api v0.0.0-20260120221211-b8f7ae30c516 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260120221211-b8f7ae30c516 // indirect
+	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -281,6 +282,8 @@ require (
 )
 
 replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101701.0-rc.3
+
+replace github.com/tokamak-network/enshrined-vrf => ../
 
 // replace github.com/ethereum/go-ethereum => ../op-geth
 

@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/config"
 	"github.com/ethereum-optimism/optimism/op-node/flags"
 	p2pcli "github.com/ethereum-optimism/optimism/op-node/p2p/cli"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
@@ -71,14 +70,13 @@ func NewConfig(ctx cliiface.Context, log log.Logger) (*config.Config, error) {
 		return nil, fmt.Errorf("failed to load p2p signer: %w", err)
 	}
 
-	// Load VRF key if configured (for sequencer mode with EnshrainedVRF)
-	if vrfKeyHex := ctx.String(flags.SequencerVRFKeyFlag.Name); vrfKeyHex != "" {
-		vrfKey, err := derive.LoadVRFKey(vrfKeyHex)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load VRF key: %w", err)
-		}
-		driverConfig.VRFKey = vrfKey
-		log.Info("Loaded sequencer VRF key for EnshrainedVRF")
+	// Load VRF prover if configured (for sequencer mode with EnshrainedVRF)
+	vrfProver, err := NewVRFProver(ctx, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize VRF prover: %w", err)
+	}
+	if vrfProver != nil {
+		driverConfig.VRFProver = vrfProver
 	}
 
 	p2pConfig, err := p2pcli.NewConfig(ctx, rollupConfig.BlockTime)
