@@ -87,19 +87,17 @@ contract VRFVerifier {
     }
 
     /// @notice Verifies that the VRF seed was correctly constructed.
-    /// @param prevrandao  The L1 block's RANDAO value.
     /// @param blockNumber The L2 block number.
     /// @param nonce       The VRF nonce for this block.
     /// @param expectedSeed The seed to verify.
     /// @return valid True if the seed matches the expected construction.
     function verifySeed(
-        bytes32 prevrandao,
         uint256 blockNumber,
         uint256 nonce,
         bytes32 expectedSeed
     ) external pure returns (bool valid) {
         bytes32 computedSeed = sha256(
-            abi.encodePacked(prevrandao, blockNumber, nonce)
+            abi.encodePacked(blockNumber, nonce)
         );
         return computedSeed == expectedSeed;
     }
@@ -116,16 +114,14 @@ contract VRFVerifier {
     }
 
     /// @notice Computes the VRF seed from components.
-    /// @param prevrandao  The L1 RANDAO value.
     /// @param blockNumber The L2 block number.
     /// @param nonce       The VRF nonce for this block.
     /// @return seed The computed seed.
     function computeSeed(
-        bytes32 prevrandao,
         uint256 blockNumber,
         uint256 nonce
     ) external pure returns (bytes32 seed) {
-        seed = sha256(abi.encodePacked(prevrandao, blockNumber, nonce));
+        seed = sha256(abi.encodePacked(blockNumber, nonce));
     }
 
     /// @notice Extracts beta from a VRF proof using proof_to_hash.

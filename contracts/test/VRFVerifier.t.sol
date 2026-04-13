@@ -55,21 +55,18 @@ contract VRFVerifierTest is Test {
     // ========== computeSeed ==========
 
     function test_computeSeed() public view {
-        bytes32 prevrandao = keccak256("randao");
         uint256 blockNumber = 100;
         uint256 nonce = 0;
 
-        bytes32 seed = verifier.computeSeed(prevrandao, blockNumber, nonce);
-        bytes32 expected = sha256(abi.encodePacked(prevrandao, blockNumber, nonce));
+        bytes32 seed = verifier.computeSeed(blockNumber, nonce);
+        bytes32 expected = sha256(abi.encodePacked(blockNumber, nonce));
         assertEq(seed, expected);
     }
 
     function test_computeSeed_differentInputsDifferentSeed() public view {
-        bytes32 prevrandao = keccak256("randao");
-
-        bytes32 seed1 = verifier.computeSeed(prevrandao, 100, 0);
-        bytes32 seed2 = verifier.computeSeed(prevrandao, 100, 1);
-        bytes32 seed3 = verifier.computeSeed(prevrandao, 101, 0);
+        bytes32 seed1 = verifier.computeSeed(100, 0);
+        bytes32 seed2 = verifier.computeSeed(100, 1);
+        bytes32 seed3 = verifier.computeSeed(101, 0);
 
         assertTrue(seed1 != seed2);
         assertTrue(seed1 != seed3);
@@ -77,42 +74,38 @@ contract VRFVerifierTest is Test {
     }
 
     function testFuzz_computeSeed_deterministic(
-        bytes32 prevrandao,
         uint256 blockNumber,
         uint256 nonce
     ) public view {
-        bytes32 seed1 = verifier.computeSeed(prevrandao, blockNumber, nonce);
-        bytes32 seed2 = verifier.computeSeed(prevrandao, blockNumber, nonce);
+        bytes32 seed1 = verifier.computeSeed(blockNumber, nonce);
+        bytes32 seed2 = verifier.computeSeed(blockNumber, nonce);
         assertEq(seed1, seed2);
     }
 
     // ========== verifySeed ==========
 
     function test_verifySeed_valid() public view {
-        bytes32 prevrandao = keccak256("randao");
         uint256 blockNumber = 100;
         uint256 nonce = 0;
 
-        bytes32 seed = sha256(abi.encodePacked(prevrandao, blockNumber, nonce));
-        assertTrue(verifier.verifySeed(prevrandao, blockNumber, nonce, seed));
+        bytes32 seed = sha256(abi.encodePacked(blockNumber, nonce));
+        assertTrue(verifier.verifySeed(blockNumber, nonce, seed));
     }
 
     function test_verifySeed_invalid() public view {
-        bytes32 prevrandao = keccak256("randao");
         uint256 blockNumber = 100;
         uint256 nonce = 0;
 
         bytes32 wrongSeed = keccak256("wrong");
-        assertFalse(verifier.verifySeed(prevrandao, blockNumber, nonce, wrongSeed));
+        assertFalse(verifier.verifySeed(blockNumber, nonce, wrongSeed));
     }
 
     function test_verifySeed_wrongNonce() public view {
-        bytes32 prevrandao = keccak256("randao");
         uint256 blockNumber = 100;
 
-        bytes32 seed = sha256(abi.encodePacked(prevrandao, blockNumber, uint256(0)));
+        bytes32 seed = sha256(abi.encodePacked(blockNumber, uint256(0)));
         // Verify with wrong nonce
-        assertFalse(verifier.verifySeed(prevrandao, blockNumber, 1, seed));
+        assertFalse(verifier.verifySeed(blockNumber, 1, seed));
     }
 
     // ========== verifyNonceSequence ==========
@@ -190,7 +183,7 @@ contract VRFVerifierTest is Test {
 
     function test_gas_computeSeed() public {
         uint256 gasBefore = gasleft();
-        verifier.computeSeed(keccak256("randao"), 100, 0);
+        verifier.computeSeed(100, 0);
         uint256 gasUsed = gasBefore - gasleft();
         emit log_named_uint("computeSeed gas", gasUsed);
     }
