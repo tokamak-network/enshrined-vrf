@@ -29,21 +29,24 @@
 | Slot | Type | Variable | Purpose |
 |------|------|----------|---------|
 | 0 | `bytes` | `_sequencerPublicKey` | Compressed SEC1 public key (33 bytes) |
-| 1 | `uint256` | `_commitNonce` | Next commitment nonce |
-| 2 | `uint256` | `_consumeNonce` | Next consumption nonce |
-| 3+ | `mapping(uint256 => VrfResult)` | `_results` | Historical VRF results |
+| 1 | `uint256` | `_commitNonce` | Next commitment nonce (one per block) |
+| 2 | `bytes32` | `_currentBeta` | Beta committed for the current block |
+| 3 | `uint256` | `_currentBlock` | Block number of the current commitment |
+| 4 | `uint256` | `_callCounter` | Per-call derivation counter within the block |
+| 5+ | `mapping(uint256 => VrfResult)` | `_results` | Historical VRF results |
 
-### Architecture: Dual-Nonce Design
+### Architecture: Per-Call Derivation
 
-스펙의 단일 nonce 설계를 **dual-nonce**로 개선:
+블록당 하나의 VRF commitment에서 호출별 고유 randomness를 파생:
 
-- **`_commitNonce`**: Sequencer가 deposit tx로 결과를 커밋할 때 증가
-- **`_consumeNonce`**: User가 `getRandomness()`를 호출할 때 증가
+- **`_commitNonce`**: Sequencer가 블록당 1회 deposit tx로 결과를 커밋할 때 증가
+- **`_callCounter`**: `getRandomness()` 호출마다 증가, 새 블록 commitment 시 0으로 리셋
+- **파생 공식**: `randomness = keccak256(beta, callCounter)`
 
 이를 통해:
-1. Sequencer가 블록당 여러 VRF 결과를 미리 커밋 가능
-2. 각 `getRandomness()` 호출이 고유한 결과를 반환
-3. 결과 소진 시 명확한 에러 (`NoRandomnessAvailable`)
+1. 블록당 1회 TEE 호출로 무제한 `getRandomness()` 지원
+2. 각 호출이 고유한 randomness 반환 (같은 beta에서 counter로 분화)
+3. 해당 블록에 commitment가 없으면 revert (`NoRandomnessAvailable`)
 
 ---
 

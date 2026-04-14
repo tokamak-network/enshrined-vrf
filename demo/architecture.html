@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enshrined VRF + TEE — Architecture</title>
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" rel="stylesheet">
+<style>
+:root {
+  --bg:#09090b;--s1:#111114;--s2:#18181b;--s3:#1f1f23;
+  --brd:#27272a;--brd2:#3f3f46;
+  --t:#fafafa;--td:#a1a1aa;--tm:#52525b;
+  --ac:#818cf8;--acd:rgba(129,140,248,.1);
+  --g:#34d399;--gd:rgba(52,211,153,.08);
+  --r:#f87171;--rd:rgba(248,113,113,.08);
+  --y:#fbbf24;--yd:rgba(251,191,36,.08);
+  --cy:#22d3ee;--p:#c084fc;--pd:rgba(192,132,252,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--t);font-family:'Geist',sans-serif;-webkit-font-smoothing:antialiased}
+
+/* Slides container */
+.deck{height:100%;position:relative}
+.slide{position:absolute;inset:0;display:none;opacity:0;transition:opacity .3s ease}
+.slide.active{display:flex;opacity:1}
+
+/* Slide layout: 2-col */
+.slide-inner{display:grid;grid-template-columns:1fr 1fr;height:100%;width:100%}
+.col-explain{padding:48px 40px 32px;display:flex;flex-direction:column;justify-content:center;overflow-y:auto}
+.col-code-wrap{background:var(--s1);border-left:1px solid var(--brd);display:flex;flex-direction:column;overflow:hidden}
+
+/* Explain side */
+.tag{display:inline-flex;padding:3px 10px;border-radius:14px;font-size:.65rem;font-weight:600;font-family:'Geist Mono',monospace;letter-spacing:.04em;margin-bottom:14px;width:fit-content}
+.tag-r{background:var(--rd);color:var(--r);border:1px solid rgba(248,113,113,.2)}
+.tag-g{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.2)}
+.tag-a{background:var(--acd);color:var(--ac);border:1px solid rgba(129,140,248,.2)}
+.tag-y{background:var(--yd);color:var(--y);border:1px solid rgba(251,191,36,.2)}
+.tag-c{background:rgba(34,211,238,.08);color:var(--cy);border:1px solid rgba(34,211,238,.2)}
+.tag-p{background:var(--pd);color:var(--p);border:1px solid rgba(192,132,252,.2)}
+
+h2{font-size:1.9rem;font-weight:700;letter-spacing:-.03em;line-height:1.2;margin-bottom:16px}
+h2 .a{color:var(--ac)} h2 .g{color:var(--g)} h2 .r{color:var(--r)} h2 .y{color:var(--y)} h2 .c{color:var(--cy)}
+.desc{font-size:.88rem;color:var(--td);line-height:1.65;margin-bottom:24px;max-width:480px}
+.desc strong{color:var(--t);font-weight:600}
+
+/* Callout boxes */
+.callouts{display:flex;flex-direction:column;gap:10px}
+.co{padding:14px 16px;background:var(--s1);border:1px solid var(--brd);border-radius:8px;display:flex;gap:12px;align-items:flex-start}
+.co-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:700}
+.co h4{font-size:.8rem;font-weight:600;margin-bottom:2px}
+.co p{font-size:.73rem;color:var(--td);line-height:1.5}
+
+/* Code side */
+.code-file{flex:1;display:flex;flex-direction:column;overflow:hidden;border-bottom:1px solid var(--brd);min-height:0}
+.code-file:last-child{border-bottom:none}
+.file-tab{height:30px;min-height:30px;display:flex;align-items:center;padding:0 14px;gap:8px;background:var(--s2);border-bottom:1px solid var(--brd);font-size:.65rem;font-weight:600;color:var(--td);font-family:'Geist Mono',monospace}
+.file-tab .ft{padding:1px 6px;border-radius:3px;font-size:.55rem;font-weight:700}
+.ft-go{background:rgba(34,211,238,.1);color:var(--cy)}
+.ft-sol{background:rgba(192,132,252,.1);color:var(--p)}
+.ft-proto{background:var(--gd);color:var(--g)}
+.ft-sh{background:var(--yd);color:var(--y)}
+.code{flex:1;overflow:auto;padding:12px 16px;font-family:'Geist Mono',monospace;font-size:.7rem;line-height:1.7;white-space:pre;color:var(--td);tab-size:2}
+.code .kw{color:#c084fc} .code .fn{color:#818cf8} .code .ty{color:#22d3ee} .code .st{color:#34d399}
+.code .cm{color:#3f3f46;font-style:italic} .code .ad{color:#f0abfc} .code .nm{color:#fbbf24}
+.code .hl{background:rgba(129,140,248,.1);display:block;margin:0 -16px;padding:0 16px;border-left:2px solid var(--ac)}
+.code .hlg{background:rgba(52,211,153,.08);display:block;margin:0 -16px;padding:0 16px;border-left:2px solid var(--g)}
+.code .hlr{background:rgba(248,113,113,.06);display:block;margin:0 -16px;padding:0 16px;border-left:2px solid var(--r)}
+
+/* Bottom bar */
+.bottombar{position:fixed;bottom:0;left:0;right:0;height:40px;background:rgba(9,9,11,.9);backdrop-filter:blur(8px);border-top:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:100}
+.page-dots{display:flex;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--tm);cursor:pointer;transition:all .2s}
+.dot.active{background:var(--ac);box-shadow:0 0 6px var(--ac)}
+.page-info{font-size:.68rem;color:var(--tm);font-family:'Geist Mono',monospace;display:flex;align-items:center;gap:12px}
+.key-hint{padding:2px 6px;border-radius:3px;background:var(--s2);border:1px solid var(--brd);font-size:.6rem;color:var(--td)}
+.page-title{font-size:.72rem;color:var(--td);font-weight:500}
+
+/* Diagram inside explain */
+.mini-dia{display:flex;align-items:center;gap:0;margin:16px 0;flex-wrap:nowrap}
+.dia-node{padding:8px 12px;background:var(--s2);border:1px solid var(--brd);border-radius:6px;text-align:center;font-size:.68rem;font-weight:600;font-family:'Geist Mono',monospace;white-space:nowrap}
+.dia-node.n-ac{border-color:rgba(129,140,248,.3);color:var(--ac)}
+.dia-node.n-g{border-color:rgba(52,211,153,.3);color:var(--g)}
+.dia-node.n-y{border-color:rgba(251,191,36,.3);color:var(--y)}
+.dia-node.n-r{border-color:rgba(248,113,113,.3);color:var(--r)}
+.dia-node.n-p{border-color:rgba(192,132,252,.3);color:var(--p)}
+.dia-arr{color:var(--tm);font-size:.9rem;padding:0 6px;flex-shrink:0}
+.dia-sub{font-size:.55rem;color:var(--tm);font-weight:400;display:block;margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- ======================== SLIDE 1: Problem ======================== -->
+<div class="slide active" data-title="Problem: sk Exposure">
+  <div class="slide-inner">
+    <div class="col-explain">
+      <div class="tag tag-r">01 / THE PROBLEM</div>
+      <h2>Sequencer knows sk &rarr;<br><span class="r">unpredictability is broken</span></h2>
+      <p class="desc">VRF is <strong>verifiable</strong> — anyone can check the proof. But if the sequencer holds sk, it can compute VRF(sk, future_seed) <strong>before building the block</strong>, breaking <strong>unpredictability</strong>. The key flows through 4 files in plain Go memory.</p>
+      <div class="mini-dia">
+        <div class="dia-node n-r">--vrf-key<br><span class="dia-sub">CLI flag</span></div>
+        <div class="dia-arr">&rarr;</div>
+        <div class="dia-node n-r">driver.Config<br><span class="dia-sub">VRFKey field</span></div>
+        <div class="dia-arr">&rarr;</div>
+        <div class="dia-node n-r">attributes.go<br><span class="dia-sub">ba.vrfKey</span></div>
+        <div class="dia-arr">&rarr;</div>
+        <div class="dia-node n-r">ecvrf.Prove<br><span class="dia-sub">sk exposed</span></div>
+      </div>
+      <div class="callouts">
+        <div class="co"><div class="co-icon" style="background:var(--rd);color:var(--r)">!</div><div><h4>Unpredictability Broken</h4><p>sk + seed → the sequencer can compute VRF output before the block exists. It knows every coin flip, dice roll, and lottery result in advance.</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--rd);color:var(--r)">2</div><div><h4>Tx Ordering Manipulation</h4><p>With predicted randomness, the sequencer can reorder, insert, or exclude transactions to extract value from users.</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--yd);color:var(--y)">=</div><div><h4>Verifiable &ne; Unpredictable</h4><p>VRF guarantees <strong>verifiability</strong> (anyone can check proofs). But it does NOT guarantee <strong>unpredictability</strong> if the prover is the sequencer itself.</p></div></div>
+      </div>
+    </div>
+    <div class="col-code-wrap">
+      <div class="code-file">
+        <div class="file-tab">service.go <span class="ft ft-go">BEFORE</span></div>
+        <div class="code"><span class="cm">// Load VRF key if configured</span>
+<span class="hlr"><span class="kw">if</span> vrfKeyHex := ctx.String(flags.SequencerVRFKeyFlag.Name); vrfKeyHex != <span class="st">""</span> {</span>
+<span class="hlr">    vrfKey, err := derive.<span class="fn">LoadVRFKey</span>(vrfKeyHex)  <span class="cm">// sk in plain text</span></span>
+<span class="hlr">    driverConfig.VRFKey = vrfKey                <span class="cm">// sk stored in config</span></span>
+<span class="hlr">}</span></div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">driver/config.go <span class="ft ft-go">BEFORE</span></div>
+        <div class="code"><span class="kw">type</span> <span class="ty">Config</span> <span class="kw">struct</span> {
+    SequencerEnabled <span class="ty">bool</span>
+    <span class="cm">// ... other fields</span>
+
+<span class="hlr">    <span class="cm">// VRFKey is the sequencer's VRF private key</span></span>
+<span class="hlr">    VRFKey *secp256k1.<span class="ty">PrivateKey</span>   <span class="cm">// sk exposed as struct field</span></span>
+}</div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">attributes.go <span class="ft ft-go">BEFORE</span></div>
+        <div class="code"><span class="kw">type</span> <span class="ty">FetchingAttributesBuilder</span> <span class="kw">struct</span> {
+    rollupCfg *rollup.<span class="ty">Config</span>
+    l1        <span class="ty">L1ReceiptsFetcher</span>
+    l2        <span class="ty">SystemConfigL2Fetcher</span>
+<span class="hlr">    vrfKey    *secp256k1.<span class="ty">PrivateKey</span>  <span class="cm">// sk in block builder</span></span>
+}
+
+<span class="cm">// During block building:</span>
+<span class="hlr">beta, pi, err := <span class="fn">ComputeVRFProof</span>(ba.vrfKey, prevrandao, blockNum)</span>
+<span class="cm">//                                ^^^^^^^^ direct sk access</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== SLIDE 2: Solution ======================== -->
+<div class="slide" data-title="Solution: VRFProver Interface">
+  <div class="slide-inner">
+    <div class="col-explain">
+      <div class="tag tag-g">02 / THE SOLUTION</div>
+      <h2>Hide sk in TEE &rarr;<br><span class="g">unpredictability restored</span></h2>
+      <p class="desc">The sequencer must not know sk. A <strong>TEE enclave</strong> holds the key in hardware isolation — the sequencer sends a seed and receives the proof, but <strong>cannot access sk</strong>. This restores unpredictability while keeping verifiability and zero-latency UX.</p>
+      <div class="mini-dia">
+        <div class="dia-node n-ac">op-node<br><span class="dia-sub">sends seed</span></div>
+        <div class="dia-arr">&rarr;</div>
+        <div class="dia-node n-g">VRFProver<br><span class="dia-sub">interface</span></div>
+        <div class="dia-arr">&rarr;</div>
+        <div class="dia-node n-g">(beta, pi)<br><span class="dia-sub">proof returned</span></div>
+      </div>
+      <div class="callouts">
+        <div class="co"><div class="co-icon" style="background:var(--gd);color:var(--g)">L</div><div><h4>LocalVRFProver</h4><p>Key in Go memory. For development and testing only.</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--acd);color:var(--ac)">T</div><div><h4>TEEVRFProver</h4><p>Delegates to enclave over gRPC. Key never leaves hardware isolation.</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--yd);color:var(--y)">&minus;</div><div><h4>secp256k1 import removed</h4><p>attributes.go, config.go, driver.go — no longer import the key type at all</p></div></div>
+      </div>
+    </div>
+    <div class="col-code-wrap">
+      <div class="code-file">
+        <div class="file-tab">vrf_deposit.go <span class="ft ft-go">AFTER</span></div>
+        <div class="code"><span class="cm">// Ensures unpredictability: sequencer cannot access sk</span>
+<span class="cm">// and therefore cannot predict future VRF outputs.</span>
+<span class="hl"><span class="kw">type</span> <span class="ty">VRFProver</span> <span class="kw">interface</span> {</span>
+<span class="hl">    <span class="fn">Prove</span>(seed []<span class="ty">byte</span>) (beta [<span class="nm">32</span>]<span class="ty">byte</span>, pi [<span class="nm">81</span>]<span class="ty">byte</span>, err <span class="ty">error</span>)</span>
+<span class="hl">    <span class="fn">PublicKey</span>() []<span class="ty">byte</span></span>
+<span class="hl">}</span>
+
+<span class="cm">// ComputeVRFProof — sk is gone, only interface remains</span>
+<span class="kw">func</span> <span class="fn">ComputeVRFProof</span>(
+<span class="hlg">    prover <span class="ty">VRFProver</span>,  <span class="cm">// not *secp256k1.PrivateKey</span></span>
+    prevrandao common.<span class="ty">Hash</span>,
+    blockNumber <span class="ty">uint64</span>,
+) (beta [<span class="nm">32</span>]<span class="ty">byte</span>, pi [<span class="nm">81</span>]<span class="ty">byte</span>, err <span class="ty">error</span>) {
+    seed := <span class="fn">ComputeVRFSeed</span>(prevrandao, blockNumber)
+<span class="hlg">    <span class="kw">return</span> prover.<span class="fn">Prove</span>(seed[:])</span>
+}</div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">attributes.go <span class="ft ft-go">AFTER</span></div>
+        <div class="code"><span class="kw">type</span> <span class="ty">FetchingAttributesBuilder</span> <span class="kw">struct</span> {
+    rollupCfg *rollup.<span class="ty">Config</span>
+    l1        <span class="ty">L1ReceiptsFetcher</span>
+    l2        <span class="ty">SystemConfigL2Fetcher</span>
+<span class="hlg">    vrfProver <span class="ty">VRFProver</span>  <span class="cm">// no more *secp256k1.PrivateKey</span></span>
+}
+
+<span class="cm">// During block building:</span>
+<span class="kw">if</span> ba.vrfProver != <span class="kw">nil</span> {
+<span class="hlg">    beta, pi, err := <span class="fn">ComputeVRFProof</span>(ba.vrfProver, prevrandao, blockNum)</span>
+    <span class="cm">//                                  ^^^^^^^^^^ interface call</span>
+}</div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">driver/config.go <span class="ft ft-go">AFTER</span></div>
+        <div class="code"><span class="kw">type</span> <span class="ty">Config</span> <span class="kw">struct</span> {
+    SequencerEnabled <span class="ty">bool</span>
+    <span class="cm">// ... other fields</span>
+
+<span class="hlg">    <span class="cm">// VRFProver generates ECVRF proofs without exposing sk</span></span>
+<span class="hlg">    VRFProver derive.<span class="ty">VRFProver</span>  <span class="cm">// secp256k1 import removed</span></span>
+}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== SLIDE 3: TEE Enclave ======================== -->
+<div class="slide" data-title="TEE Enclave Server">
+  <div class="slide-inner">
+    <div class="col-explain">
+      <div class="tag tag-a">03 / TEE ENCLAVE</div>
+      <h2>Secret key lives <span class="a">only inside</span><br>the hardware enclave</h2>
+      <p class="desc">The enclave server generates the VRF key on first run, seals it to encrypted storage, and serves proofs over gRPC. The key <strong>never leaves</strong> — not even during restarts.</p>
+      <div class="mini-dia">
+        <div class="dia-node n-ac">op-node<br><span class="dia-sub">seed (32 bytes)</span></div>
+        <div class="dia-arr">&xrarr; gRPC &xrarr;</div>
+        <div class="dia-node n-g" style="border-width:2px">TEE Enclave<br><span class="dia-sub">sk sealed inside</span></div>
+        <div class="dia-arr">&xrarr;</div>
+        <div class="dia-node n-ac">(beta, pi)<br><span class="dia-sub">proof only</span></div>
+      </div>
+      <div class="callouts">
+        <div class="co"><div class="co-icon" style="background:var(--gd);color:var(--g)">1</div><div><h4>Key Generation</h4><p>First run: crypto/rand generates 32-byte sk inside enclave</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--acd);color:var(--ac)">2</div><div><h4>Sealed Storage</h4><p>AES-256-GCM encrypts sk to disk. Production: SGX/TDX seal key.</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--yd);color:var(--y)">3</div><div><h4>Attestation</h4><p>GetAttestation RPC proves the enclave runs correct code and holds the key</p></div></div>
+      </div>
+    </div>
+    <div class="col-code-wrap">
+      <div class="code-file">
+        <div class="file-tab">enclave/server.go <span class="ft ft-go">GO</span></div>
+        <div class="code"><span class="kw">type</span> <span class="ty">Server</span> <span class="kw">struct</span> {
+    pb.<span class="ty">UnimplementedVRFEnclaveServer</span>
+<span class="hl">    sk *secp256k1.<span class="ty">PrivateKey</span>  <span class="cm">// only here, nowhere else</span></span>
+    pk []<span class="ty">byte</span>
+}
+
+<span class="kw">func</span> <span class="fn">NewServer</span>(storage *<span class="ty">SealedStorage</span>) (*<span class="ty">Server</span>, <span class="ty">error</span>) {
+    <span class="kw">if</span> storage.<span class="fn">Exists</span>() {
+<span class="hlg">        skBytes, _ := storage.<span class="fn">Unseal</span>()       <span class="cm">// decrypt from disk</span></span>
+        sk = secp256k1.<span class="fn">PrivKeyFromBytes</span>(skBytes)
+    } <span class="kw">else</span> {
+<span class="hlg">        sk, _ = <span class="fn">generateKey</span>()               <span class="cm">// fresh random key</span></span>
+<span class="hlg">        storage.<span class="fn">Seal</span>(sk.Key.Bytes()[:])     <span class="cm">// encrypt to disk</span></span>
+    }
+    <span class="kw">return</span> &<span class="ty">Server</span>{sk: sk, pk: sk.PubKey().SerializeCompressed()}
+}
+
+<span class="kw">func</span> (s *<span class="ty">Server</span>) <span class="fn">Prove</span>(ctx, req) (*<span class="ty">ProveResponse</span>, <span class="ty">error</span>) {
+<span class="hl">    beta, pi, _ := ecvrf.<span class="fn">Prove</span>(s.sk, req.Seed)  <span class="cm">// sign inside enclave</span></span>
+    <span class="kw">return</span> &<span class="ty">ProveResponse</span>{Beta: beta[:], Pi: pi[:]}
+}</div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">proto/vrf_enclave.proto <span class="ft ft-proto">GRPC</span></div>
+        <div class="code"><span class="kw">service</span> <span class="ty">VRFEnclave</span> {
+<span class="hl">  <span class="kw">rpc</span> <span class="fn">Prove</span>(<span class="ty">ProveRequest</span>) <span class="kw">returns</span> (<span class="ty">ProveResponse</span>);</span>
+  <span class="kw">rpc</span> <span class="fn">GetPublicKey</span>(<span class="ty">Empty</span>) <span class="kw">returns</span> (<span class="ty">PublicKeyResponse</span>);
+  <span class="kw">rpc</span> <span class="fn">GetAttestation</span>(<span class="ty">Challenge</span>) <span class="kw">returns</span> (<span class="ty">AttestationResponse</span>);
+}
+
+<span class="kw">message</span> <span class="ty">ProveRequest</span>  { <span class="ty">bytes</span> seed = <span class="nm">1</span>; }       <span class="cm">// 32 bytes in</span>
+<span class="kw">message</span> <span class="ty">ProveResponse</span> { <span class="ty">bytes</span> beta = <span class="nm">1</span>; <span class="ty">bytes</span> pi = <span class="nm">2</span>; } <span class="cm">// proof out</span></div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">enclave/seal.go <span class="ft ft-go">GO</span></div>
+        <div class="code"><span class="kw">func</span> (s *<span class="ty">SealedStorage</span>) <span class="fn">Seal</span>(skBytes []<span class="ty">byte</span>) <span class="ty">error</span> {
+<span class="hl">    sealKey := <span class="fn">deriveSealKey</span>()  <span class="cm">// TODO: SGX/TDX platform key</span></span>
+    block, _ := aes.<span class="fn">NewCipher</span>(sealKey)
+    aead, _ := cipher.<span class="fn">NewGCM</span>(block)
+    nonce := <span class="fn">randomNonce</span>(aead.NonceSize())
+    ciphertext := aead.<span class="fn">Seal</span>(nonce, nonce, skBytes, <span class="kw">nil</span>)
+    os.<span class="fn">WriteFile</span>(path, ciphertext, <span class="nm">0600</span>)
+}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== SLIDE 4: On-chain ======================== -->
+<div class="slide" data-title="On-chain: Contracts & Precompile">
+  <div class="slide-inner">
+    <div class="col-explain">
+      <div class="tag tag-p">04 / ON-CHAIN</div>
+      <h2>Contracts and <span class="c">precompile</span><br>make it all transparent</h2>
+      <p class="desc">Three on-chain components work together: the <strong>predeploy</strong> stores committed randomness, the <strong>precompile</strong> verifies proofs, and <strong>user contracts</strong> consume randomness synchronously.</p>
+      <div class="mini-dia">
+        <div class="dia-node n-y">Depositor<br><span class="dia-sub">0xDeaD..0001</span></div>
+        <div class="dia-arr">&rarr;</div>
+        <div class="dia-node n-p">VRF Predeploy<br><span class="dia-sub">0x42..00f0</span></div>
+        <div class="dia-arr">&rarr;</div>
+        <div class="dia-node">CoinFlip<br><span class="dia-sub">user contract</span></div>
+      </div>
+      <div class="callouts" style="margin-top:8px">
+        <div class="co"><div class="co-icon" style="background:var(--pd);color:var(--p)">P</div><div><h4>PredeployedVRF @ 0x42..f0</h4><p>Stores VRF results. Only DEPOSITOR can commit. Anyone can consume via getRandomness().</p></div></div>
+        <div class="co"><div class="co-icon" style="background:rgba(34,211,238,.08);color:var(--cy)">V</div><div><h4>Verify Precompile @ 0x0101</h4><p>On-chain ECVRF verification. staticcall with (pk, seed, beta, pi) returns 0x01 if valid. 3,000 gas.</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--gd);color:var(--g)">C</div><div><h4>Consumer Contracts</h4><p>Call VRF.getRandomness() like any other function. Same block, zero delay, fully synchronous.</p></div></div>
+      </div>
+    </div>
+    <div class="col-code-wrap">
+      <div class="code-file">
+        <div class="file-tab">PredeployedVRF.sol <span class="ft ft-sol">0x42..f0</span></div>
+        <div class="code"><span class="kw">address constant</span> DEPOSITOR = <span class="ad">0xDeaD..0001</span>;
+
+<span class="cm">/// Sequencer commits VRF result as first tx in block</span>
+<span class="kw">function</span> <span class="fn">commitRandomness</span>(
+    <span class="ty">uint256</span> nonce, <span class="ty">bytes32</span> seed,
+    <span class="ty">bytes32</span> beta, <span class="ty">bytes</span> pi
+) <span class="kw">external</span> onlyDepositor {
+<span class="hl">    _results[nonce] = VrfResult(seed, beta, pi, block.number);</span>
+    <span class="kw">emit</span> <span class="fn">RandomnessCommitted</span>(nonce, beta);
+    _commitNonce++;
+}
+
+<span class="cm">/// User contracts call this — returns unique randomness per call</span>
+<span class="kw">function</span> <span class="fn">getRandomness</span>() <span class="kw">external returns</span> (<span class="ty">uint256</span>) {
+<span class="hlg">    <span class="kw">return</span> <span class="ty">uint256</span>(keccak256(abi.encodePacked(_currentBeta, _callCounter++)));</span>
+}</div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">CoinFlip.sol <span class="ft ft-sol">CONSUMER</span></div>
+        <div class="code"><span class="kw">contract</span> <span class="fn">CoinFlip</span> {
+    IEnshrainedVRF <span class="kw">constant</span> VRF =
+        IEnshrainedVRF(<span class="ad">0x42000000000000000000000000000000000000f0</span>);
+
+    <span class="kw">function</span> <span class="fn">flip</span>() <span class="kw">external returns</span> (<span class="ty">bool</span> heads) {
+<span class="hl">        <span class="ty">uint256</span> randomness = VRF.<span class="fn">getRandomness</span>();</span>
+        heads = (randomness % <span class="nm">2</span> == <span class="nm">0</span>);
+    }
+}</div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">ECVRF Verify <span class="ft" style="background:rgba(34,211,238,.1);color:var(--cy)">PRECOMPILE 0x0101</span></div>
+        <div class="code"><span class="cm">/// Anyone can verify a VRF proof on-chain for 3,000 gas</span>
+<span class="cm">///</span>
+<span class="cm">/// Input:  abi.encodePacked(pk, seed, beta, pi)</span>
+<span class="cm">/// Output: 0x01 = valid, 0x00 = invalid</span>
+
+<span class="kw">function</span> <span class="fn">verifyOnChain</span>(<span class="ty">bytes</span> pk, <span class="ty">bytes32</span> seed,
+    <span class="ty">bytes32</span> beta, <span class="ty">bytes</span> pi) <span class="kw">view returns</span> (<span class="ty">bool</span>) {
+<span class="hl">    (<span class="ty">bool</span> ok, <span class="ty">bytes memory</span> out) =</span>
+<span class="hl">        <span class="kw">address</span>(<span class="ad">0x0101</span>).<span class="fn">staticcall</span>(</span>
+<span class="hl">            <span class="fn">abi.encodePacked</span>(pk, seed, beta, pi)</span>
+<span class="hl">        );</span>
+    <span class="kw">return</span> ok && out[<span class="nm">0</span>] == <span class="nm">0x01</span>;
+}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== SLIDE 5: Config & Tests ======================== -->
+<div class="slide" data-title="Configuration & Testing">
+  <div class="slide-inner">
+    <div class="col-explain">
+      <div class="tag tag-y">05 / USAGE</div>
+      <h2>Switch modes with <span class="y">one flag</span>,<br>verified by 35 tests</h2>
+      <p class="desc">Local mode for development, TEE mode for production. The enclave server runs as a separate process. <strong>35 tests</strong> cover the full pipeline: ECVRF math, sealed storage, gRPC communication, and TEE-to-local equivalence.</p>
+      <div class="callouts">
+        <div class="co"><div class="co-icon" style="background:var(--gd);color:var(--g)">24</div><div><h4>ECVRF Core Tests</h4><p>Prove/Verify roundtrip, bit-flip 100% detection, known vectors, fuzz testing</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--acd);color:var(--ac)">8</div><div><h4>Enclave Server Tests</h4><p>Seal/unseal roundtrip, gRPC end-to-end, attestation, invalid input rejection</p></div></div>
+        <div class="co"><div class="co-icon" style="background:var(--yd);color:var(--y)">3</div><div><h4>Integration Tests</h4><p>TEEVRFProver ↔ enclave, 10-block sequential proof, Local vs TEE equivalence</p></div></div>
+      </div>
+    </div>
+    <div class="col-code-wrap">
+      <div class="code-file">
+        <div class="file-tab">op-node CLI <span class="ft ft-sh">SHELL</span></div>
+        <div class="code"><span class="cm"># Development mode — key in Go memory</span>
+<span class="hlg">op-node --sequencer.vrf-mode=<span class="st">local</span> \</span>
+<span class="hlg">        --sequencer.vrf-key=<span class="st">0xc9afa9d845ba...</span></span>
+
+<span class="cm"># Production mode — key inside TEE enclave</span>
+<span class="hl">op-node --sequencer.vrf-mode=<span class="st">tee</span> \</span>
+<span class="hl">        --sequencer.vrf-tee-endpoint=<span class="st">localhost:50051</span></span>
+
+<span class="cm"># Start the enclave server (separate process)</span>
+vrf-enclave --listen <span class="st">localhost:50051</span> --seal-dir <span class="st">./sealed</span></div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">vrf_tee_test.go <span class="ft ft-go">TEST</span></div>
+        <div class="code"><span class="cm">// End-to-end: op-node TEEVRFProver → enclave → verify</span>
+<span class="kw">func</span> <span class="fn">TestTEEVRFProverEndToEnd</span>(t *testing.<span class="ty">T</span>) {
+    addr, pk := <span class="fn">startTestEnclave</span>(t)
+<span class="hl">    prover, _ := <span class="fn">NewTEEVRFProver</span>(addr)  <span class="cm">// connect via gRPC</span></span>
+
+    prevrandao := common.<span class="fn">HexToHash</span>(<span class="st">"0xdeadbeef..."</span>)
+<span class="hl">    beta, pi, _ := <span class="fn">ComputeVRFProof</span>(prover, prevrandao, <span class="nm">42</span>)</span>
+
+    <span class="cm">// Anyone can verify with just the public key</span>
+    seed := <span class="fn">ComputeVRFSeed</span>(prevrandao, <span class="nm">42</span>)
+<span class="hlg">    valid, _, _ := ecvrf.<span class="fn">Verify</span>(pk, seed[:], pi)</span>
+<span class="hlg">    assert.<span class="fn">True</span>(t, valid)  <span class="cm">// PASS</span></span>
+}
+
+<span class="cm">// Same key → TEE and Local produce identical results</span>
+<span class="kw">func</span> <span class="fn">TestTEEVRFProverMatchesLocal</span>(t *testing.<span class="ty">T</span>) {
+    teeBeta, _  := <span class="fn">ComputeVRFProof</span>(teeProver, randao, blk)
+    localBeta,_ := <span class="fn">ComputeVRFProof</span>(localProver, randao, blk)
+<span class="hlg">    assert.<span class="fn">Equal</span>(t, teeBeta, localBeta)  <span class="cm">// PASS</span></span>
+}</div>
+      </div>
+      <div class="code-file">
+        <div class="file-tab">vrf_prover.go <span class="ft ft-go">FACTORY</span></div>
+        <div class="code"><span class="kw">func</span> <span class="fn">NewVRFProver</span>(ctx, log) (derive.<span class="ty">VRFProver</span>, <span class="ty">error</span>) {
+    <span class="kw">switch</span> ctx.String(<span class="st">"sequencer.vrf-mode"</span>) {
+<span class="hlg">    <span class="kw">case</span> <span class="st">"local"</span>:</span>
+<span class="hlg">        <span class="kw">return</span> derive.<span class="fn">NewLocalVRFProver</span>(hexKey)</span>
+<span class="hl">    <span class="kw">case</span> <span class="st">"tee"</span>:</span>
+<span class="hl">        <span class="kw">return</span> derive.<span class="fn">NewTEEVRFProver</span>(endpoint)</span>
+    }
+}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- Bottom bar -->
+<div class="bottombar">
+  <div class="page-dots" id="dots"></div>
+  <div class="page-title" id="pageTitle"></div>
+  <div class="page-info">
+    <span class="key-hint">&larr;</span>
+    <span class="key-hint">&rarr;</span>
+    <span style="margin-left:4px">navigate</span>
+  </div>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const dotsEl = document.getElementById('dots');
+const titleEl = document.getElementById('pageTitle');
+let cur = 0;
+
+// Build dots
+slides.forEach((_, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.onclick = () => go(i);
+  dotsEl.appendChild(d);
+});
+
+function go(n) {
+  if (n < 0 || n >= slides.length) return;
+  slides[cur].classList.remove('active');
+  dotsEl.children[cur].classList.remove('active');
+  cur = n;
+  slides[cur].classList.add('active');
+  dotsEl.children[cur].classList.add('active');
+  titleEl.textContent = `${cur + 1} / ${slides.length}  —  ${slides[cur].dataset.title}`;
+}
+go(0);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1); }
+});
+</script>
+</body>
+</html>

@@ -28,9 +28,9 @@
 | Function | Gas | Description |
 |----------|-----|-------------|
 | `verify(pk, seed, beta, pi)` | ~17K | Verifies VRF proof validity (beta consistency check) |
-| `verifySeed(prevrandao, blockNumber, nonce, seed)` | ~7K | Verifies seed construction |
+| `verifySeed(blockNumber, seed)` | ~7K | Verifies seed construction |
 | `verifyNonceSequence(prev, current)` | ~4K | Checks nonce is sequential |
-| `computeSeed(prevrandao, blockNumber, nonce)` | ~7K | Computes seed from components |
+| `computeSeed(blockNumber)` | ~7K | Computes seed from block number |
 | `proofToHash(pi)` | ~15K | Extracts beta from proof via SHA-256 |
 
 **Verification strategy**: The `verify()` function performs proof-to-hash consistency check (beta matches pi). Full elliptic curve verification is delegated to the fault proof VM (op-program with ECVRF precompile), which is more gas-efficient than implementing secp256k1 point arithmetic in Solidity.
@@ -56,7 +56,7 @@ test_proofToHash_deterministic        PASS   Same pi → same beta
 test_proofToHash_differentProof       PASS   Different pi → different beta
 
 === computeSeed (3 tests) ===
-test_computeSeed                      PASS   keccak256(prevrandao, blockNum, nonce)
+test_computeSeed                      PASS   sha256(blockNumber, nonce)
 test_computeSeed_differentInputs      PASS   Different inputs → different seeds
 testFuzz_computeSeed_deterministic    PASS   256 fuzz runs, deterministic
 

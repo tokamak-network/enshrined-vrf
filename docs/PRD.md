@@ -20,7 +20,7 @@
 
 ### Goals
 - L2 컨트랙트가 단일 함수 호출로 검증 가능한 난수 획득
-- Sequencer 단독 조작 불가 (L1 RANDAO를 seed에 포함)
+- Sequencer 단독 조작 불가 (TEE가 sk를 격리, L1에 등록된 공개 키로 검증 가능)
 - 누구나 VRF 결과를 온체인에서 검증 가능
 - Fault proof와 완전 호환
 - 기존 OP Stack과 하위 호환 (fork 활성화 방식)
@@ -39,9 +39,9 @@
 ```
 ┌─────────────┐         ┌──────────────┐         ┌──────────────────────┐
 │   L1 Block  │         │   op-node    │         │      op-geth         │
-│  (RANDAO)   │────────▷│  Derivation  │────────▷│  Block Building      │
+│             │────────▷│  Derivation  │────────▷│  Block Building      │
 │             │         │  Pipeline    │         │                      │
-└─────────────┘         └──────────────┘         │  1. Read prevrandao  │
+└─────────────┘         └──────────────┘         │  1. seed=sha256(blk) │
                                                   │  2. ecvrf.Prove()    │
                                                   │  3. Inject deposit tx│
                                                   └──────────┬───────────┘
@@ -93,15 +93,19 @@
 ### 3.4 Seed Construction
 
 ```
-seed = keccak256(abi.encodePacked(prevrandao, block.number, nonce))
+seed = sha256(abi.encodePacked(block.number, nonce))
 ```
+
+Seed는 블록 번호와 nonce로 결정되며, 예측 가능합니다. 한 블록 내에서 여러
+VRF commitment가 필요할 때 nonce가 각 commitment를 구분합니다. 보안은
+seed의 비밀성이 아닌 TEE 내부에 격리된 비밀키(sk)에 의존합니다. sk 없이는
+seed를 알아도 VRF 출력을 계산할 수 없습니다.
 
 | Field | Source | Role |
 |-------|--------|------|
-| `sequencer_sk` | Sequencer KMS/HSM | ECVRF 비밀키 |
-| `prevrandao` | L1 Derivation Pipeline (mixHash) | 외부 엔트로피 (sequencer 단독 조작 불가) |
+| `sequencer_sk` | TEE Enclave | ECVRF 비밀키 (엔클레이브 밖으로 노출 불가) |
 | `block.number` | L2 블록 생성 | 블록별 고유성 |
-| `nonce` | PredeployedVRF 내부 카운터 | 호출별 고유성 |
+| `nonce` | PredeployedVRF 내부 카운터 | 호출별 고유성 (블록 내 복수 commitment 지원) |
 
 ---
 
@@ -236,8 +240,8 @@ Based on RFC 9381 with secp256k1 curve:
 
 ### 7.1 Sequencer Manipulation Resistance
 
-- **prevrandao**: L1에서 유래하므로 sequencer가 단독 조작 불가
 - **block.number**: L2 블록 높이, 조작 불가
+- **TEE-protected sk**: 시퀀서가 seed를 알아도 sk 없이는 VRF 출력 계산 불가
 - **nonce**: 순차 증가, 스킵 불가 (fault proof로 검증)
 - Sequencer가 조작할 수 있는 것: 특정 블록에서 VRF 호출을 포함/제외하는 것 (트랜잭션 검열). 이는 일반적인 sequencer 검열 문제와 동일하며 별도 메커니즘으로 대응.
 
@@ -304,12 +308,12 @@ Based on RFC 9381 with secp256k1 curve:
 - [ ] Phase 2 completion report (`docs/phase-2-report.md`)
 
 ### Phase 3: Derivation Pipeline
-**Deliverable**: L1 RANDAO forwarding, VRF deposit tx injection  
+**Deliverable**: VRF public key propagation, VRF deposit tx injection  
 **Acceptance**:
 - [ ] PayloadAttributes includes VRF public key
 - [ ] Sequencer builds blocks with VRF deposit tx
 - [ ] VRF deposit tx contains correct `(nonce, beta, pi)`
-- [ ] Seed constructed from correct `(prevrandao, block.number, nonce)`
+- [ ] Seed constructed from correct `sha256(block.number, nonce)`
 - [ ] Follower nodes accept and verify VRF deposit txs
 - [ ] Phase 3 completion report (`docs/phase-3-report.md`)
 

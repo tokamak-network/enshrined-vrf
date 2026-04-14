@@ -12,26 +12,24 @@
 │                            L1 (Ethereum)                            │
 │                                                                     │
 │  ┌──────────────┐     ┌──────────────────┐                         │
-│  │   L1 Block   │     │   SystemConfig   │                         │
-│  │              │     │                  │                         │
-│  │  mixHash     │     │  vrfPublicKey()  │                         │
-│  │  (RANDAO)    │     │  setVRFPublicKey()│                        │
-│  └──────┬───────┘     └────────┬─────────┘                         │
-│         │                      │                                    │
-└─────────┼──────────────────────┼────────────────────────────────────┘
-          │                      │
-          ▼                      ▼
+│  │   SystemConfig                │                                 │
+│  │                               │                                 │
+│  │   vrfPublicKey()              │                                 │
+│  │   setVRFPublicKey()           │                                 │
+│  └──────────────┬────────────────┘                                 │
+│                 │                                                   │
+└─────────────────┼───────────────────────────────────────────────────┘
+                  │
+                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         op-node (Derivation)                        │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────┐      │
 │  │                  Derivation Pipeline                      │      │
 │  │                                                          │      │
-│  │  L1Traversal ──▷ Read mixHash (prevrandao)               │      │
 │  │  SystemConfig ──▷ Read vrfPublicKey                      │      │
 │  │                                                          │      │
 │  │  PayloadAttributes {                                     │      │
-│  │    prevRandao:    l1Block.mixHash,                       │      │
 │  │    vrfPublicKey:  systemConfig.vrfPublicKey,             │      │
 │  │    ...                                                   │      │
 │  │  }                                                       │      │
@@ -46,8 +44,8 @@
 │  ┌──────────────────────────────────────────────────────────┐      │
 │  │                  Block Building (Sequencer)               │      │
 │  │                                                          │      │
-│  │  For each VRF request in the block:                      │      │
-│  │    1. seed = keccak256(prevrandao, block.number, nonce)  │      │
+│  │  VRF commitment (once per block):                         │      │
+│  │    1. seed = sha256(block.number, nonce)                  │      │
 │  │    2. (beta, pi) = ecvrf.Prove(sequencer_sk, seed)       │      │
 │  │    3. Create deposit tx:                                 │      │
 │  │       PredeployedVRF.commitRandomness(nonce, beta, pi)   │      │
@@ -95,26 +93,26 @@
   ========================              =============               =============
            │
            │  1. Receive PayloadAttributes
-           │     (prevrandao, vrfPublicKey)
+           │     (vrfPublicKey)
            │
-           │  2. For N expected VRF calls:
-           │     seed_i = keccak256(prevrandao, blockNum, i)
-           │     (beta_i, pi_i) = ecvrf.Prove(sk, seed_i)
+           │  2. Compute VRF (once per block):
+           │     seed = sha256(blockNum, nonce)
+           │     (beta, pi) = ecvrf.Prove(sk, seed)
            │
-           │  3. Create deposit tx:
-           │     PredeployedVRF.commitRandomness(i, beta_i, pi_i)
+           │  3. Create one deposit tx:
+           │     PredeployedVRF.commitRandomness(nonce, seed, beta, pi)
            │
            ├──────────────────────────────▷│
            │                               │  4. Execute deposit tx
-           │                               │     Store (nonce, beta, pi)
+           │                               │     Store beta, reset callCounter
            │                               │     Emit RandomnessCommitted
            │                               │
            │                               │  5. Execute user txs
            │                               │     ├─────────────────────▷│
            │                               │     │                      │  6. VRF.getRandomness()
-           │                               │     │                      │     Read committed beta
-           │                               │     │◁─────────────────────│     Return to caller
-           │                               │     │    uint256(beta)     │
+           │                               │     │                      │     keccak256(beta, callCounter++)
+           │                               │     │◁─────────────────────│     Return unique value
+           │                               │     │                      │
 ```
 
 ---
@@ -172,14 +170,23 @@
 ## 4. Storage Layout — PredeployedVRF
 
 ```
-Slot 0: uint256 _nonce                    (current nonce, monotonically increasing)
-Slot 1: bytes   _sequencerPublicKey       (33 bytes, compressed SEC1)
+Slot 0: bytes   _sequencerPublicKey       (33 bytes, compressed SEC1)
+Slot 1: uint256 _commitNonce              (one per block, monotonically increasing)
+Slot 2: bytes32 _currentBeta              (beta for the current block)
+Slot 3: uint256 _currentBlock             (block number of current commitment)
+Slot 4: uint256 _callCounter              (per-call derivation counter, resets each block)
 
 Dynamic mapping:
-  keccak256(nonce . slot_2): VRFResult {
-    bytes32 beta     (32 bytes)
-    bytes   pi       (81 bytes)
+  keccak256(nonce . slot_5): VrfResult {
+    bytes32 seed         (32 bytes)
+    bytes32 beta         (32 bytes)
+    bytes   pi           (81 bytes)
+    uint256 blockNumber  (block number)
   }
+
+Per-call derivation:
+  getRandomness() returns keccak256(beta, callCounter++)
+  Each call in the same block receives a unique value.
 ```
 
 ---

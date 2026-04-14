@@ -82,9 +82,9 @@
 
 - [ ] **Sequencer-only**: VRF prove only called in sequencer mode
 - [ ] **Deposit tx ordering**: VRF deposit tx injected after L1Info deposit, before user txs
-- [ ] **Seed construction**: `sha256(prevrandao || blockNumber || nonce)` matches spec
+- [ ] **Seed construction**: `sha256(blockNumber, nonce)` matches spec
 - [ ] **Private key isolation**: SK never in calldata, storage, or EVM trace
-- [ ] **Failure handling**: VRF prove failure logged but doesn't crash block building
+- [ ] **Failure handling**: VRF prove failure retried (default 3 attempts, 100ms interval); all retries exhausted → block production halted (safety over liveness)
 
 ---
 
@@ -93,7 +93,7 @@
 - [ ] **Deterministic re-execution**: Deposit tx with (nonce, beta, pi) produces identical state
 - [ ] **Precompile in op-program**: ECVRF verify precompile included in fault proof VM
 - [ ] **State root consistency**: Block with VRF deposits produces same state root on re-execution
-- [ ] **Seed verifiability**: Seed can be reconstructed from L1 data (prevrandao, blockNumber, nonce)
+- [ ] **Seed verifiability**: Seed can be reconstructed from `sha256(blockNumber, nonce)`
 
 ---
 
@@ -103,7 +103,7 @@
 
 | Vector | Mitigation | Status |
 |--------|-----------|--------|
-| Choose favorable VRF output | prevrandao from L1 makes seed unpredictable to sequencer | ✅ |
+| Choose favorable VRF output | TEE-protected sk prevents sequencer from computing VRF outputs | ✅ |
 | Skip VRF commitment | Nonce gap detected by verifiers | ✅ |
 | Reorder txs to front-run randomness | Randomness committed in deposit tx before user txs | ✅ |
 | Use wrong seed | Seed verifiable from L1 data via VRFVerifier.verifySeed() | ✅ |
@@ -143,9 +143,9 @@
    - Verify DEPOSITOR_ACCOUNT checks
    - Storage layout collision analysis
    
-3. **Seed construction unpredictability**
-   - Confirm sequencer cannot predict or manipulate seed
-   - Analyze prevrandao bias resistance
+3. **Seed construction and TEE security**
+   - Seed is deterministic (`sha256(blockNumber)`) — unpredictability relies on TEE-protected sk
+   - Confirm TEE attestation chain is valid
 
 4. **Fault proof integration**
    - Verify deposit tx re-execution determinism
