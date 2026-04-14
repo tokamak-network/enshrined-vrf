@@ -132,12 +132,15 @@ contract PredeployedVRFTest is Test {
     function test_commitRandomness_sequential() public {
         bytes memory pi = _samplePi();
 
+        vm.roll(1);
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, pi);
 
+        vm.roll(2);
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(1, SEED_1, BETA_1, pi);
 
+        vm.roll(3);
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(2, SEED_2, BETA_2, pi);
 
@@ -156,66 +159,105 @@ contract PredeployedVRFTest is Test {
         vrf.commitRandomness(2, SEED_2, BETA_2, pi);
     }
 
-    // ========== getRandomness ==========
-
-    function test_getRandomness_success() public {
-        // Commit one value
+    function test_commitRandomness_resetsCallCounter() public {
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
-        // Consume it
+        // Call getRandomness twice to increment counter
+        vm.prank(USER);
+        vrf.getRandomness();
+        vm.prank(USER);
+        vrf.getRandomness();
+        assertEq(vrf.callCounter(), 2);
+
+        // New block, new commitment resets counter
+        vm.roll(block.number + 1);
+        vm.prank(DEPOSITOR);
+        vrf.commitRandomness(1, SEED_1, BETA_1, _samplePi());
+        assertEq(vrf.callCounter(), 0);
+    }
+
+    // ========== getRandomness ==========
+
+    function test_getRandomness_derivesFromBeta() public {
+        vm.prank(DEPOSITOR);
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
+
         vm.prank(USER);
         uint256 randomness = vrf.getRandomness();
-        assertEq(randomness, uint256(BETA_0));
+
+        // First call: keccak256(BETA_0, 0)
+        uint256 expected = uint256(keccak256(abi.encodePacked(BETA_0, uint256(0))));
+        assertEq(randomness, expected);
     }
 
-    function test_getRandomness_sequential() public {
-        bytes memory pi = _samplePi();
+    function test_getRandomness_uniquePerCall() public {
+        vm.prank(DEPOSITOR);
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
-        // Commit 3 values
-        vm.startPrank(DEPOSITOR);
-        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
-        vrf.commitRandomness(1, SEED_1, BETA_1, pi);
-        vrf.commitRandomness(2, SEED_2, BETA_2, pi);
-        vm.stopPrank();
+        vm.prank(USER);
+        uint256 r0 = vrf.getRandomness();
+        vm.prank(USER);
+        uint256 r1 = vrf.getRandomness();
+        vm.prank(USER);
+        uint256 r2 = vrf.getRandomness();
 
-        // Consume in order
-        vm.startPrank(USER);
-        assertEq(vrf.getRandomness(), uint256(BETA_0));
-        assertEq(vrf.getRandomness(), uint256(BETA_1));
-        assertEq(vrf.getRandomness(), uint256(BETA_2));
-        vm.stopPrank();
+        // All different
+        assertTrue(r0 != r1);
+        assertTrue(r1 != r2);
+        assertTrue(r0 != r2);
 
-        assertEq(vrf.consumeNonce(), 3);
+        // Verify derivation
+        assertEq(r0, uint256(keccak256(abi.encodePacked(BETA_0, uint256(0)))));
+        assertEq(r1, uint256(keccak256(abi.encodePacked(BETA_0, uint256(1)))));
+        assertEq(r2, uint256(keccak256(abi.encodePacked(BETA_0, uint256(2)))));
     }
 
-    function test_getRandomness_revertNoAvailable() public {
+    function test_getRandomness_revertNoCommitmentForBlock() public {
+        // No commitment at all
         vm.prank(USER);
         vm.expectRevert(PredeployedVRF.NoRandomnessAvailable.selector);
         vrf.getRandomness();
     }
 
-    function test_getRandomness_revertExhausted() public {
-        // Commit one, consume one, then try again
+    function test_getRandomness_revertDifferentBlock() public {
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
-        vm.prank(USER);
-        vrf.getRandomness(); // consume
+        // Advance to next block — commitment was for the previous block
+        vm.roll(block.number + 1);
 
         vm.prank(USER);
         vm.expectRevert(PredeployedVRF.NoRandomnessAvailable.selector);
-        vrf.getRandomness(); // no more available
+        vrf.getRandomness();
+    }
+
+    function test_getRandomness_unlimitedCallsPerBlock() public {
+        vm.prank(DEPOSITOR);
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
+
+        // Can call many times in the same block without reverting
+        uint256 prev;
+        for (uint256 i = 0; i < 100; i++) {
+            vm.prank(USER);
+            uint256 r = vrf.getRandomness();
+            assertTrue(r != prev);
+            prev = r;
+        }
+        assertEq(vrf.callCounter(), 100);
     }
 
     function test_getRandomness_anyoneCanCall() public {
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
-        // Different users can consume
+        // Different users get different values (different callCounter)
         vm.prank(address(0x1111));
-        uint256 r = vrf.getRandomness();
-        assertEq(r, uint256(BETA_0));
+        uint256 r0 = vrf.getRandomness();
+        vm.prank(address(0x2222));
+        uint256 r1 = vrf.getRandomness();
+
+        assertTrue(r0 != r1);
     }
 
     // ========== getResult ==========
@@ -235,10 +277,13 @@ contract PredeployedVRFTest is Test {
     function test_getResult_historical() public {
         bytes memory pi = _samplePi();
 
-        vm.startPrank(DEPOSITOR);
+        vm.roll(1);
+        vm.prank(DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, pi);
+
+        vm.roll(2);
+        vm.prank(DEPOSITOR);
         vrf.commitRandomness(1, SEED_1, BETA_1, pi);
-        vm.stopPrank();
 
         // Both are retrievable
         (, bytes32 beta0,) = vrf.getResult(0);
@@ -276,30 +321,30 @@ contract PredeployedVRFTest is Test {
         assertEq(beta, BETA_0);
     }
 
-    // ========== Nonce Tracking ==========
+    // ========== Counter Tracking ==========
 
-    function test_nonceTracking() public {
+    function test_counterTracking() public {
         assertEq(vrf.commitNonce(), 0);
-        assertEq(vrf.consumeNonce(), 0);
+        assertEq(vrf.callCounter(), 0);
 
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
         assertEq(vrf.commitNonce(), 1);
-        assertEq(vrf.consumeNonce(), 0);
+        assertEq(vrf.callCounter(), 0);
 
         vm.prank(USER);
         vrf.getRandomness();
 
         assertEq(vrf.commitNonce(), 1);
-        assertEq(vrf.consumeNonce(), 1);
+        assertEq(vrf.callCounter(), 1);
     }
 
     // ========== Initial State ==========
 
     function test_initialState() public view {
         assertEq(vrf.commitNonce(), 0);
-        assertEq(vrf.consumeNonce(), 0);
+        assertEq(vrf.callCounter(), 0);
         assertEq(vrf.sequencerPublicKey().length, 0);
     }
 
@@ -311,38 +356,29 @@ contract PredeployedVRFTest is Test {
 
         CoinFlip coinFlip = new CoinFlip(address(vrf));
 
-        // The result is deterministic based on BETA_0
+        // The result is deterministic based on keccak256(BETA_0, 0)
         bool heads = coinFlip.flip();
-        bool expectedHeads = (uint256(BETA_0) % 2 == 0);
+        uint256 derived = uint256(keccak256(abi.encodePacked(BETA_0, uint256(0))));
+        bool expectedHeads = (derived % 2 == 0);
         assertEq(heads, expectedHeads);
     }
 
-    // ========== Batch Commit and Consume ==========
+    // ========== Multiple Calls Per Block (core new behavior) ==========
 
-    function test_batchCommitAndConsume() public {
-        bytes memory pi = _samplePi();
-        uint256 batchSize = 50;
+    function test_multipleUsersPerBlock() public {
+        vm.prank(DEPOSITOR);
+        vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
-        // Commit batch
-        vm.startPrank(DEPOSITOR);
-        for (uint256 i = 0; i < batchSize; i++) {
-            bytes32 beta = keccak256(abi.encodePacked("beta", i));
-            bytes32 seed = keccak256(abi.encodePacked("seed", i));
-            vrf.commitRandomness(i, seed, beta, pi);
-        }
-        vm.stopPrank();
+        // Three different contracts/users calling in the same block
+        CoinFlip flip1 = new CoinFlip(address(vrf));
+        CoinFlip flip2 = new CoinFlip(address(vrf));
+        CoinFlip flip3 = new CoinFlip(address(vrf));
 
-        assertEq(vrf.commitNonce(), batchSize);
+        flip1.flip(); // counter 0
+        flip2.flip(); // counter 1
+        flip3.flip(); // counter 2
 
-        // Consume batch
-        vm.startPrank(USER);
-        for (uint256 i = 0; i < batchSize; i++) {
-            uint256 r = vrf.getRandomness();
-            assertEq(r, uint256(keccak256(abi.encodePacked("beta", i))));
-        }
-        vm.stopPrank();
-
-        assertEq(vrf.consumeNonce(), batchSize);
+        assertEq(vrf.callCounter(), 3);
     }
 
     // ========== Gas Measurement ==========
@@ -355,7 +391,6 @@ contract PredeployedVRFTest is Test {
         vrf.commitRandomness(0, SEED_0, BETA_0, pi);
         uint256 gasUsed = gasBefore - gasleft();
 
-        // Log for report
         emit log_named_uint("commitRandomness gas", gasUsed);
     }
 

@@ -11,11 +11,10 @@ interface IEnshrainedVRF {
     /// @param caller    The address that triggered the commitment (DEPOSITOR_ACCOUNT).
     event RandomnessCommitted(uint256 indexed nonce, bytes32 beta, address indexed caller);
 
-    /// @notice Returns the next available random value for the current block.
-    /// @dev    Reads from randomness committed by the sequencer's deposit transaction.
-    ///         Each call increments an internal consumer nonce and returns a different value
-    ///         derived from the committed randomness pool.
-    /// @return randomness The VRF output (beta) as uint256.
+    /// @notice Returns a unique random value for each call within the current block.
+    /// @dev    Derives per-call randomness: keccak256(beta, callCounter).
+    ///         Reverts if no randomness has been committed for the current block.
+    /// @return randomness A unique derived value per call.
     function getRandomness() external returns (uint256 randomness);
 
     /// @notice Retrieves a historical VRF result by nonce.
@@ -29,11 +28,11 @@ interface IEnshrainedVRF {
     /// @return pk Compressed SEC1 public key (33 bytes).
     function sequencerPublicKey() external view returns (bytes memory pk);
 
-    /// @notice Returns the current commitment nonce (total commitments made).
+    /// @notice Returns the current commitment nonce (total commitments made, one per block).
     function commitNonce() external view returns (uint256);
 
-    /// @notice Returns the current consumer nonce.
-    function consumeNonce() external view returns (uint256);
+    /// @notice Returns the per-call counter for the current block.
+    function callCounter() external view returns (uint256);
 
     /// @notice Commits VRF randomness for consumption by user contracts.
     /// @dev    Only callable by DEPOSITOR_ACCOUNT via system deposit transaction.

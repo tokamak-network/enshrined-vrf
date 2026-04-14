@@ -9,14 +9,18 @@ import {IEnshrainedVRF} from "./interfaces/IEnshrainedVRF.sol";
 ///
 /// @dev    Deployed at 0x42000000000000000000000000000000000000F0.
 ///
-///         The sequencer commits VRF results via system deposit transactions
-///         by calling commitRandomness(). User contracts read randomness
-///         via getRandomness(). Historical results can be queried via getResult().
+///         The sequencer commits one VRF result per block via a system deposit
+///         transaction. User contracts call getRandomness() to receive per-call
+///         unique values derived from the committed beta:
+///           randomness = keccak256(beta, callCounter)
+///         This allows unlimited getRandomness() calls per block from a single
+///         VRF commitment, avoiding the chicken-and-egg problem of needing to
+///         know the call count before building the block.
 ///
 ///         Architecture:
-///         - Sequencer computes ECVRF.Prove(sk, seed) off-chain in Go
-///         - Sequencer injects deposit tx calling commitRandomness(nonce, beta, pi)
-///         - User contracts call getRandomness() to consume committed randomness
+///         - Sequencer computes ECVRF.Prove(sk, seed) off-chain in TEE
+///         - Sequencer injects one deposit tx per block: commitRandomness(nonce, beta, pi)
+///         - User contracts call getRandomness() — each call returns a unique derived value
 ///         - Anyone can verify proofs using the ECVRF verify precompile at 0x0101
 contract PredeployedVRF is IEnshrainedVRF {
     /// @notice The DEPOSITOR_ACCOUNT address used by the OP Stack for system deposit txs.
@@ -37,19 +41,25 @@ contract PredeployedVRF is IEnshrainedVRF {
     /// @notice The sequencer's compressed SEC1 public key (33 bytes).
     bytes private _sequencerPublicKey;
 
-    /// @notice The next nonce to be used for commitment (monotonically increasing).
+    /// @notice The next nonce to be used for commitment (monotonically increasing, one per block).
     uint256 private _commitNonce;
 
-    /// @notice The next nonce to be consumed by getRandomness().
-    uint256 private _consumeNonce;
+    /// @notice The beta committed for the current block.
+    bytes32 private _currentBeta;
 
-    /// @notice Mapping from nonce to VRF result.
+    /// @notice The block number of the current commitment.
+    uint256 private _currentBlock;
+
+    /// @notice Counter for per-call derivation within the current block.
+    uint256 private _callCounter;
+
+    /// @notice Mapping from nonce to VRF result (historical record).
     mapping(uint256 => VrfResult) private _results;
 
     /// @notice Thrown when a non-depositor account calls a system-only function.
     error OnlyDepositor();
 
-    /// @notice Thrown when no committed randomness is available for consumption.
+    /// @notice Thrown when no committed randomness is available for the current block.
     error NoRandomnessAvailable();
 
     /// @notice Thrown when querying a nonce that hasn't been committed yet.
@@ -74,10 +84,10 @@ contract PredeployedVRF is IEnshrainedVRF {
         if (msg.sender != DEPOSITOR_ACCOUNT) revert OnlyDepositor();
     }
 
-    /// @notice Commits VRF randomness for consumption by user contracts.
+    /// @notice Commits VRF randomness for the current block.
     /// @dev    Only callable by DEPOSITOR_ACCOUNT via system deposit transaction.
-    ///         The sequencer creates this deposit tx during block building after
-    ///         computing ECVRF.Prove(sk, seed) in Go code.
+    ///         The sequencer creates one deposit tx per block during block building
+    ///         after computing ECVRF.Prove(sk, seed) in the TEE enclave.
     /// @param nonce The expected sequential nonce (must equal _commitNonce).
     /// @param seed  The VRF seed used for proof generation (32 bytes).
     /// @param beta  The VRF output hash (32 bytes).
@@ -93,6 +103,10 @@ contract PredeployedVRF is IEnshrainedVRF {
             blockNumber: block.number
         });
 
+        _currentBeta = beta;
+        _currentBlock = block.number;
+        _callCounter = 0;
+
         emit RandomnessCommitted(nonce, beta, msg.sender);
 
         unchecked {
@@ -100,18 +114,18 @@ contract PredeployedVRF is IEnshrainedVRF {
         }
     }
 
-    /// @notice Returns the next available random value.
-    /// @dev    Each call consumes the next committed randomness in sequence.
-    ///         Reverts if no committed randomness is available.
-    /// @return randomness The VRF output (beta) cast to uint256.
+    /// @notice Returns a unique random value for each call within the current block.
+    /// @dev    Derives per-call randomness from the block's committed beta:
+    ///           randomness = keccak256(beta, callCounter++)
+    ///         Reverts if no randomness has been committed for the current block.
+    /// @return randomness A unique derived value per call.
     function getRandomness() external returns (uint256 randomness) {
-        uint256 nonce = _consumeNonce;
-        if (nonce >= _commitNonce) revert NoRandomnessAvailable();
+        if (_currentBlock != block.number) revert NoRandomnessAvailable();
 
-        randomness = uint256(_results[nonce].beta);
+        randomness = uint256(keccak256(abi.encodePacked(_currentBeta, _callCounter)));
 
         unchecked {
-            _consumeNonce++;
+            _callCounter++;
         }
     }
 
@@ -137,9 +151,9 @@ contract PredeployedVRF is IEnshrainedVRF {
         return _commitNonce;
     }
 
-    /// @notice Returns the current consumer nonce.
-    function consumeNonce() external view returns (uint256) {
-        return _consumeNonce;
+    /// @notice Returns the per-call counter for the current block.
+    function callCounter() external view returns (uint256) {
+        return _callCounter;
     }
 
     /// @notice Updates the sequencer's VRF public key.
