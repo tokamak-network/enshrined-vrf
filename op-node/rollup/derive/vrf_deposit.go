@@ -106,15 +106,18 @@ func VRFCommitRandomnessDeposit(nonce uint64, beta [32]byte, pi [81]byte, source
 	}, nil
 }
 
-// ComputeVRFSeed computes the VRF seed from the block number.
-// seed = sha256(blockNumber)
-// The seed is deterministic per block. Unpredictability is guaranteed by the
+// ComputeVRFSeed computes the VRF seed from the block number and nonce.
+// seed = sha256(blockNumber || nonce)
+// Each (blockNumber, nonce) pair produces a unique seed, allowing multiple
+// VRF commitments per block. Unpredictability is guaranteed by the
 // TEE-protected secret key — the sequencer cannot compute VRF outputs without
 // the enclave, so a predictable seed does not weaken the scheme.
-func ComputeVRFSeed(blockNumber uint64) [32]byte {
+func ComputeVRFSeed(blockNumber uint64, nonce uint64) [32]byte {
 	h := sha256.New()
 	blockNumBytes := common.BigToHash(new(big.Int).SetUint64(blockNumber))
 	h.Write(blockNumBytes.Bytes())
+	nonceBytes := common.BigToHash(new(big.Int).SetUint64(nonce))
+	h.Write(nonceBytes.Bytes())
 	var seed [32]byte
 	copy(seed[:], h.Sum(nil))
 	return seed
@@ -166,9 +169,9 @@ func (l *LocalVRFProver) PublicKey() []byte {
 	return l.pk
 }
 
-// ComputeVRFProof computes the VRF proof for a block using the given prover.
-func ComputeVRFProof(prover VRFProver, blockNumber uint64) (beta [32]byte, pi [81]byte, err error) {
-	seed := ComputeVRFSeed(blockNumber)
+// ComputeVRFProof computes the VRF proof for a block and nonce using the given prover.
+func ComputeVRFProof(prover VRFProver, blockNumber uint64, nonce uint64) (beta [32]byte, pi [81]byte, err error) {
+	seed := ComputeVRFSeed(blockNumber, nonce)
 	return prover.Prove(seed[:])
 }
 
