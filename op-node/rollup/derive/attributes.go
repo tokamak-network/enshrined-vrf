@@ -3,6 +3,7 @@ package derive
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -31,6 +32,20 @@ type SystemConfigL2Fetcher interface {
 	SystemConfigByL2Hash(ctx context.Context, hash common.Hash) (eth.SystemConfig, error)
 }
 
+// VRFRetryConfig controls retry behavior when the TEE enclave is unreachable.
+type VRFRetryConfig struct {
+	MaxRetries    int           // Number of retry attempts (default: 3)
+	RetryInterval time.Duration // Delay between retries (default: 100ms)
+}
+
+// DefaultVRFRetryConfig returns the default retry configuration.
+func DefaultVRFRetryConfig() VRFRetryConfig {
+	return VRFRetryConfig{
+		MaxRetries:    3,
+		RetryInterval: 100 * time.Millisecond,
+	}
+}
+
 // FetchingAttributesBuilder fetches inputs for the building of L2 payload attributes on the fly.
 type FetchingAttributesBuilder struct {
 	rollupCfg     *rollup.Config
@@ -38,7 +53,8 @@ type FetchingAttributesBuilder struct {
 	depSet        DependencySet
 	l1            L1ReceiptsFetcher
 	l2            SystemConfigL2Fetcher
-	vrfProver     VRFProver // EnshrainedVRF: proof generator (nil if not sequencer)
+	vrfProver     VRFProver       // EnshrainedVRF: proof generator (nil if not sequencer)
+	vrfRetry      VRFRetryConfig  // EnshrainedVRF: retry config for TEE failures
 	// whether to skip the L1 origin timestamp check - only for testing purposes
 	testSkipL1OriginCheck bool
 }
@@ -53,6 +69,7 @@ func NewFetchingAttributesBuilder(rollupCfg *rollup.Config, l1ChainConfig *param
 		depSet:        depSet,
 		l1:            l1,
 		l2:            l2,
+		vrfRetry:      DefaultVRFRetryConfig(),
 	}
 }
 
@@ -60,6 +77,28 @@ func NewFetchingAttributesBuilder(rollupCfg *rollup.Config, l1ChainConfig *param
 // This should be called during sequencer startup.
 func (ba *FetchingAttributesBuilder) SetVRFProver(prover VRFProver) {
 	ba.vrfProver = prover
+}
+
+// SetVRFRetryConfig overrides the default VRF retry configuration.
+func (ba *FetchingAttributesBuilder) SetVRFRetryConfig(cfg VRFRetryConfig) {
+	ba.vrfRetry = cfg
+}
+
+// computeVRFProofWithRetry attempts to compute a VRF proof, retrying on failure.
+// Returns an error only after all retries are exhausted.
+func (ba *FetchingAttributesBuilder) computeVRFProofWithRetry(blockNumber uint64, nonce uint64) (beta [32]byte, pi [81]byte, err error) {
+	attempts := ba.vrfRetry.MaxRetries + 1 // first attempt + retries
+	for i := 0; i < attempts; i++ {
+		beta, pi, err = ComputeVRFProof(ba.vrfProver, blockNumber, nonce)
+		if err == nil {
+			return beta, pi, nil
+		}
+		log.Warn("VRF proof attempt failed", "attempt", i+1, "max", attempts, "err", err)
+		if i < attempts-1 {
+			time.Sleep(ba.vrfRetry.RetryInterval)
+		}
+	}
+	return beta, pi, fmt.Errorf("all %d VRF proof attempts failed: %w", attempts, err)
 }
 
 // TestSkipL1OriginCheck skips the L1 origin timestamp check for testing purposes.
@@ -236,18 +275,19 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 	}
 	if ba.rollupCfg.IsEnshrainedVRF(nextL2Time) {
 		r.VRFPublicKey = sysConfig.VRFPublicKey
-		// Compute VRF proof if we have a prover configured
+		// Compute VRF proof if we have a prover configured.
+		// TEE failures are retried; if all retries fail, block production halts
+		// to prevent blocks without VRF commitments from entering the chain.
 		if ba.vrfProver != nil {
 			nextBlockNumber := l2Parent.Number + 1
-			beta, pi, err := ComputeVRFProof(ba.vrfProver, nextBlockNumber)
-			if err != nil {
-				log.Error("Failed to compute VRF proof", "err", err)
-			} else {
-				nonce := nextBlockNumber - 1 // nonce tracks from 0, aligns with block sequence
-				r.VRFProofBeta = beta[:]
-				r.VRFProofPi = pi[:]
-				r.VRFNonce = &nonce
+			nonce := nextBlockNumber - 1 // nonce tracks from 0, aligns with block sequence
+			beta, pi, vrfErr := ba.computeVRFProofWithRetry(nextBlockNumber, nonce)
+			if vrfErr != nil {
+				return nil, fmt.Errorf("VRF proof generation failed after %d attempts, halting block production: %w", ba.vrfRetry.MaxRetries+1, vrfErr)
 			}
+			r.VRFProofBeta = beta[:]
+			r.VRFProofPi = pi[:]
+			r.VRFNonce = &nonce
 		}
 	}
 	return r, nil
