@@ -285,6 +285,8 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 			if vrfErr != nil {
 				return nil, fmt.Errorf("VRF proof generation failed after %d attempts, halting block production: %w", ba.vrfRetry.MaxRetries+1, vrfErr)
 			}
+			seed := ComputeVRFSeed(nextBlockNumber, nonce)
+			r.VRFSeed = seed[:]
 			r.VRFProofBeta = beta[:]
 			r.VRFProofPi = pi[:]
 			r.VRFNonce = &nonce

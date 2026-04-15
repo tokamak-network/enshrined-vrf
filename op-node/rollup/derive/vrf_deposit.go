@@ -24,8 +24,8 @@ var (
 	// setSequencerPublicKey(bytes)
 	vrfSetPKSelector = crypto.Keccak256([]byte("setSequencerPublicKey(bytes)"))[:4]
 
-	// commitRandomness(uint256,bytes32,bytes)
-	vrfCommitSelector = crypto.Keccak256([]byte("commitRandomness(uint256,bytes32,bytes)"))[:4]
+	// commitRandomness(uint256,bytes32,bytes32,bytes)
+	vrfCommitSelector = crypto.Keccak256([]byte("commitRandomness(uint256,bytes32,bytes32,bytes)"))[:4]
 )
 
 // VRFSetPublicKeyDeposit creates a system deposit transaction that updates
@@ -68,16 +68,16 @@ func VRFSetPublicKeyDeposit(seqNumber uint64, publicKey []byte) (*types.DepositT
 }
 
 // VRFCommitRandomnessDeposit creates a system deposit transaction that commits
-// a VRF result (beta, pi) to the PredeployedVRF contract.
+// a VRF result (seed, beta, pi) to the PredeployedVRF contract.
 // This is called by the sequencer during block building.
-func VRFCommitRandomnessDeposit(nonce uint64, beta [32]byte, pi [81]byte, sourceHash common.Hash) (*types.DepositTx, error) {
-	// ABI encode: commitRandomness(uint256,bytes32,bytes)
+func VRFCommitRandomnessDeposit(nonce uint64, seed [32]byte, beta [32]byte, pi [81]byte, sourceHash common.Hash) (*types.DepositTx, error) {
+	// ABI encode: commitRandomness(uint256,bytes32,bytes32,bytes)
 	nonceBytes := common.BigToHash(new(big.Int).SetUint64(nonce))
 
 	// Dynamic encoding for pi (bytes)
-	// offset to dynamic data for pi parameter
+	// offset to dynamic data for pi parameter = 4 * 32 = 128
 	offset := make([]byte, 32)
-	offset[31] = 0x60 // 3 * 32 = 96
+	offset[31] = 0x80 // 128
 
 	piLength := make([]byte, 32)
 	piLength[31] = 81
@@ -86,13 +86,14 @@ func VRFCommitRandomnessDeposit(nonce uint64, beta [32]byte, pi [81]byte, source
 	piPadded := make([]byte, 96)
 	copy(piPadded, pi[:])
 
-	data := make([]byte, 0, 4+32+32+32+32+96)
+	data := make([]byte, 0, 4+32+32+32+32+32+96)
 	data = append(data, vrfCommitSelector...)
-	data = append(data, nonceBytes.Bytes()...)
-	data = append(data, beta[:]...)
-	data = append(data, offset...)
-	data = append(data, piLength...)
-	data = append(data, piPadded...)
+	data = append(data, nonceBytes.Bytes()...) // uint256 nonce
+	data = append(data, seed[:]...)            // bytes32 seed
+	data = append(data, beta[:]...)            // bytes32 beta
+	data = append(data, offset...)             // offset to pi
+	data = append(data, piLength...)           // pi length
+	data = append(data, piPadded...)           // pi data
 
 	return &types.DepositTx{
 		SourceHash:          sourceHash,
@@ -212,14 +213,16 @@ func CreateVRFSystemDeposits(rollupCfg *rollup.Config, attrs *eth.PayloadAttribu
 	}
 
 	// If VRF proof is present (computed by op-node), create the commit deposit
-	if len(attrs.VRFProofBeta) == 32 && len(attrs.VRFProofPi) == 81 && attrs.VRFNonce != nil {
+	if len(attrs.VRFSeed) == 32 && len(attrs.VRFProofBeta) == 32 && len(attrs.VRFProofPi) == 81 && attrs.VRFNonce != nil {
+		var seed [32]byte
 		var beta [32]byte
 		var pi [81]byte
+		copy(seed[:], attrs.VRFSeed)
 		copy(beta[:], attrs.VRFProofBeta)
 		copy(pi[:], attrs.VRFProofPi)
 
 		sourceHash := computeVRFSourceHash(uint64(attrs.Timestamp), *attrs.VRFNonce)
-		commitDeposit, err := VRFCommitRandomnessDeposit(*attrs.VRFNonce, beta, pi, sourceHash)
+		commitDeposit, err := VRFCommitRandomnessDeposit(*attrs.VRFNonce, seed, beta, pi, sourceHash)
 		if err != nil {
 			return nil, err
 		}

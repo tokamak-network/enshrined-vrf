@@ -524,6 +524,8 @@ type PayloadAttributes struct {
 	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1),
 	// to be specified only post-EnshrainedVRF
 	VRFPublicKey []byte `json:"vrfPublicKey,omitempty"`
+	// VRFSeed is the VRF seed (32 bytes) = sha256(blockNumber, nonce), computed by op-node.
+	VRFSeed []byte `json:"vrfSeed,omitempty"`
 	// VRFProofBeta is the VRF output hash (32 bytes), computed by op-node.
 	VRFProofBeta []byte `json:"vrfProofBeta,omitempty"`
 	// VRFProofPi is the VRF proof (81 bytes), computed by op-node.
