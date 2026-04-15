@@ -398,6 +398,7 @@ func (api *ConsensusAPI) forkchoiceUpdated(update engine.ForkchoiceStateV1, payl
 			EIP1559Params: eip1559Params,
 			MinBaseFee:    payloadAttributes.MinBaseFee,
 			VRFPublicKey:  payloadAttributes.VRFPublicKey,
+			VRFSeed:       payloadAttributes.VRFSeed,
 			VRFProofBeta:  payloadAttributes.VRFProofBeta,
 			VRFProofPi:    payloadAttributes.VRFProofPi,
 			VRFNonce:      payloadAttributes.VRFNonce,

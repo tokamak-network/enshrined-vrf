@@ -151,6 +151,7 @@ type generateParams struct {
 	isUpdate      bool               // Optional flag indicating that this is building a discardable update
 	minBaseFee    *uint64            // Optional minimum base fee
 	vrfPublicKey  []byte             // EnshrainedVRF: sequencer's VRF public key (33 bytes)
+	vrfSeed       []byte             // EnshrainedVRF: VRF seed (32 bytes), from op-node
 	vrfProofBeta  []byte             // EnshrainedVRF: VRF output hash (32 bytes), from op-node
 	vrfProofPi    []byte             // EnshrainedVRF: VRF proof (81 bytes), from op-node
 	vrfNonce      *uint64            // EnshrainedVRF: commitment nonce, from op-node
