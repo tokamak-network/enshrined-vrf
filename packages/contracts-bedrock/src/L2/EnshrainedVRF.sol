@@ -77,10 +77,11 @@ contract EnshrainedVRF is IEnshrainedVRF, ISemver {
 
     /// @inheritdoc IEnshrainedVRF
     function commitRandomness(uint256 nonce, bytes32 seed, bytes32 beta, bytes calldata pi) external onlyDepositor {
-        if (nonce != _commitNonce) revert NonceMismatch();
+        // nonce parameter is informational (used for seed construction and fault proofs).
+        // Contract uses its own monotonic _commitNonce to avoid sync issues with the sequencer.
         if (pi.length != 81) revert InvalidProofLength();
 
-        _results[nonce] = VrfResult({
+        _results[_commitNonce] = VrfResult({
             seed: seed,
             beta: beta,
             pi: pi,

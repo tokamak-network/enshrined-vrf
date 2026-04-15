@@ -55,6 +55,7 @@ type FetchingAttributesBuilder struct {
 	l2            SystemConfigL2Fetcher
 	vrfProver     VRFProver       // EnshrainedVRF: proof generator (nil if not sequencer)
 	vrfRetry      VRFRetryConfig  // EnshrainedVRF: retry config for TEE failures
+	vrfNonce      uint64          // EnshrainedVRF: monotonic nonce counter for VRF commitments
 	// whether to skip the L1 origin timestamp check - only for testing purposes
 	testSkipL1OriginCheck bool
 }
@@ -280,7 +281,7 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 		// to prevent blocks without VRF commitments from entering the chain.
 		if ba.vrfProver != nil {
 			nextBlockNumber := l2Parent.Number + 1
-			nonce := nextBlockNumber - 1 // nonce tracks from 0, aligns with block sequence
+			nonce := ba.vrfNonce // monotonic counter matching contract's _commitNonce
 			beta, pi, vrfErr := ba.computeVRFProofWithRetry(nextBlockNumber, nonce)
 			if vrfErr != nil {
 				return nil, fmt.Errorf("VRF proof generation failed after %d attempts, halting block production: %w", ba.vrfRetry.MaxRetries+1, vrfErr)
@@ -290,6 +291,7 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 			r.VRFProofBeta = beta[:]
 			r.VRFProofPi = pi[:]
 			r.VRFNonce = &nonce
+			ba.vrfNonce++ // increment for next block
 		}
 	}
 	return r, nil
