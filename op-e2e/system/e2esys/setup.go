@@ -271,6 +271,13 @@ func KarstSystemConfig(t *testing.T, karstTimeOffset *hexutil.Uint64, opts ...Sy
 	return cfg
 }
 
+func EnshrainedVRFSystemConfig(t *testing.T, enshrainedVRFTimeOffset *hexutil.Uint64, opts ...SystemConfigOpt) SystemConfig {
+	cfg := KarstSystemConfig(t, &genesisTime, opts...)
+	cfg.DeployConfig.L2GenesisInteropTimeOffset = &genesisTime
+	cfg.DeployConfig.L2GenesisEnshrainedVRFTimeOffset = enshrainedVRFTimeOffset
+	return cfg
+}
+
 func writeDefaultJWT(t testing.TB) string {
 	// Sadly the geth node config cannot load JWT secret from memory, it has to be a file
 	jwtPath := path.Join(t.TempDir(), "jwt_secret")

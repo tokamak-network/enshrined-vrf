@@ -56,6 +56,7 @@ require (
 	github.com/protolambda/ctxlock v0.1.0
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/stretchr/testify v1.11.1
+	github.com/tokamak-network/enshrined-vrf v0.0.0-20260408133951-753896ba7d96
 	github.com/urfave/cli/v2 v2.27.6
 	go.etcd.io/bbolt v1.3.5
 	go.opentelemetry.io/otel v1.40.0
@@ -76,7 +77,6 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/grafana/pyroscope-go v1.2.7 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9 // indirect
-	github.com/tokamak-network/enshrined-vrf v0.0.0-20260408133951-753896ba7d96 // indirect
 	golang.org/x/telemetry v0.0.0-20251203150158-8fff8a5912fc // indirect
 )
 
@@ -274,18 +274,18 @@ require (
 	golang.org/x/tools v0.40.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260120221211-b8f7ae30c516 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260120221211-b8f7ae30c516 // indirect
-	google.golang.org/grpc v1.80.0 // indirect
+	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101701.0-rc.3
+// replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101701.0-rc.3
 
 replace github.com/tokamak-network/enshrined-vrf => ../
 
-// replace github.com/ethereum/go-ethereum => ../op-geth
+replace github.com/ethereum/go-ethereum => ../op-geth
 
 // replace github.com/ethereum-optimism/superchain-registry/superchain => ../superchain-registry/superchain
 // This release keeps breaking Go builds. Stop that.

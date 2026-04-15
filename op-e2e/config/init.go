@@ -202,6 +202,7 @@ func initAllocType(root string, allocType AllocType) {
 	lgr := log.New()
 
 	allocModes := []genesis.L2AllocsMode{
+		genesis.L2AllocsEnshrainedVRF,
 		genesis.L2AllocsInterop,
 		genesis.L2AllocsJovian,
 		genesis.L2AllocsIsthmus,
@@ -265,7 +266,8 @@ func initAllocType(root string, allocType AllocType) {
 				"l2GenesisGraniteTimeOffset":  nil,
 				"l2GenesisHoloceneTimeOffset": nil,
 				"l2GenesisIsthmusTimeOffset":  nil,
-				"l2GenesisJovianTimeOffset":   nil,
+				"l2GenesisJovianTimeOffset":          nil,
+				"l2GenesisEnshrainedVRFTimeOffset":   nil,
 			}
 
 			upgradeSchedule := new(genesis.UpgradeScheduleDeployConfig)
