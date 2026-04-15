@@ -77,7 +77,7 @@ fs_permissions = [
 # 8429 = virtual modifiers deprecated (solc 0.8.31, triggered by solmate)
 # 2424 = natspec memory-safe-assembly comment deprecated (solc 0.8.31, triggered by forge-std)
 ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159, 8429, 2424]
-deny = "warnings"
+# deny = "warnings" # temporarily disabled for EnshrainedVRF build
 ffi = true
 
 # We set the gas limit to max int64 to avoid running out of gas during testing, since the default

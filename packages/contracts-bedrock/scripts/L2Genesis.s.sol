@@ -198,6 +198,11 @@ contract L2Genesis is Script {
             return;
         }
 
+        if (forkEquals(_fork, Fork.ENSHRAINEDVRF)) {
+            setEnshrainedVRF();
+            return;
+        }
+
         if (forkEquals(_fork, Fork.INTEROP)) {
             return;
         }

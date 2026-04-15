@@ -39,6 +39,7 @@ enum Fork {
     ISTHMUS,
     JOVIAN,
     KARST,
+    ENSHRAINEDVRF,
     INTEROP
 }
 
@@ -64,6 +65,10 @@ library ForkUtils {
             return "jovian";
         } else if (_fork == Fork.KARST) {
             return "karst";
+        } else if (_fork == Fork.INTEROP) {
+            return "interop";
+        } else if (_fork == Fork.ENSHRAINEDVRF) {
+            return "enshrainedvrf";
         } else {
             return "unknown";
         }

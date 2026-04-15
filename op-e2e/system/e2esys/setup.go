@@ -273,8 +273,16 @@ func KarstSystemConfig(t *testing.T, karstTimeOffset *hexutil.Uint64, opts ...Sy
 
 func EnshrainedVRFSystemConfig(t *testing.T, enshrainedVRFTimeOffset *hexutil.Uint64, opts ...SystemConfigOpt) SystemConfig {
 	cfg := KarstSystemConfig(t, &genesisTime, opts...)
-	cfg.DeployConfig.L2GenesisInteropTimeOffset = &genesisTime
 	cfg.DeployConfig.L2GenesisEnshrainedVRFTimeOffset = enshrainedVRFTimeOffset
+
+	// Set up a local VRF prover for the sequencer using a test key.
+	// This is the RFC 9381 test vector key — NEVER use in production.
+	testVRFKey := "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721"
+	prover, err := derive.NewLocalVRFProver(testVRFKey)
+	if err != nil {
+		t.Fatalf("failed to create VRF prover: %v", err)
+	}
+	cfg.Nodes[RoleSeq].Driver.VRFProver = prover
 	return cfg
 }
 
