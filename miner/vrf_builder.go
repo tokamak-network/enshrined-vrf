@@ -18,8 +18,8 @@ var (
 	vrfDepositorAddr = common.HexToAddress("0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001")
 
 	// Function selectors
-	// commitRandomness(uint256,bytes32,bytes)
-	commitRandomnessSelector = crypto.Keccak256([]byte("commitRandomness(uint256,bytes32,bytes)"))[:4]
+	// commitRandomness(uint256,bytes32,bytes32,bytes)
+	commitRandomnessSelector = crypto.Keccak256([]byte("commitRandomness(uint256,bytes32,bytes32,bytes)"))[:4]
 )
 
 // buildVRFDepositTx creates a system deposit transaction that commits VRF
@@ -32,13 +32,15 @@ func (miner *Miner) buildVRFDepositTx(env *environment, genParam *generateParams
 	}
 
 	// VRF proof must be provided by op-node via PayloadAttributes
-	if len(genParam.vrfProofBeta) != 32 || len(genParam.vrfProofPi) != 81 || genParam.vrfNonce == nil {
-		return nil, fmt.Errorf("VRF proof not provided in PayloadAttributes (beta=%d, pi=%d bytes)",
-			len(genParam.vrfProofBeta), len(genParam.vrfProofPi))
+	if len(genParam.vrfSeed) != 32 || len(genParam.vrfProofBeta) != 32 || len(genParam.vrfProofPi) != 81 || genParam.vrfNonce == nil {
+		return nil, fmt.Errorf("VRF proof not provided in PayloadAttributes (seed=%d, beta=%d, pi=%d bytes)",
+			len(genParam.vrfSeed), len(genParam.vrfProofBeta), len(genParam.vrfProofPi))
 	}
 
+	var seed [32]byte
 	var beta [32]byte
 	var pi [81]byte
+	copy(seed[:], genParam.vrfSeed)
 	copy(beta[:], genParam.vrfProofBeta)
 	copy(pi[:], genParam.vrfProofPi)
 	nonce := *genParam.vrfNonce
@@ -49,8 +51,8 @@ func (miner *Miner) buildVRFDepositTx(env *environment, genParam *generateParams
 		"beta", common.Bytes2Hex(beta[:8]),
 	)
 
-	// Encode deposit tx data: commitRandomness(uint256 nonce, bytes32 beta, bytes pi)
-	data := encodeCommitRandomness(new(big.Int).SetUint64(nonce), beta, pi)
+	// Encode deposit tx data: commitRandomness(uint256 nonce, bytes32 seed, bytes32 beta, bytes pi)
+	data := encodeCommitRandomness(new(big.Int).SetUint64(nonce), seed, beta, pi)
 
 	// Create source hash for the deposit tx
 	sourceHash := computeVRFSourceHash(env.header.Number.Uint64(), nonce)
@@ -81,22 +83,25 @@ func computeVRFSourceHash(blockNumber, nonce uint64) common.Hash {
 	return common.BytesToHash(data)
 }
 
-// encodeCommitRandomness ABI-encodes commitRandomness(uint256,bytes32,bytes)
-func encodeCommitRandomness(nonce *big.Int, beta [32]byte, pi [81]byte) []byte {
+// encodeCommitRandomness ABI-encodes commitRandomness(uint256,bytes32,bytes32,bytes)
+func encodeCommitRandomness(nonce *big.Int, seed [32]byte, beta [32]byte, pi [81]byte) []byte {
 	// Function selector
-	data := make([]byte, 0, 4+32+32+32+32+96)
+	data := make([]byte, 0, 4+32+32+32+32+32+96)
 	data = append(data, commitRandomnessSelector...)
 
 	// uint256 nonce
 	nonceBytes := common.BigToHash(nonce)
 	data = append(data, nonceBytes.Bytes()...)
 
+	// bytes32 seed
+	data = append(data, seed[:]...)
+
 	// bytes32 beta
 	data = append(data, beta[:]...)
 
 	// bytes pi (dynamic type)
-	// offset to dynamic data = 3 * 32 = 96
-	offset := common.BigToHash(big.NewInt(96))
+	// offset to dynamic data = 4 * 32 = 128
+	offset := common.BigToHash(big.NewInt(128))
 	data = append(data, offset.Bytes()...)
 
 	// length of pi = 81
