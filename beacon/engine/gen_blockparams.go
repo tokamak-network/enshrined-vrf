@@ -27,6 +27,11 @@ func (p PayloadAttributes) MarshalJSON() ([]byte, error) {
 		GasLimit              *hexutil.Uint64     `json:"gasLimit,omitempty" gencodec:"optional"`
 		EIP1559Params         hexutil.Bytes       `json:"eip1559Params,omitempty" gencodec:"optional"`
 		MinBaseFee            *uint64             `json:"minBaseFee,omitempty" gencodec:"optional"`
+		VRFPublicKey          []byte              `json:"vrfPublicKey,omitempty" gencodec:"optional"`
+		VRFSeed               []byte              `json:"vrfSeed,omitempty" gencodec:"optional"`
+		VRFProofBeta          []byte              `json:"vrfProofBeta,omitempty" gencodec:"optional"`
+		VRFProofPi            []byte              `json:"vrfProofPi,omitempty" gencodec:"optional"`
+		VRFNonce              *uint64             `json:"vrfNonce,omitempty" gencodec:"optional"`
 	}
 	var enc PayloadAttributes
 	enc.Timestamp = hexutil.Uint64(p.Timestamp)
@@ -45,6 +50,11 @@ func (p PayloadAttributes) MarshalJSON() ([]byte, error) {
 	enc.GasLimit = (*hexutil.Uint64)(p.GasLimit)
 	enc.EIP1559Params = p.EIP1559Params
 	enc.MinBaseFee = p.MinBaseFee
+	enc.VRFPublicKey = p.VRFPublicKey
+	enc.VRFSeed = p.VRFSeed
+	enc.VRFProofBeta = p.VRFProofBeta
+	enc.VRFProofPi = p.VRFProofPi
+	enc.VRFNonce = p.VRFNonce
 	return json.Marshal(&enc)
 }
 
@@ -62,6 +72,11 @@ func (p *PayloadAttributes) UnmarshalJSON(input []byte) error {
 		GasLimit              *hexutil.Uint64     `json:"gasLimit,omitempty" gencodec:"optional"`
 		EIP1559Params         *hexutil.Bytes      `json:"eip1559Params,omitempty" gencodec:"optional"`
 		MinBaseFee            *uint64             `json:"minBaseFee,omitempty" gencodec:"optional"`
+		VRFPublicKey          []byte              `json:"vrfPublicKey,omitempty" gencodec:"optional"`
+		VRFSeed               []byte              `json:"vrfSeed,omitempty" gencodec:"optional"`
+		VRFProofBeta          []byte              `json:"vrfProofBeta,omitempty" gencodec:"optional"`
+		VRFProofPi            []byte              `json:"vrfProofPi,omitempty" gencodec:"optional"`
+		VRFNonce              *uint64             `json:"vrfNonce,omitempty" gencodec:"optional"`
 	}
 	var dec PayloadAttributes
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -105,6 +120,21 @@ func (p *PayloadAttributes) UnmarshalJSON(input []byte) error {
 	}
 	if dec.MinBaseFee != nil {
 		p.MinBaseFee = dec.MinBaseFee
+	}
+	if dec.VRFPublicKey != nil {
+		p.VRFPublicKey = dec.VRFPublicKey
+	}
+	if dec.VRFSeed != nil {
+		p.VRFSeed = dec.VRFSeed
+	}
+	if dec.VRFProofBeta != nil {
+		p.VRFProofBeta = dec.VRFProofBeta
+	}
+	if dec.VRFProofPi != nil {
+		p.VRFProofPi = dec.VRFProofPi
+	}
+	if dec.VRFNonce != nil {
+		p.VRFNonce = dec.VRFNonce
 	}
 	return nil
 }

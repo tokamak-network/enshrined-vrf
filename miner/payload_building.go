@@ -361,6 +361,7 @@ func (miner *Miner) buildPayload(args *BuildPayloadArgs, witness bool) (*Payload
 		eip1559Params: args.EIP1559Params,
 		minBaseFee:    args.MinBaseFee,
 		vrfPublicKey:  args.VRFPublicKey,
+		vrfSeed:       args.VRFSeed,
 		vrfProofBeta:  args.VRFProofBeta,
 		vrfProofPi:    args.VRFProofPi,
 		vrfNonce:      args.VRFNonce,

@@ -63,8 +63,8 @@ func (miner *Miner) buildVRFDepositTx(env *environment, genParam *generateParams
 		To:                  &enshrainedVRFAddr,
 		Mint:                big.NewInt(0),
 		Value:               big.NewInt(0),
-		Gas:                 1_000_000, // RegolithSystemTxGas
-		IsSystemTransaction: true,
+		Gas:                 1_000_000,
+		IsSystemTransaction: false, // Must be false post-Regolith
 		Data:                data,
 	})
 
