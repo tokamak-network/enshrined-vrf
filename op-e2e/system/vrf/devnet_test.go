@@ -41,6 +41,7 @@ func TestEnshrainedVRF_InteractiveDevnet(t *testing.T) {
 
 	zero := hexutil.Uint64(0)
 	cfg := e2esys.EnshrainedVRFSystemConfig(t, &zero)
+	cfg.DisableBatcher = true // Prevent reorg from L1 derivation for stable demo
 	sys, err := cfg.Start(t)
 	require.NoError(t, err)
 
