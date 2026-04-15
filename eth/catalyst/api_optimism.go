@@ -61,12 +61,10 @@ func checkOptimismPayloadAttributes(payloadAttributes *engine.PayloadAttributes,
 
 	// Note: PayloadAttributes don't contain the Isthmus withdrawalsRoot, it's set during block assembly.
 
-	// EnshrainedVRF - VRF public key
-	if cfg.IsEnshrainedVRF(payloadAttributes.Timestamp) {
-		if len(payloadAttributes.VRFPublicKey) == 0 {
-			return errors.New("vrfPublicKey required post-EnshrainedVRF")
-		}
-	} else if len(payloadAttributes.VRFPublicKey) > 0 {
+	// EnshrainedVRF - VRF public key is optional post-fork.
+	// If present, it will be used for VRF deposit transactions.
+	// If absent, VRF commitments are skipped (sequencer may not have registered a key yet).
+	if !cfg.IsEnshrainedVRF(payloadAttributes.Timestamp) && len(payloadAttributes.VRFPublicKey) > 0 {
 		return errors.New("non-empty vrfPublicKey pre-EnshrainedVRF")
 	}
 
