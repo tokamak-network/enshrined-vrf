@@ -413,6 +413,9 @@ type UpgradeScheduleDeployConfig struct {
 	// L2GenesisInteropTimeOffset is the number of seconds after genesis block that the Interop hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Interop.
 	L2GenesisInteropTimeOffset *hexutil.Uint64 `json:"l2GenesisInteropTimeOffset,omitempty"`
+	// L2GenesisEnshrainedVRFTimeOffset is the number of seconds after genesis block that the EnshrainedVRF hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable EnshrainedVRF.
+	L2GenesisEnshrainedVRFTimeOffset *hexutil.Uint64 `json:"l2GenesisEnshrainedVRFTimeOffset,omitempty"`
 
 	// Optional Forks
 
@@ -475,6 +478,8 @@ func (d *UpgradeScheduleDeployConfig) ForkTimeOffset(fork rollup.ForkName) *uint
 		return (*uint64)(d.L2GenesisKarstTimeOffset)
 	case forks.Interop:
 		return (*uint64)(d.L2GenesisInteropTimeOffset)
+	case forks.EnshrainedVRF:
+		return (*uint64)(d.L2GenesisEnshrainedVRFTimeOffset)
 	default:
 		panic(fmt.Sprintf("unknown fork: %s", fork))
 	}
@@ -504,6 +509,8 @@ func (d *UpgradeScheduleDeployConfig) SetForkTimeOffset(fork rollup.ForkName, of
 		d.L2GenesisKarstTimeOffset = (*hexutil.Uint64)(offset)
 	case forks.Interop:
 		d.L2GenesisInteropTimeOffset = (*hexutil.Uint64)(offset)
+	case forks.EnshrainedVRF:
+		d.L2GenesisEnshrainedVRFTimeOffset = (*hexutil.Uint64)(offset)
 	default:
 		panic(fmt.Sprintf("unknown fork: %s", fork))
 	}
@@ -586,6 +593,10 @@ func (d *UpgradeScheduleDeployConfig) InteropTime(genesisTime uint64) *uint64 {
 	return offsetToUpgradeTime(d.L2GenesisInteropTimeOffset, genesisTime)
 }
 
+func (d *UpgradeScheduleDeployConfig) EnshrainedVRFTime(genesisTime uint64) *uint64 {
+	return offsetToUpgradeTime(d.L2GenesisEnshrainedVRFTimeOffset, genesisTime)
+}
+
 func (d *UpgradeScheduleDeployConfig) AllocMode(genesisTime uint64) L2AllocsMode {
 	forks := d.forks()
 	for i := len(forks) - 1; i >= 0; i-- {
@@ -618,6 +629,7 @@ func (d *UpgradeScheduleDeployConfig) forks() []Fork {
 		{L2GenesisTimeOffset: d.L2GenesisJovianTimeOffset, Name: string(L2AllocsJovian)},
 		{L2GenesisTimeOffset: d.L2GenesisKarstTimeOffset, Name: string(L2AllocsKarst)},
 		{L2GenesisTimeOffset: d.L2GenesisInteropTimeOffset, Name: string(L2AllocsInterop)},
+		{L2GenesisTimeOffset: d.L2GenesisEnshrainedVRFTimeOffset, Name: string(L2AllocsEnshrainedVRF)},
 	}
 }
 
@@ -1176,6 +1188,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 		IsthmusTime:             d.IsthmusTime(l1StartTime),
 		JovianTime:              d.JovianTime(l1StartTime),
 		InteropTime:             d.InteropTime(l1StartTime),
+		EnshrainedVRFTime:       d.EnshrainedVRFTime(l1StartTime),
 		ProtocolVersionsAddress: d.ProtocolVersionsProxy,
 		AltDAConfig:             altDA,
 		ChainOpConfig:           chainOpConfig,
