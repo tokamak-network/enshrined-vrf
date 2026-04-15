@@ -88,15 +88,16 @@ contract PredeployedVRF is IEnshrainedVRF {
     /// @dev    Only callable by DEPOSITOR_ACCOUNT via system deposit transaction.
     ///         The sequencer creates one deposit tx per block during block building
     ///         after computing ECVRF.Prove(sk, seed) in the TEE enclave.
-    /// @param nonce The expected sequential nonce (must equal _commitNonce).
+    /// @param nonce Informational nonce (used for seed construction and fault proofs).
     /// @param seed  The VRF seed used for proof generation (32 bytes).
     /// @param beta  The VRF output hash (32 bytes).
     /// @param pi    The VRF proof (81 bytes).
     function commitRandomness(uint256 nonce, bytes32 seed, bytes32 beta, bytes calldata pi) external onlyDepositor {
-        if (nonce != _commitNonce) revert NonceMismatch();
+        // nonce parameter is informational — contract uses internal _commitNonce
+        // to avoid sync issues between sequencer and contract state.
         if (pi.length != 81) revert InvalidProofLength();
 
-        _results[nonce] = VrfResult({
+        _results[_commitNonce] = VrfResult({
             seed: seed,
             beta: beta,
             pi: pi,
