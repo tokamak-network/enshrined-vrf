@@ -56,8 +56,8 @@ func TestEnshrainedVRF_CommitNonceIncreases(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// commitNonce() selector = keccak256("commitNonce()")[:4] = 0xd4a7c980
-	commitNonceSelector := common.FromHex("0xd4a7c980")
+	// commitNonce() selector = keccak256("commitNonce()")[:4] = 0x9fc0ef10
+	commitNonceSelector := common.FromHex("0x9fc0ef10")
 
 	// Poll until commitNonce > 0
 	var nonce *big.Int
