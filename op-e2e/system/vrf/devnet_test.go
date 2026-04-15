@@ -3,7 +3,10 @@ package vrf
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/big"
+	"net"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -59,6 +62,18 @@ func TestEnshrainedVRF_InteractiveDevnet(t *testing.T) {
 	}
 	require.NotEmpty(t, rpcURL, "sequencer RPC URL should be available")
 
+	// Start a TCP proxy on fixed port 9545 → sequencer's random port
+	fixedPort := os.Getenv("VRF_PORT")
+	if fixedPort == "" {
+		fixedPort = "9545"
+	}
+	proxyAddr := "127.0.0.1:" + fixedPort
+	parsed, err := url.Parse(rpcURL)
+	require.NoError(t, err)
+	stopProxy := startTCPProxy(t, proxyAddr, parsed.Host)
+	defer stopProxy()
+	fixedRPC := "http://" + proxyAddr
+
 	client := sys.NodeClient("sequencer")
 	ctx := context.Background()
 
@@ -98,30 +113,33 @@ func TestEnshrainedVRF_InteractiveDevnet(t *testing.T) {
 	fmt.Println("  Enshrined VRF — Interactive Devnet")
 	fmt.Println("============================================")
 	fmt.Println()
-	fmt.Printf("  L2 RPC:      %s\n", rpcURL)
+	fmt.Printf("  L2 RPC (fixed): %s\n", fixedRPC)
+	fmt.Printf("  L2 RPC (actual): %s\n", rpcURL)
 	fmt.Printf("  commitNonce: %d (blocks with VRF so far)\n", commitNonce)
 	fmt.Printf("  VRF[0] seed: %s\n", seed.Hex())
 	fmt.Printf("  VRF[0] beta: %s\n", beta.Hex())
 	fmt.Println()
 	fmt.Println("  ── Try these commands ──")
 	fmt.Println()
+	fmt.Printf("  RPC=%s\n", fixedRPC)
+	fmt.Printf("  KEY=0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6\n")
+	fmt.Printf("  VRF=0x42000000000000000000000000000000000000f0\n")
+	fmt.Println()
 	fmt.Printf("  # 1. Check VRF contract exists\n")
-	fmt.Printf("  cast code 0x42000000000000000000000000000000000000f0 --rpc-url %s | head -c 40\n", rpcURL)
+	fmt.Printf("  cast code $VRF --rpc-url $RPC | head -c 40\n")
 	fmt.Println()
 	fmt.Printf("  # 2. Query commitNonce (increases every block)\n")
-	fmt.Printf("  cast call 0x42000000000000000000000000000000000000f0 \"commitNonce()(uint256)\" --rpc-url %s\n", rpcURL)
+	fmt.Printf("  cast call $VRF \"commitNonce()(uint256)\" --rpc-url $RPC\n")
 	fmt.Println()
 	fmt.Printf("  # 3. Get VRF proof for nonce 0\n")
-	fmt.Printf("  cast call 0x42000000000000000000000000000000000000f0 \"getResult(uint256)(bytes32,bytes32,bytes)\" 0 --rpc-url %s\n", rpcURL)
+	fmt.Printf("  cast call $VRF \"getResult(uint256)(bytes32,bytes32,bytes)\" 0 --rpc-url $RPC\n")
 	fmt.Println()
-	fmt.Printf("  # 4. Call getRandomness() — returns unique value each call\n")
-	fmt.Printf("  #    (Alice's test key, pre-funded in devnet)\n")
-	fmt.Printf("  cast send 0x42000000000000000000000000000000000000f0 \"getRandomness()(uint256)\" \\\n")
-	fmt.Printf("    --private-key 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6 \\\n")
-	fmt.Printf("    --rpc-url %s\n", rpcURL)
+	fmt.Printf("  # 4. Send getRandomness() tx\n")
+	fmt.Printf("  cast send $VRF \"getRandomness()\" --private-key $KEY --rpc-url $RPC\n")
 	fmt.Println()
-	fmt.Printf("  # 5. Call getRandomness() via eth_call (read-only, no tx)\n")
-	fmt.Printf("  cast call 0x42000000000000000000000000000000000000f0 \"getRandomness()(uint256)\" --rpc-url %s\n", rpcURL)
+	fmt.Printf("  # 5. Deploy & test RandomGenerator\n")
+	fmt.Printf("  forge create contracts/src/examples/RandomGenerator.sol:RandomGenerator \\\n")
+	fmt.Printf("    --private-key $KEY --rpc-url $RPC --root contracts --broadcast\n")
 	fmt.Println()
 	fmt.Println("  Press Ctrl+C to stop the devnet.")
 	fmt.Println("============================================")
@@ -133,4 +151,35 @@ func TestEnshrainedVRF_InteractiveDevnet(t *testing.T) {
 	<-sigCh
 
 	fmt.Println("\nShutting down devnet...")
+}
+
+// startTCPProxy creates a TCP proxy from listenAddr to targetAddr.
+// Returns a stop function.
+func startTCPProxy(t *testing.T, listenAddr, targetAddr string) func() {
+	ln, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		t.Logf("Warning: could not bind fixed port %s: %v (using random port URL instead)", listenAddr, err)
+		return func() {}
+	}
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return // listener closed
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				upstream, err := net.Dial("tcp", targetAddr)
+				if err != nil {
+					return
+				}
+				defer upstream.Close()
+				go io.Copy(upstream, c)
+				io.Copy(c, upstream)
+			}(conn)
+		}
+	}()
+
+	return func() { ln.Close() }
 }
