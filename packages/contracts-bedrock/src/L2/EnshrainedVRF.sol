@@ -56,9 +56,6 @@ contract EnshrainedVRF is IEnshrainedVRF, ISemver {
     /// @notice Thrown when querying a nonce that hasn't been committed yet.
     error NonceNotCommitted();
 
-    /// @notice Thrown when the committed nonce doesn't match the expected value.
-    error NonceMismatch();
-
     /// @notice Thrown when the public key has invalid length.
     error InvalidPublicKeyLength();
 

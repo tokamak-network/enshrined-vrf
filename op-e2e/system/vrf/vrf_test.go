@@ -2,7 +2,6 @@ package vrf
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"math/big"
 	"testing"
 	"time"
@@ -24,6 +23,25 @@ var (
 	vrfAddr     = common.HexToAddress("0x42000000000000000000000000000000000000f0")
 	genesisTime = hexutil.Uint64(0)
 )
+
+// waitForVRFCommitment polls until at least one VRF commitment exists.
+func waitForVRFCommitment(ctx context.Context, t *testing.T, client interface {
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+}) {
+	t.Helper()
+	commitNonceSelector := common.FromHex("0x9fc0ef10")
+	err := wait.For(ctx, time.Second, func() (bool, error) {
+		result, err := client.CallContract(ctx, ethereum.CallMsg{
+			To:   &vrfAddr,
+			Data: commitNonceSelector,
+		}, nil)
+		if err != nil {
+			return false, nil
+		}
+		return new(big.Int).SetBytes(result).Sign() > 0, nil
+	})
+	require.NoError(t, err, "need at least 1 VRF commitment")
+}
 
 // TestEnshrainedVRF_PredeployExists verifies that the EnshrainedVRF contract
 // is deployed at the predeploy address after genesis.
@@ -56,14 +74,11 @@ func TestEnshrainedVRF_CommitNonceIncreases(t *testing.T) {
 
 	client := sys.NodeClient("sequencer")
 
-	// Wait for a few blocks to be produced
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// commitNonce() selector = keccak256("commitNonce()")[:4] = 0x9fc0ef10
-	commitNonceSelector := common.FromHex("0x9fc0ef10")
-
 	// Poll until commitNonce > 0
+	commitNonceSelector := common.FromHex("0x9fc0ef10")
 	var nonce *big.Int
 	err = wait.For(ctx, time.Second, func() (bool, error) {
 		result, err := client.CallContract(ctx, ethereum.CallMsg{
@@ -81,7 +96,7 @@ func TestEnshrainedVRF_CommitNonceIncreases(t *testing.T) {
 }
 
 // TestEnshrainedVRF_GetRandomness verifies the full flow:
-// sequencer commits VRF → user calls getRandomness() → receives unique values.
+// sequencer commits VRF → user calls getRandomness() → tx succeeds.
 func TestEnshrainedVRF_GetRandomness(t *testing.T) {
 	op_e2e.InitParallel(t)
 
@@ -94,31 +109,16 @@ func TestEnshrainedVRF_GetRandomness(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// Wait for at least 1 VRF commitment
-	commitNonceSelector := common.FromHex("0x9fc0ef10")
-	err = wait.For(ctx, time.Second, func() (bool, error) {
-		result, err := client.CallContract(ctx, ethereum.CallMsg{
-			To:   &vrfAddr,
-			Data: commitNonceSelector,
-		}, nil)
-		if err != nil {
-			return false, nil
-		}
-		n := new(big.Int).SetBytes(result)
-		return n.Sign() > 0, nil
-	})
-	require.NoError(t, err, "need at least 1 VRF commitment")
+	waitForVRFCommitment(ctx, t, client)
 
-	// Use Alice's key to send transactions
 	aliceKey := secrets.DefaultSecrets.Alice
 	aliceAddr := crypto.PubkeyToAddress(aliceKey.PublicKey)
 
 	chainID, err := client.ChainID(ctx)
 	require.NoError(t, err)
 
-	// Send getRandomness() transaction
+	// Send 3 getRandomness() transactions
 	getRandomnessSelector := common.FromHex("0xaaae7b86")
-	randomValues := make([][]byte, 0)
 
 	for i := 0; i < 3; i++ {
 		nonce, err := client.PendingNonceAt(ctx, aliceAddr)
@@ -146,30 +146,14 @@ func TestEnshrainedVRF_GetRandomness(t *testing.T) {
 		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status,
 			"getRandomness() tx should succeed")
 
-		// getRandomness returns uint256 — read from return data via debug_traceTransaction
-		// or simply check that the tx succeeded and gas was consumed
 		t.Logf("getRandomness() call #%d: tx=%s block=%d gasUsed=%d",
 			i+1, signedTx.Hash().Hex()[:18], receipt.BlockNumber.Uint64(), receipt.GasUsed)
 	}
-
-	// Verify each call consumed randomness by checking callCounter
-	callCounterSelector := common.FromHex("0xc0f9882e") // callCounter()
-	result, err := client.CallContract(ctx, ethereum.CallMsg{
-		To:   &vrfAddr,
-		Data: callCounterSelector,
-	}, nil)
-	require.NoError(t, err)
-	// Note: callCounter resets per block, so it may be 0 if we're querying in a new block.
-	// The key assertion is that all 3 getRandomness() txs succeeded (receipt status = 1).
-	t.Logf("callCounter (current block) = %d", new(big.Int).SetBytes(result))
-
-	_ = randomValues
-	_ = aliceKey
 }
 
-// TestEnshrainedVRF_MultipleCallsUniqueValues verifies that multiple
-// getRandomness() calls in the same block return different values.
-func TestEnshrainedVRF_MultipleCallsUniqueValues(t *testing.T) {
+// TestEnshrainedVRF_ProofDataStored verifies that VRF proof data (seed, beta)
+// is correctly stored and retrievable via getResult().
+func TestEnshrainedVRF_ProofDataStored(t *testing.T) {
 	op_e2e.InitParallel(t)
 
 	cfg := e2esys.EnshrainedVRFSystemConfig(t, &genesisTime)
@@ -181,19 +165,7 @@ func TestEnshrainedVRF_MultipleCallsUniqueValues(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// Wait for VRF commitments
-	commitNonceSelector := common.FromHex("0x9fc0ef10")
-	err = wait.For(ctx, time.Second, func() (bool, error) {
-		result, err := client.CallContract(ctx, ethereum.CallMsg{
-			To:   &vrfAddr,
-			Data: commitNonceSelector,
-		}, nil)
-		if err != nil {
-			return false, nil
-		}
-		return new(big.Int).SetBytes(result).Sign() > 0, nil
-	})
-	require.NoError(t, err)
+	waitForVRFCommitment(ctx, t, client)
 
 	// Query getResult(0) to verify proof data is stored
 	// getResult(uint256) selector = 0x995e4339
@@ -215,6 +187,3 @@ func TestEnshrainedVRF_MultipleCallsUniqueValues(t *testing.T) {
 	require.NotEqual(t, common.Hash{}, seed, "seed should not be zero")
 	require.NotEqual(t, common.Hash{}, beta, "beta should not be zero")
 }
-
-// helper to avoid unused import errors
-var _ *ecdsa.PrivateKey
