@@ -131,6 +131,17 @@ func (aq *AttributesQueue) createNextAttributes(ctx context.Context, batch *Sing
 	attrs.NoTxPool = true
 	attrs.Transactions = append(attrs.Transactions, batch.Transactions...)
 
+	// When verifying (no VRF prover), use VRF data from the batch.
+	// The sequencer committed this data via the batcher; verifiers and fault proof programs
+	// reconstruct the same VRF deposit tx from it.
+	if batch.VRFEnabled && attrs.VRFSeed == nil {
+		attrs.VRFSeed = batch.VRFSeed
+		attrs.VRFProofBeta = batch.VRFProofBeta
+		attrs.VRFProofPi = batch.VRFProofPi
+		nonce := batch.VRFNonce
+		attrs.VRFNonce = &nonce
+	}
+
 	aq.log.Info("generated attributes in payload queue", "txs", len(attrs.Transactions), "timestamp", batch.Timestamp)
 
 	return attrs, nil

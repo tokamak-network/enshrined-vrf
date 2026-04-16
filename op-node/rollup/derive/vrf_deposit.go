@@ -1,6 +1,7 @@
 package derive
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"math/big"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/tokamak-network/enshrined-vrf/crypto/ecvrf"
@@ -80,4 +82,76 @@ func (l *LocalVRFProver) PublicKey() []byte {
 func ComputeVRFProof(prover VRFProver, blockNumber uint64, nonce uint64) (beta [32]byte, pi [81]byte, err error) {
 	seed := ComputeVRFSeed(blockNumber, nonce)
 	return prover.Prove(seed[:])
+}
+
+var (
+	// EnshrainedVRF predeploy address on L2
+	enshrainedVRFAddr = common.HexToAddress("0x42000000000000000000000000000000000000f0")
+
+	// commitRandomness(uint256,bytes32,bytes32,bytes) selector
+	commitRandomnessSelector = crypto.Keccak256([]byte("commitRandomness(uint256,bytes32,bytes32,bytes)"))[:4]
+
+	// L1Info depositor address (also used for VRF deposits)
+	vrfDepositorAddr = common.HexToAddress("0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001")
+)
+
+// vrfCommitment holds VRF data extracted from a deposit transaction.
+type vrfCommitment struct {
+	nonce uint64
+	seed  [32]byte
+	beta  [32]byte
+	pi    [81]byte
+}
+
+// extractVRFFromDeposits scans deposit transactions for a VRF commitment.
+// Returns nil if no VRF deposit is found.
+func extractVRFFromDeposits(txs types.Transactions) *vrfCommitment {
+	for _, tx := range txs {
+		if tx.Type() != types.DepositTxType {
+			continue
+		}
+		if tx.To() == nil || *tx.To() != enshrainedVRFAddr {
+			continue
+		}
+		data := tx.Data()
+		if len(data) < 4 || !bytes.Equal(data[:4], commitRandomnessSelector) {
+			continue
+		}
+		return decodeCommitRandomness(data)
+	}
+	return nil
+}
+
+// decodeCommitRandomness decodes the ABI-encoded commitRandomness calldata.
+// Layout: selector(4) + nonce(32) + seed(32) + beta(32) + offset(32) + piLen(32) + piData(96)
+func decodeCommitRandomness(data []byte) *vrfCommitment {
+	const expectedMinLen = 4 + 32 + 32 + 32 + 32 + 32 + 81 // 245
+	if len(data) < expectedMinLen {
+		return nil
+	}
+
+	c := &vrfCommitment{}
+
+	// nonce: bytes 4..36
+	nonceBig := new(big.Int).SetBytes(data[4:36])
+	c.nonce = nonceBig.Uint64()
+
+	// seed: bytes 36..68
+	copy(c.seed[:], data[36:68])
+
+	// beta: bytes 68..100
+	copy(c.beta[:], data[68:100])
+
+	// offset to dynamic data: bytes 100..132 (should be 128 = 0x80)
+	// pi length: bytes 132..164 (should be 81)
+	piLenBig := new(big.Int).SetBytes(data[132:164])
+	piLen := piLenBig.Uint64()
+	if piLen != 81 || len(data) < 164+81 {
+		return nil
+	}
+
+	// pi data: bytes 164..245
+	copy(c.pi[:], data[164:245])
+
+	return c
 }

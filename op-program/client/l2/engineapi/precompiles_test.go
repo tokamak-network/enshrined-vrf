@@ -38,6 +38,8 @@ func TestOverriddenPrecompiles(t *testing.T) {
 		{name: "blsMapFpToG1", addr: blsMapToG1PrecompileAddress, overrideWith: &blsOperationOracle{}},
 		{name: "blsMapFp2ToG2", addr: blsMapToG2PrecompileAddress, overrideWith: &blsOperationOracle{}},
 
+		{name: "ecvrfVerify", addr: ecvrfVerifyPrecompileAddress, rules: params.Rules{IsOptimismEnshrainedVRF: true}, overrideWith: &ecvrfVerifyOracle{}},
+
 		// Actual precompiles but not overridden
 		{name: "identity", addr: common.Address{0x04}},
 		{name: "ripemd160", addr: common.BytesToAddress([]byte{0x03})},
@@ -521,6 +523,64 @@ func TestBLSPrecompileWithSizeLimit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEcvrfVerifyPrecompile(t *testing.T) {
+	oracleResult := []byte{0x01} // valid
+	setup := func() (vm.PrecompiledContract, *stubPrecompileOracle) {
+		orig := &stubPrecompile{}
+		oracle := &stubPrecompileOracle{result: bytes.Clone(oracleResult)}
+		overrides := CreatePrecompileOverrides(oracle)
+		override := overrides(params.Rules{IsOptimismEnshrainedVRF: true}, orig, ecvrfVerifyPrecompileAddress)
+		return override, oracle
+	}
+	// 178 bytes: [33 PK][32 alpha][32 beta][81 pi]
+	validInput := make([]byte, 178)
+	validInput[0] = 0x02 // compressed pubkey prefix
+
+	t.Run("RequiredGas", func(t *testing.T) {
+		impl, _ := setup()
+		require.Equal(t, stubRequiredGas, impl.RequiredGas(validInput))
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		impl, oracle := setup()
+		result, err := impl.Run(validInput)
+		require.NoError(t, err)
+		require.Equal(t, oracleResult, result)
+		require.Equal(t, oracle.calledAddr, ecvrfVerifyPrecompileAddress)
+		require.Equal(t, oracle.calledInput, validInput)
+		require.Equal(t, oracle.calledRequiredGas, stubRequiredGas)
+	})
+
+	t.Run("OracleRevert", func(t *testing.T) {
+		impl, oracle := setup()
+		oracle.failureResponse = true
+		result, err := impl.Run(validInput)
+		require.ErrorIs(t, err, errInvalidEcvrfInput)
+		require.Nil(t, result)
+		require.Equal(t, oracle.calledAddr, ecvrfVerifyPrecompileAddress)
+		require.Equal(t, oracle.calledInput, validInput)
+		require.Equal(t, oracle.calledRequiredGas, stubRequiredGas)
+	})
+
+	t.Run("InvalidInputLength", func(t *testing.T) {
+		impl, oracle := setup()
+		input := make([]byte, 100) // wrong length
+		result, err := impl.Run(input)
+		require.NoError(t, err)
+		require.Nil(t, result)
+		require.Equal(t, oracle.calledAddr, common.Address{}, "should not call oracle")
+	})
+
+	t.Run("NotOverriddenPreEnshrainedVRF", func(t *testing.T) {
+		orig := &stubPrecompile{}
+		oracle := &stubPrecompileOracle{}
+		overrides := CreatePrecompileOverrides(oracle)
+		override := overrides(params.Rules{}, orig, ecvrfVerifyPrecompileAddress)
+		// Before EnshrainedVRF fork, should return the original precompile
+		require.Same(t, orig, override, "should not override before EnshrainedVRF fork")
+	})
 }
 
 type stubPrecompile struct{}

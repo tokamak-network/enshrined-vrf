@@ -25,6 +25,15 @@ type SingularBatch struct {
 	EpochHash    common.Hash  // l1 block hash
 	Timestamp    uint64       // l2 block timestamp
 	Transactions []hexutil.Bytes
+
+	// VRF fields are set post-EnshrainedVRF fork. They carry the TEE-generated VRF
+	// commitment so that verifiers (including fault proof programs) can reconstruct
+	// the same VRF deposit transaction without access to the TEE.
+	VRFSeed      []byte `rlp:"optional"` // sha256(blockNumber || nonce), 32 bytes
+	VRFProofBeta []byte `rlp:"optional"` // VRF output hash, 32 bytes
+	VRFProofPi   []byte `rlp:"optional"` // VRF proof, 81 bytes
+	VRFNonce     uint64 `rlp:"optional"` // commitment nonce
+	VRFEnabled   bool   `rlp:"optional"` // distinguishes zero-nonce from absent
 }
 
 func (b *SingularBatch) AsSingularBatch() (*SingularBatch, bool) { return b, true }

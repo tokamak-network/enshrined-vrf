@@ -579,6 +579,14 @@ func (c *Config) IsKarstActivationBlock(l2BlockTime uint64) bool {
 		!c.IsKarst(l2BlockTime-c.BlockTime)
 }
 
+// IsEnshrainedVRFActivationBlock returns whether the specified block is the first block subject to the
+// EnshrainedVRF upgrade.
+func (c *Config) IsEnshrainedVRFActivationBlock(l2BlockTime uint64) bool {
+	return c.IsEnshrainedVRF(l2BlockTime) &&
+		l2BlockTime >= c.BlockTime &&
+		!c.IsEnshrainedVRF(l2BlockTime-c.BlockTime)
+}
+
 func (c *Config) IsInteropActivationBlock(l2BlockTime uint64) bool {
 	return c.IsInterop(l2BlockTime) &&
 		l2BlockTime >= c.BlockTime &&

@@ -48,6 +48,7 @@ var (
 	blsPairingPrecompileAddress         = common.BytesToAddress([]byte{0xf})
 	blsMapToG1PrecompileAddress         = common.BytesToAddress([]byte{0x10})
 	blsMapToG2PrecompileAddress         = common.BytesToAddress([]byte{0x11})
+	ecvrfVerifyPrecompileAddress        = common.BytesToAddress([]byte{0x01, 0x01})
 )
 
 // PrecompileOracle defines the high-level API used to retrieve the result of a precompile call
@@ -157,6 +158,11 @@ func CreatePrecompileOverrides(precompileOracle PrecompileOracle) vm.PrecompileO
 				checkOutput:       checkOutputExactSize(256),
 				precompileAddress: blsMapToG2PrecompileAddress,
 			}
+		case ecvrfVerifyPrecompileAddress:
+			if !rules.IsOptimismEnshrainedVRF {
+				return orig
+			}
+			return &ecvrfVerifyOracle{Orig: orig, Oracle: precompileOracle}
 		default:
 			return orig
 		}
@@ -428,4 +434,43 @@ func (b *blsOperationOracleWithSizeLimit) Run(input []byte) ([]byte, error) {
 		return nil, errInvalidBlsSize
 	}
 	return b.blsOperationOracle.Run(input)
+}
+
+var (
+	errInvalidEcvrfInput = errors.New("invalid ECVRF verify input")
+)
+
+// ecvrfVerifyOracle delegates ECVRF verification to the preimage oracle.
+// During fault proof re-execution inside Cannon, the secp256k1 and VRF
+// cryptographic operations are performed on the host side via the oracle,
+// ensuring deterministic results without requiring the TEE.
+type ecvrfVerifyOracle struct {
+	Orig   vm.PrecompiledContract
+	Oracle PrecompileOracle
+}
+
+func (c *ecvrfVerifyOracle) RequiredGas(input []byte) uint64 {
+	return c.Orig.RequiredGas(input)
+}
+
+func (c *ecvrfVerifyOracle) Name() string {
+	return "ECVRF_VERIFY_ORACLE"
+}
+
+func (c *ecvrfVerifyOracle) Run(input []byte) ([]byte, error) {
+	// ECVRF verify expects exactly 178 bytes: [33 PK][32 alpha][32 beta][81 pi]
+	const ecvrfInputLen = 178
+	if len(input) != ecvrfInputLen {
+		return nil, nil
+	}
+
+	result, ok := c.Oracle.Precompile(ecvrfVerifyPrecompileAddress, input, c.RequiredGas(input))
+	if !ok {
+		return nil, errInvalidEcvrfInput
+	}
+	// ECVRF verify returns exactly 1 byte: 0x01 (valid) or 0x00 (invalid)
+	if len(result) != 1 || (result[0] != 0x00 && result[0] != 0x01) {
+		panic(fmt.Sprintf("unexpected ECVRF verify result: %x", result))
+	}
+	return result, nil
 }

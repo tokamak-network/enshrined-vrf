@@ -249,13 +249,28 @@ func BlockToSingularBatch(rollupCfg *rollup.Config, block *types.Block) (*Singul
 		return nil, l1Info, fmt.Errorf("could not parse the L1 Info deposit: %w", err)
 	}
 
-	return &SingularBatch{
+	batch := &SingularBatch{
 		ParentHash:   block.ParentHash(),
 		EpochNum:     rollup.Epoch(l1Info.Number),
 		EpochHash:    l1Info.BlockHash,
 		Timestamp:    block.Time(),
 		Transactions: opaqueTxs,
-	}, l1Info, nil
+	}
+
+	// Extract VRF commitment data from deposit transactions if present.
+	// The VRF deposit tx calls commitRandomness(uint256,bytes32,bytes32,bytes)
+	// on the EnshrainedVRF predeploy.
+	if rollupCfg.IsEnshrainedVRF(block.Time()) {
+		if vrfData := extractVRFFromDeposits(block.Transactions()); vrfData != nil {
+			batch.VRFSeed = vrfData.seed[:]
+			batch.VRFProofBeta = vrfData.beta[:]
+			batch.VRFProofPi = vrfData.pi[:]
+			batch.VRFNonce = vrfData.nonce
+			batch.VRFEnabled = true
+		}
+	}
+
+	return batch, l1Info, nil
 }
 
 // ForceCloseTxData generates the transaction data for a transaction which will force close

@@ -43,6 +43,13 @@ type spanBatchPayload struct {
 	originBits    *big.Int      // Standard span-batch bitlist of blockCount bits. Each bit indicates if the L1 origin is changed at the L2 block.
 	blockTxCounts []uint64      // List of transaction counts for each L2 block
 	txs           *spanBatchTxs // Transactions encoded in SpanBatch specs
+
+	// VRF fields (post-EnshrainedVRF fork, appended after txs)
+	vrfEnabled bool              // true if VRF data is present for this span
+	vrfNonces  []uint64          // per-block VRF nonces
+	vrfSeeds   [][32]byte        // per-block VRF seeds
+	vrfBetas   [][32]byte        // per-block VRF output hashes
+	vrfPis     [][81]byte        // per-block VRF proofs
 }
 
 // RawSpanBatch is another representation of SpanBatch, that encodes data according to SpanBatch specs.
@@ -202,6 +209,13 @@ func (bp *spanBatchPayload) decodePayload(r *bytes.Reader) error {
 	if err := bp.decodeTxs(r); err != nil {
 		return err
 	}
+	// VRF data is appended after txs (post-EnshrainedVRF).
+	// If no remaining data, this is a pre-fork batch.
+	if r.Len() > 0 {
+		if err := bp.decodeVRF(r); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -324,6 +338,79 @@ func (bp *spanBatchPayload) encodePayload(w io.Writer) error {
 	if err := bp.encodeTxs(w); err != nil {
 		return err
 	}
+	// Append VRF data after txs if present (post-EnshrainedVRF).
+	if bp.vrfEnabled {
+		if err := bp.encodeVRF(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// encodeVRF writes VRF data for all blocks in the span.
+// Format: marker(1) + per-block [nonce(uvarint) + seed(32) + beta(32) + pi(81)]
+func (bp *spanBatchPayload) encodeVRF(w io.Writer) error {
+	// Marker byte: 0x01 = VRF data present
+	if _, err := w.Write([]byte{0x01}); err != nil {
+		return fmt.Errorf("cannot write VRF marker: %w", err)
+	}
+	var buf [binary.MaxVarintLen64]byte
+	for i := uint64(0); i < bp.blockCount; i++ {
+		// nonce
+		n := binary.PutUvarint(buf[:], bp.vrfNonces[i])
+		if _, err := w.Write(buf[:n]); err != nil {
+			return fmt.Errorf("cannot write VRF nonce: %w", err)
+		}
+		// seed (32 bytes)
+		if _, err := w.Write(bp.vrfSeeds[i][:]); err != nil {
+			return fmt.Errorf("cannot write VRF seed: %w", err)
+		}
+		// beta (32 bytes)
+		if _, err := w.Write(bp.vrfBetas[i][:]); err != nil {
+			return fmt.Errorf("cannot write VRF beta: %w", err)
+		}
+		// pi (81 bytes)
+		if _, err := w.Write(bp.vrfPis[i][:]); err != nil {
+			return fmt.Errorf("cannot write VRF pi: %w", err)
+		}
+	}
+	return nil
+}
+
+// decodeVRF reads VRF data for all blocks from the reader.
+func (bp *spanBatchPayload) decodeVRF(r *bytes.Reader) error {
+	// Read marker byte
+	marker, err := r.ReadByte()
+	if err != nil {
+		return fmt.Errorf("failed to read VRF marker: %w", err)
+	}
+	if marker != 0x01 {
+		return fmt.Errorf("unexpected VRF marker: 0x%02x", marker)
+	}
+
+	bp.vrfEnabled = true
+	bp.vrfNonces = make([]uint64, bp.blockCount)
+	bp.vrfSeeds = make([][32]byte, bp.blockCount)
+	bp.vrfBetas = make([][32]byte, bp.blockCount)
+	bp.vrfPis = make([][81]byte, bp.blockCount)
+
+	for i := uint64(0); i < bp.blockCount; i++ {
+		nonce, err := binary.ReadUvarint(r)
+		if err != nil {
+			return fmt.Errorf("failed to read VRF nonce for block %d: %w", i, err)
+		}
+		bp.vrfNonces[i] = nonce
+
+		if _, err := io.ReadFull(r, bp.vrfSeeds[i][:]); err != nil {
+			return fmt.Errorf("failed to read VRF seed for block %d: %w", i, err)
+		}
+		if _, err := io.ReadFull(r, bp.vrfBetas[i][:]); err != nil {
+			return fmt.Errorf("failed to read VRF beta for block %d: %w", i, err)
+		}
+		if _, err := io.ReadFull(r, bp.vrfPis[i][:]); err != nil {
+			return fmt.Errorf("failed to read VRF pi for block %d: %w", i, err)
+		}
+	}
 	return nil
 }
 
@@ -374,6 +461,14 @@ func (b *RawSpanBatch) derive(blockTime, genesisTimestamp uint64, chainID *big.I
 			batch.Transactions = append(batch.Transactions, fullTxs[txIdx])
 			txIdx++
 		}
+		// Carry VRF data from raw batch to derived batch
+		if b.vrfEnabled && i < len(b.vrfNonces) {
+			batch.VRFEnabled = true
+			batch.VRFNonce = b.vrfNonces[i]
+			batch.VRFSeed = b.vrfSeeds[i][:]
+			batch.VRFProofBeta = b.vrfBetas[i][:]
+			batch.VRFProofPi = b.vrfPis[i][:]
+		}
 		spanBatch.Batches = append(spanBatch.Batches, &batch)
 	}
 	return &spanBatch, nil
@@ -396,6 +491,13 @@ type SpanBatchElement struct {
 	EpochNum     rollup.Epoch // aka l1 num
 	Timestamp    uint64
 	Transactions []hexutil.Bytes
+
+	// VRF fields (post-EnshrainedVRF fork)
+	VRFSeed      []byte
+	VRFProofBeta []byte
+	VRFProofPi   []byte
+	VRFNonce     uint64
+	VRFEnabled   bool
 }
 
 // singularBatchToElement converts a SingularBatch to a SpanBatchElement
@@ -404,6 +506,11 @@ func singularBatchToElement(singularBatch *SingularBatch) *SpanBatchElement {
 		EpochNum:     singularBatch.EpochNum,
 		Timestamp:    singularBatch.Timestamp,
 		Transactions: singularBatch.Transactions,
+		VRFSeed:      singularBatch.VRFSeed,
+		VRFProofBeta: singularBatch.VRFProofBeta,
+		VRFProofPi:   singularBatch.VRFProofPi,
+		VRFNonce:     singularBatch.VRFNonce,
+		VRFEnabled:   singularBatch.VRFEnabled,
 	}
 }
 
@@ -574,6 +681,28 @@ func (b *SpanBatch) ToRawSpanBatch() (*RawSpanBatch, error) {
 	span_start := b.Batches[0]
 	span_end := b.Batches[len(b.Batches)-1]
 
+	payload := spanBatchPayload{
+		blockCount:    uint64(len(b.Batches)),
+		originBits:    b.originBits,
+		blockTxCounts: b.blockTxCounts,
+		txs:           b.sbtxs,
+	}
+
+	// Collect VRF data from span batch elements
+	if span_start.VRFEnabled {
+		payload.vrfEnabled = true
+		payload.vrfNonces = make([]uint64, len(b.Batches))
+		payload.vrfSeeds = make([][32]byte, len(b.Batches))
+		payload.vrfBetas = make([][32]byte, len(b.Batches))
+		payload.vrfPis = make([][81]byte, len(b.Batches))
+		for i, batch := range b.Batches {
+			payload.vrfNonces[i] = batch.VRFNonce
+			copy(payload.vrfSeeds[i][:], batch.VRFSeed)
+			copy(payload.vrfBetas[i][:], batch.VRFProofBeta)
+			copy(payload.vrfPis[i][:], batch.VRFProofPi)
+		}
+	}
+
 	return &RawSpanBatch{
 		spanBatchPrefix: spanBatchPrefix{
 			relTimestamp:  span_start.Timestamp - b.GenesisTimestamp,
@@ -581,12 +710,7 @@ func (b *SpanBatch) ToRawSpanBatch() (*RawSpanBatch, error) {
 			parentCheck:   b.ParentCheck,
 			l1OriginCheck: b.L1OriginCheck,
 		},
-		spanBatchPayload: spanBatchPayload{
-			blockCount:    uint64(len(b.Batches)),
-			originBits:    b.originBits,
-			blockTxCounts: b.blockTxCounts,
-			txs:           b.sbtxs,
-		},
+		spanBatchPayload: payload,
 	}, nil
 }
 
@@ -612,6 +736,11 @@ func (b *SpanBatch) GetSingularBatches(l1Origins []eth.L1BlockRef, l2SafeHead et
 			EpochNum:     batch.EpochNum,
 			Timestamp:    batch.Timestamp,
 			Transactions: batch.Transactions,
+			VRFSeed:      batch.VRFSeed,
+			VRFProofBeta: batch.VRFProofBeta,
+			VRFProofPi:   batch.VRFProofPi,
+			VRFNonce:     batch.VRFNonce,
+			VRFEnabled:   batch.VRFEnabled,
 		}
 		originFound := false
 		for i := originIdx; i < len(l1Origins); i++ {
