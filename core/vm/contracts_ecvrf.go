@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"bytes"
+
 	"github.com/ethereum/go-ethereum/crypto/ecvrf"
 	"github.com/ethereum/go-ethereum/params"
 
@@ -48,10 +50,8 @@ func (c *ecvrfVerify) Run(input []byte) ([]byte, error) {
 	}
 
 	// Check beta matches
-	for i := 0; i < 32; i++ {
-		if beta[i] != expectedBeta[i] {
-			return []byte{0x00}, nil
-		}
+	if !bytes.Equal(beta[:], expectedBeta) {
+		return []byte{0x00}, nil
 	}
 
 	return []byte{0x01}, nil

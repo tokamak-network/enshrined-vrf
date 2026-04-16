@@ -135,12 +135,6 @@ func New(eth Backend, config Config, engine consensus.Engine) *Miner {
 	return miner
 }
 
-// SetVRFConfig is deprecated. VRF proof computation has moved to op-node.
-// VRF proofs are now received via PayloadAttributes in the Engine API.
-func (miner *Miner) SetVRFConfig(config VRFConfig) {
-	// no-op: VRF key is managed by op-node
-}
-
 // OP-Stack: startBackgroundInteropFailsafeDetection starts a background goroutine that periodically
 // calls the supervisor over RPC to check if the failsafe is enabled
 func (miner *Miner) startBackgroundInteropFailsafeDetection() {
