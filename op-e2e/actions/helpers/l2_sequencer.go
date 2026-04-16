@@ -96,6 +96,12 @@ func NewL2Sequencer(t Testing, log log.Logger, l1 derive.L1Fetcher, blobSrc deri
 	}
 }
 
+// SetVRFProver configures a VRF prover on the sequencer's attributes builder.
+// Must be called before building blocks that require VRF commitments.
+func (s *L2Sequencer) SetVRFProver(prover derive.VRFProver) {
+	s.attrBuilder.SetVRFProver(prover)
+}
+
 // ActL2StartBlock starts building of a new L2 block on top of the head
 func (s *L2Sequencer) ActL2StartBlock(t Testing) {
 	err := s.ActMaybeL2StartBlock(t)
