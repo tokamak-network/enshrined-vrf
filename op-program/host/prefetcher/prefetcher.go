@@ -35,16 +35,17 @@ var (
 )
 
 var acceleratedPrecompiles = []common.Address{
-	common.BytesToAddress([]byte{0x1}),  // ecrecover
-	common.BytesToAddress([]byte{0x8}),  // bn256Pairing
-	common.BytesToAddress([]byte{0x0a}), // KZG Point Evaluation
-	common.BytesToAddress([]byte{0x0b}), // BLS12-381 G1 add
-	common.BytesToAddress([]byte{0x0c}), // BLS12-381 G1 multi-scalar-multiply
-	common.BytesToAddress([]byte{0x0d}), // BLS12-381 G2 add
-	common.BytesToAddress([]byte{0x0e}), // BLS12-381 G2 multi-scalar-multiply
-	common.BytesToAddress([]byte{0x0f}), // BLS12-381 pairing check
-	common.BytesToAddress([]byte{0x10}), // BLS12-381 hash-to-g1
-	common.BytesToAddress([]byte{0x11}), // BLS12-381 hash-to-g2
+	common.BytesToAddress([]byte{0x1}),        // ecrecover
+	common.BytesToAddress([]byte{0x8}),        // bn256Pairing
+	common.BytesToAddress([]byte{0x0a}),       // KZG Point Evaluation
+	common.BytesToAddress([]byte{0x0b}),       // BLS12-381 G1 add
+	common.BytesToAddress([]byte{0x0c}),       // BLS12-381 G1 multi-scalar-multiply
+	common.BytesToAddress([]byte{0x0d}),       // BLS12-381 G2 add
+	common.BytesToAddress([]byte{0x0e}),       // BLS12-381 G2 multi-scalar-multiply
+	common.BytesToAddress([]byte{0x0f}),       // BLS12-381 pairing check
+	common.BytesToAddress([]byte{0x10}),       // BLS12-381 hash-to-g1
+	common.BytesToAddress([]byte{0x11}),       // BLS12-381 hash-to-g2
+	common.BytesToAddress([]byte{0x01, 0x01}), // ECVRF verify (EnshrainedVRF)
 }
 
 type L1Source interface {
@@ -580,6 +581,10 @@ func parseHint(hint string) (string, []byte, error) {
 }
 
 func getPrecompiledContract(address common.Address) vm.PrecompiledContract {
+	// Check EnshrainedVRF precompiles first (superset of Prague)
+	if c, ok := vm.PrecompiledContractsEnshrainedVRF[address]; ok {
+		return c
+	}
 	return vm.PrecompiledContractsPrague[address]
 }
 

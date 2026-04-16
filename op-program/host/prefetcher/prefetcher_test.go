@@ -273,6 +273,18 @@ func TestFetchPrecompileResult(t *testing.T) {
 			input:  []byte{0x1},
 			result: failure,
 		},
+		{
+			name:   "EcvrfVerify-Valid",
+			addr:   common.BytesToAddress([]byte{0x01, 0x01}),
+			input:  common.FromHex("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817980000000000000000000000000000000000000000000000000000000000000042306b660407fdecbf55d25d8b10738c6c528dbb41eb337c2076d66b4848a779dd0261dce69cafe5e28e4a036e7968c1643d80f650d76d58a2f0d94c30a7fbd8e93d3414d75699a6fb3ef11cc5b4d61f782cdaf1b5e58f743a9f6e334863391492e8adf8112e37219ea7cc3e3af6944fc4bf"),
+			result: append(success, 0x01), // valid
+		},
+		{
+			name:   "EcvrfVerify-WrongLength",
+			addr:   common.BytesToAddress([]byte{0x01, 0x01}),
+			input:  make([]byte, 100), // wrong length → returns nil, nil (no error)
+			result: success,           // precompile returns nil output with no error = success
+		},
 	}
 	for _, test := range tests {
 		test := test
@@ -355,6 +367,20 @@ func TestFetchPrecompileResultV2(t *testing.T) {
 			input:       []byte{0x0},
 			requiredGas: 50_000,
 			result:      failure,
+		},
+		{
+			name:        "EcvrfVerify-Valid",
+			addr:        common.BytesToAddress([]byte{0x01, 0x01}),
+			input:       common.FromHex("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817980000000000000000000000000000000000000000000000000000000000000042306b660407fdecbf55d25d8b10738c6c528dbb41eb337c2076d66b4848a779dd0261dce69cafe5e28e4a036e7968c1643d80f650d76d58a2f0d94c30a7fbd8e93d3414d75699a6fb3ef11cc5b4d61f782cdaf1b5e58f743a9f6e334863391492e8adf8112e37219ea7cc3e3af6944fc4bf"),
+			requiredGas: 3000,
+			result:      append(success, 0x01), // valid
+		},
+		{
+			name:        "EcvrfVerify-WrongLength",
+			addr:        common.BytesToAddress([]byte{0x01, 0x01}),
+			input:       make([]byte, 100), // wrong length → returns nil, nil (no error)
+			requiredGas: 3000,
+			result:      success, // precompile returns nil output with no error = success
 		},
 	}
 	for _, test := range tests {
