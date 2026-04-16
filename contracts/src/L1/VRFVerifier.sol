@@ -102,17 +102,6 @@ contract VRFVerifier {
         return computedSeed == expectedSeed;
     }
 
-    /// @notice Verifies that the nonce is sequential (no gaps or skips).
-    /// @param previousNonce The previous nonce value.
-    /// @param currentNonce  The current nonce value.
-    /// @return valid True if currentNonce == previousNonce + 1.
-    function verifyNonceSequence(
-        uint256 previousNonce,
-        uint256 currentNonce
-    ) external pure returns (bool valid) {
-        return currentNonce == previousNonce + 1;
-    }
-
     /// @notice Computes the VRF seed from components.
     /// @param blockNumber The L2 block number.
     /// @param nonce       The VRF nonce for this block.

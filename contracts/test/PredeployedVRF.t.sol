@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.15;
 
 import {Test} from "forge-std/Test.sol";
-import {PredeployedVRF} from "../src/PredeployedVRF.sol";
-import {IEnshrainedVRF} from "../src/interfaces/IEnshrainedVRF.sol";
+import {EnshrainedVRF} from "optimism/src/L2/EnshrainedVRF.sol";
+import {IEnshrainedVRF} from "interfaces/L2/IEnshrainedVRF.sol";
 
-contract PredeployedVRFTest is Test {
-    PredeployedVRF public vrf;
+contract EnshrainedVRFTest is Test {
+    EnshrainedVRF public vrf;
+
+    event RandomnessCommitted(uint256 indexed nonce, bytes32 beta, address indexed caller);
 
     address constant DEPOSITOR = 0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001;
     address constant PREDEPLOY_ADDR = 0x42000000000000000000000000000000000000f0;
@@ -33,19 +35,15 @@ contract PredeployedVRFTest is Test {
 
     function setUp() public {
         // Deploy at the predeploy address
-        vrf = new PredeployedVRF();
+        vrf = new EnshrainedVRF();
         vm.etch(PREDEPLOY_ADDR, address(vrf).code);
-        vrf = PredeployedVRF(PREDEPLOY_ADDR);
+        vrf = EnshrainedVRF(PREDEPLOY_ADDR);
     }
 
     // ========== CONSTANTS ==========
 
     function test_depositorAccountAddress() public view {
         assertEq(vrf.DEPOSITOR_ACCOUNT(), DEPOSITOR);
-    }
-
-    function test_ecvrfVerifyPrecompileAddress() public view {
-        assertEq(vrf.ECVRF_VERIFY_PRECOMPILE(), address(0x0101));
     }
 
     // ========== setSequencerPublicKey ==========
@@ -61,20 +59,20 @@ contract PredeployedVRFTest is Test {
 
     function test_setSequencerPublicKey_revertNotDepositor() public {
         vm.prank(USER);
-        vm.expectRevert(PredeployedVRF.OnlyDepositor.selector);
+        vm.expectRevert(EnshrainedVRF.OnlyDepositor.selector);
         vrf.setSequencerPublicKey(SAMPLE_PK);
     }
 
     function test_setSequencerPublicKey_revertInvalidLength() public {
         vm.prank(DEPOSITOR);
-        vm.expectRevert(PredeployedVRF.InvalidPublicKeyLength.selector);
+        vm.expectRevert(EnshrainedVRF.InvalidPublicKeyLength.selector);
         vrf.setSequencerPublicKey(hex"0102"); // 2 bytes, not 33
     }
 
     function test_setSequencerPublicKey_revertInvalidLength65() public {
         vm.prank(DEPOSITOR);
         bytes memory uncompressed = new bytes(65);
-        vm.expectRevert(PredeployedVRF.InvalidPublicKeyLength.selector);
+        vm.expectRevert(EnshrainedVRF.InvalidPublicKeyLength.selector);
         vrf.setSequencerPublicKey(uncompressed);
     }
 
@@ -107,25 +105,19 @@ contract PredeployedVRFTest is Test {
 
         vm.prank(DEPOSITOR);
         vm.expectEmit(true, true, true, true);
-        emit IEnshrainedVRF.RandomnessCommitted(0, BETA_0, DEPOSITOR);
+        emit RandomnessCommitted(0, BETA_0, DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, pi);
     }
 
     function test_commitRandomness_revertNotDepositor() public {
         vm.prank(USER);
-        vm.expectRevert(PredeployedVRF.OnlyDepositor.selector);
+        vm.expectRevert(EnshrainedVRF.OnlyDepositor.selector);
         vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
-    }
-
-    function test_commitRandomness_revertNonceMismatch() public {
-        vm.prank(DEPOSITOR);
-        vm.expectRevert(PredeployedVRF.NonceMismatch.selector);
-        vrf.commitRandomness(1, SEED_0, BETA_0, _samplePi()); // expected 0
     }
 
     function test_commitRandomness_revertInvalidProofLength() public {
         vm.prank(DEPOSITOR);
-        vm.expectRevert(PredeployedVRF.InvalidProofLength.selector);
+        vm.expectRevert(EnshrainedVRF.InvalidProofLength.selector);
         vrf.commitRandomness(0, SEED_0, BETA_0, hex"0102"); // 2 bytes, not 81
     }
 
@@ -145,18 +137,6 @@ contract PredeployedVRFTest is Test {
         vrf.commitRandomness(2, SEED_2, BETA_2, pi);
 
         assertEq(vrf.commitNonce(), 3);
-    }
-
-    function test_commitRandomness_skipNonceReverts() public {
-        bytes memory pi = _samplePi();
-
-        vm.prank(DEPOSITOR);
-        vrf.commitRandomness(0, SEED_0, BETA_0, pi);
-
-        // Try to skip nonce 1
-        vm.prank(DEPOSITOR);
-        vm.expectRevert(PredeployedVRF.NonceMismatch.selector);
-        vrf.commitRandomness(2, SEED_2, BETA_2, pi);
     }
 
     function test_commitRandomness_resetsCallCounter() public {
@@ -216,7 +196,7 @@ contract PredeployedVRFTest is Test {
     function test_getRandomness_revertNoCommitmentForBlock() public {
         // No commitment at all
         vm.prank(USER);
-        vm.expectRevert(PredeployedVRF.NoRandomnessAvailable.selector);
+        vm.expectRevert(EnshrainedVRF.NoRandomnessAvailable.selector);
         vrf.getRandomness();
     }
 
@@ -228,7 +208,7 @@ contract PredeployedVRFTest is Test {
         vm.roll(block.number + 1);
 
         vm.prank(USER);
-        vm.expectRevert(PredeployedVRF.NoRandomnessAvailable.selector);
+        vm.expectRevert(EnshrainedVRF.NoRandomnessAvailable.selector);
         vrf.getRandomness();
     }
 
@@ -294,7 +274,7 @@ contract PredeployedVRFTest is Test {
     }
 
     function test_getResult_revertNonceNotCommitted() public {
-        vm.expectRevert(PredeployedVRF.NonceNotCommitted.selector);
+        vm.expectRevert(EnshrainedVRF.NonceNotCommitted.selector);
         vrf.getResult(0);
     }
 
@@ -302,7 +282,7 @@ contract PredeployedVRFTest is Test {
         vm.prank(DEPOSITOR);
         vrf.commitRandomness(0, SEED_0, BETA_0, _samplePi());
 
-        vm.expectRevert(PredeployedVRF.NonceNotCommitted.selector);
+        vm.expectRevert(EnshrainedVRF.NonceNotCommitted.selector);
         vrf.getResult(1); // only nonce 0 committed
     }
 

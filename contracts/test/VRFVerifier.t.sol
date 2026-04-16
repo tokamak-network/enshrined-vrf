@@ -108,20 +108,6 @@ contract VRFVerifierTest is Test {
         assertFalse(verifier.verifySeed(blockNumber, 1, seed));
     }
 
-    // ========== verifyNonceSequence ==========
-
-    function test_verifyNonceSequence_valid() public view {
-        assertTrue(verifier.verifyNonceSequence(0, 1));
-        assertTrue(verifier.verifyNonceSequence(42, 43));
-        assertTrue(verifier.verifyNonceSequence(999, 1000));
-    }
-
-    function test_verifyNonceSequence_invalid() public view {
-        assertFalse(verifier.verifyNonceSequence(0, 0));  // same
-        assertFalse(verifier.verifyNonceSequence(0, 2));  // skip
-        assertFalse(verifier.verifyNonceSequence(5, 3));  // backward
-    }
-
     // ========== verifyProofStructure ==========
 
     function test_verifyProofStructure_betaMatchesProof() public view {
