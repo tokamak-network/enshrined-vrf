@@ -1,1 +1,7 @@
 sealed/
+bin/
+out/
+cache/
+contracts/out/
+contracts/cache/
+.next/
