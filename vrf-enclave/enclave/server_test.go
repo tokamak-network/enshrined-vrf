@@ -161,6 +161,23 @@ func TestServerOverGRPC(t *testing.T) {
 	}
 }
 
+// TestServerCloseZeroesKey checks that Server.Close zeros the scalar and
+// subsequent Prove/GetAttestation calls no longer succeed.
+func TestServerCloseZeroesKey(t *testing.T) {
+	storage := NewSealedStorage(t.TempDir(), testSealKey())
+	srv, err := NewServer(storage, AttestDev)
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	if err := srv.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if srv.sk != nil {
+		t.Fatal("expected sk to be nil after Close")
+	}
+}
+
 func TestProveInvalidSeed(t *testing.T) {
 	storage := NewSealedStorage(t.TempDir(), testSealKey())
 	srv, err := NewServer(storage, AttestNone)

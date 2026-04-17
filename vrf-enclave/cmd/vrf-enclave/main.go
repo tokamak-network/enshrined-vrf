@@ -60,8 +60,15 @@ func main() {
 	}()
 
 	log.Printf("VRF enclave server listening on %s", *listen)
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("gRPC server error: %v", err)
+	serveErr := grpcServer.Serve(lis)
+
+	// Zero the secret key in place after the gRPC server stops — avoids
+	// lingering sk bytes in memory through the post-shutdown phase.
+	if cerr := srv.Close(); cerr != nil {
+		log.Printf("Server close: %v", cerr)
+	}
+	if serveErr != nil {
+		log.Fatalf("gRPC server error: %v", serveErr)
 	}
 }
 

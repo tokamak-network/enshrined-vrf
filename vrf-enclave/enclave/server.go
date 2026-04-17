@@ -103,6 +103,17 @@ func (s *Server) GetPublicKey(ctx context.Context, req *pb.GetPublicKeyRequest) 
 	}, nil
 }
 
+// Close zeros the secret key scalar in place. Safe to call once after the
+// gRPC server has stopped serving — concurrent Prove/GetAttestation calls
+// still holding s.sk would race.
+func (s *Server) Close() error {
+	if s.sk != nil {
+		s.sk.Key.Zero()
+		s.sk = nil
+	}
+	return nil
+}
+
 func (s *Server) GetAttestation(ctx context.Context, req *pb.GetAttestationRequest) (*pb.GetAttestationResponse, error) {
 	switch s.attestMode {
 	case AttestDev:
