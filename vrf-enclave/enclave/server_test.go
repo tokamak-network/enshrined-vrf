@@ -23,7 +23,7 @@ func testSealKey() [32]byte {
 
 func TestServerProveAndVerify(t *testing.T) {
 	storage := NewSealedStorage(t.TempDir(), testSealKey())
-	srv, err := NewServer(storage)
+	srv, err := NewServer(storage, AttestNone)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestServerSealUnsealRoundtrip(t *testing.T) {
 
 	// First run: generate and seal
 	storage1 := NewSealedStorage(dir, testSealKey())
-	srv1, err := NewServer(storage1)
+	srv1, err := NewServer(storage1, AttestNone)
 	if err != nil {
 		t.Fatalf("NewServer (first): %v", err)
 	}
@@ -81,7 +81,7 @@ func TestServerSealUnsealRoundtrip(t *testing.T) {
 
 	// Second run: unseal existing
 	storage2 := NewSealedStorage(dir, testSealKey())
-	srv2, err := NewServer(storage2)
+	srv2, err := NewServer(storage2, AttestNone)
 	if err != nil {
 		t.Fatalf("NewServer (second): %v", err)
 	}
@@ -104,7 +104,7 @@ func TestServerSealUnsealRoundtrip(t *testing.T) {
 
 func TestServerOverGRPC(t *testing.T) {
 	storage := NewSealedStorage(t.TempDir(), testSealKey())
-	srv, err := NewServer(storage)
+	srv, err := NewServer(storage, AttestNone)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestServerOverGRPC(t *testing.T) {
 
 func TestProveInvalidSeed(t *testing.T) {
 	storage := NewSealedStorage(t.TempDir(), testSealKey())
-	srv, err := NewServer(storage)
+	srv, err := NewServer(storage, AttestNone)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}

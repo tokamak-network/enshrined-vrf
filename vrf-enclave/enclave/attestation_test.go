@@ -8,7 +8,9 @@ import (
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	pb "github.com/tokamak-network/enshrined-vrf/vrf-enclave/proto"
 )
@@ -80,7 +82,7 @@ func TestDevAttestationWrongKey(t *testing.T) {
 
 func TestDevAttestationOverGRPC(t *testing.T) {
 	sk, _ := secp256k1.GeneratePrivateKey()
-	srv := NewServerFromKey(sk)
+	srv := NewServerFromKey(sk, AttestDev)
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -121,5 +123,23 @@ func TestDevAttestationOverGRPC(t *testing.T) {
 	skBytes := sk.Key.Bytes()
 	if err := VerifyDevAttestationWithKey(resp.Report, challenge, skBytes[:]); err != nil {
 		t.Fatalf("VerifyDevAttestationWithKey: %v", err)
+	}
+}
+
+// TestAttestationDisabledByDefault checks that a server started with
+// AttestNone refuses GetAttestation — so an operator who forgot to opt
+// into dev attestation can't accidentally hand out HMAC reports.
+func TestAttestationDisabledByDefault(t *testing.T) {
+	sk, _ := secp256k1.GeneratePrivateKey()
+	srv := NewServerFromKey(sk, AttestNone)
+
+	_, err := srv.GetAttestation(context.Background(), &pb.GetAttestationRequest{
+		Challenge: make([]byte, 32),
+	})
+	if err == nil {
+		t.Fatal("expected GetAttestation to fail with AttestNone")
+	}
+	if got := status.Code(err); got != codes.FailedPrecondition {
+		t.Fatalf("status code = %v, want FailedPrecondition", got)
 	}
 }

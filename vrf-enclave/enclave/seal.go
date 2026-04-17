@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const sealedKeyFile = "vrf_sealed.key"
@@ -107,6 +108,19 @@ func SealKeyFromHex(s string) ([32]byte, error) {
 	}
 	copy(key[:], b)
 	return key, nil
+}
+
+// SealKeyFromFile reads a hex-encoded seal key from path. Surrounding
+// whitespace is stripped so `echo $HEX > key` and similar workflows work.
+// Preferred over env vars in production because file permissions can be
+// enforced and the value is less likely to leak into process listings.
+func SealKeyFromFile(path string) ([32]byte, error) {
+	var key [32]byte
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return key, fmt.Errorf("seal key file: %w", err)
+	}
+	return SealKeyFromHex(strings.TrimSpace(string(data)))
 }
 
 func newAEAD(key [32]byte) (cipher.AEAD, error) {

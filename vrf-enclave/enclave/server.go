@@ -14,6 +14,20 @@ import (
 	pb "github.com/tokamak-network/enshrined-vrf/vrf-enclave/proto"
 )
 
+// AttestationMode selects how GetAttestation responds. Callers pick the
+// mode at server construction so an operator never accidentally ships a
+// dev HMAC report from a production build.
+type AttestationMode int
+
+const (
+	// AttestNone disables GetAttestation. Clients get FailedPrecondition.
+	AttestNone AttestationMode = iota
+	// AttestDev returns the HMAC-based dev report. Proves key possession
+	// only — NOT that the code runs inside a secure enclave. Intended for
+	// local/test use.
+	AttestDev
+)
+
 // Server implements the VRFEnclave gRPC service.
 // The secret key is held exclusively in this process's memory, ensuring
 // unpredictability: the sequencer operator cannot access sk and therefore
@@ -21,13 +35,14 @@ import (
 type Server struct {
 	pb.UnimplementedVRFEnclaveServer
 
-	sk *secp256k1.PrivateKey
-	pk []byte // cached 33-byte compressed public key
+	sk         *secp256k1.PrivateKey
+	pk         []byte // cached 33-byte compressed public key
+	attestMode AttestationMode
 }
 
 // NewServer initializes the enclave server. It either unseals an existing
 // key from storage or generates a fresh one and seals it.
-func NewServer(storage *SealedStorage) (*Server, error) {
+func NewServer(storage *SealedStorage, attestMode AttestationMode) (*Server, error) {
 	var sk *secp256k1.PrivateKey
 
 	if storage.Exists() {
@@ -53,15 +68,16 @@ func NewServer(storage *SealedStorage) (*Server, error) {
 	pk := sk.PubKey().SerializeCompressed()
 	log.Printf("VRF public key: %x", pk)
 
-	return &Server{sk: sk, pk: pk}, nil
+	return &Server{sk: sk, pk: pk, attestMode: attestMode}, nil
 }
 
 // NewServerFromKey creates a server from a pre-existing private key
 // (for testing or migration from local mode).
-func NewServerFromKey(sk *secp256k1.PrivateKey) *Server {
+func NewServerFromKey(sk *secp256k1.PrivateKey, attestMode AttestationMode) *Server {
 	return &Server{
-		sk: sk,
-		pk: sk.PubKey().SerializeCompressed(),
+		sk:         sk,
+		pk:         sk.PubKey().SerializeCompressed(),
+		attestMode: attestMode,
 	}
 }
 
@@ -88,17 +104,24 @@ func (s *Server) GetPublicKey(ctx context.Context, req *pb.GetPublicKeyRequest) 
 }
 
 func (s *Server) GetAttestation(ctx context.Context, req *pb.GetAttestationRequest) (*pb.GetAttestationResponse, error) {
-	// TODO(production): Replace CreateDevAttestation with a real TEE
-	// attestation report (SGX quote / TDX report / SEV-SNP report).
-	// The dev report proves key possession via HMAC but does NOT prove
-	// the code runs inside a secure enclave.
-	skBytes := s.sk.Key.Bytes()
-	report := CreateDevAttestation(skBytes[:], s.pk, req.Challenge)
-
-	return &pb.GetAttestationResponse{
-		Report:    report,
-		PublicKey: s.pk,
-	}, nil
+	switch s.attestMode {
+	case AttestDev:
+		// Dev HMAC report proves key possession but NOT that the code runs
+		// inside a secure enclave. Production must select a platform mode
+		// (SGX quote, TDX report, SEV-SNP report) once integrated.
+		skBytes := s.sk.Key.Bytes()
+		report := CreateDevAttestation(skBytes[:], s.pk, req.Challenge)
+		return &pb.GetAttestationResponse{
+			Report:    report,
+			PublicKey: s.pk,
+		}, nil
+	case AttestNone:
+		return nil, status.Error(codes.FailedPrecondition,
+			"attestation disabled; start the enclave with an explicit attestation mode")
+	default:
+		return nil, status.Errorf(codes.Unimplemented,
+			"attestation mode %d not supported", s.attestMode)
+	}
 }
 
 func generateKey() (*secp256k1.PrivateKey, error) {
