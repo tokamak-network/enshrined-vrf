@@ -13,8 +13,16 @@ import (
 	pb "github.com/tokamak-network/enshrined-vrf/vrf-enclave/proto"
 )
 
+func testSealKey() [32]byte {
+	var k [32]byte
+	for i := range k {
+		k[i] = byte(i) ^ 0x5a
+	}
+	return k
+}
+
 func TestServerProveAndVerify(t *testing.T) {
-	storage := NewSealedStorage(t.TempDir())
+	storage := NewSealedStorage(t.TempDir(), testSealKey())
 	srv, err := NewServer(storage)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -64,7 +72,7 @@ func TestServerSealUnsealRoundtrip(t *testing.T) {
 	dir := t.TempDir()
 
 	// First run: generate and seal
-	storage1 := NewSealedStorage(dir)
+	storage1 := NewSealedStorage(dir, testSealKey())
 	srv1, err := NewServer(storage1)
 	if err != nil {
 		t.Fatalf("NewServer (first): %v", err)
@@ -72,7 +80,7 @@ func TestServerSealUnsealRoundtrip(t *testing.T) {
 	pk1, _ := srv1.GetPublicKey(context.Background(), &pb.GetPublicKeyRequest{})
 
 	// Second run: unseal existing
-	storage2 := NewSealedStorage(dir)
+	storage2 := NewSealedStorage(dir, testSealKey())
 	srv2, err := NewServer(storage2)
 	if err != nil {
 		t.Fatalf("NewServer (second): %v", err)
@@ -95,7 +103,7 @@ func TestServerSealUnsealRoundtrip(t *testing.T) {
 }
 
 func TestServerOverGRPC(t *testing.T) {
-	storage := NewSealedStorage(t.TempDir())
+	storage := NewSealedStorage(t.TempDir(), testSealKey())
 	srv, err := NewServer(storage)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -154,7 +162,7 @@ func TestServerOverGRPC(t *testing.T) {
 }
 
 func TestProveInvalidSeed(t *testing.T) {
-	storage := NewSealedStorage(t.TempDir())
+	storage := NewSealedStorage(t.TempDir(), testSealKey())
 	srv, err := NewServer(storage)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

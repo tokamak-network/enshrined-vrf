@@ -5,3 +5,7 @@ cache/
 contracts/out/
 contracts/cache/
 .next/
+
+# Built binaries
+vrf-enclave/vrf-enclave
+vrf-enclave/vrf-prove

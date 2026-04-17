@@ -60,7 +60,10 @@ op-node \
   --sequencer.vrf-key=<hex-encoded-sk>
 
 # TEE mode (production — sk never leaves enclave)
-vrf-enclave --listen unix:///var/run/vrf-enclave.sock --seal-dir /secure/sealed
+# Seal key must come from a platform-bound source (SGX MRSIGNER, TDX REPORTDATA, ...);
+# for dev/test pass --dev-seal to derive from hostname (NOT production-safe).
+VRF_ENCLAVE_SEAL_KEY=<hex-32B> \
+  vrf-enclave --listen unix:///var/run/vrf-enclave.sock --seal-dir /secure/sealed
 op-node \
   --sequencer.vrf-mode=tee \
   --sequencer.vrf-tee-endpoint=unix:///var/run/vrf-enclave.sock
@@ -90,8 +93,8 @@ cd contracts && forge test -v
 # TEE integration tests
 cd optimism/op-node/rollup/derive && go test -run TestTEEVRFProver -v
 
-# Start enclave server (dev mode)
-cd vrf-enclave && go run ./cmd/vrf-enclave/ --listen localhost:50051 --seal-dir ./sealed
+# Start enclave server (dev mode — --dev-seal derives seal key from hostname)
+cd vrf-enclave && go run ./cmd/vrf-enclave/ --listen localhost:50051 --seal-dir ./sealed --dev-seal
 ```
 
 See [docs/testing-guide.md](docs/testing-guide.md) for the full testing guide including devnet setup and troubleshooting.

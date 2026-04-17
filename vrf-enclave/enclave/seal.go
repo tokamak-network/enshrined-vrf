@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -14,18 +15,20 @@ import (
 
 const sealedKeyFile = "vrf_sealed.key"
 
-// SealedStorage handles persisting the VRF secret key in encrypted form.
-// In a real TEE deployment, sealing uses a platform-derived key (e.g. SGX
-// MRSIGNER-based seal key). This implementation uses a file-based sealing
-// key as a development placeholder — replace deriveSealKey() with the
-// platform-specific sealing primitive for production.
+// SealedStorage persists the VRF secret key encrypted under a caller-supplied
+// 32-byte seal key. In a real TEE deployment, the seal key must be derived
+// from a platform primitive (SGX MRSIGNER, TDX REPORTDATA, SEV-SNP VMPCK) so
+// it is bound to the enclave identity. Callers choose the key source at
+// startup — this package does not pick one implicitly.
 type SealedStorage struct {
-	dir string
+	dir     string
+	sealKey [32]byte
 }
 
-// NewSealedStorage creates a SealedStorage that persists to the given directory.
-func NewSealedStorage(dir string) *SealedStorage {
-	return &SealedStorage{dir: dir}
+// NewSealedStorage creates a SealedStorage that persists to dir, encrypting
+// with the given 32-byte sealKey. Use DevSealKeyFromHostname only in dev/test.
+func NewSealedStorage(dir string, sealKey [32]byte) *SealedStorage {
+	return &SealedStorage{dir: dir, sealKey: sealKey}
 }
 
 // Exists returns true if a sealed key file already exists.
@@ -36,14 +39,9 @@ func (s *SealedStorage) Exists() bool {
 
 // Seal encrypts the secret key bytes and writes them to disk.
 func (s *SealedStorage) Seal(skBytes []byte) error {
-	sealKey := deriveSealKey()
-	block, err := aes.NewCipher(sealKey)
+	aead, err := newAEAD(s.sealKey)
 	if err != nil {
-		return fmt.Errorf("seal: create cipher: %w", err)
-	}
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		return fmt.Errorf("seal: create GCM: %w", err)
+		return fmt.Errorf("seal: %w", err)
 	}
 
 	nonce := make([]byte, aead.NonceSize())
@@ -71,14 +69,9 @@ func (s *SealedStorage) Unseal() ([]byte, error) {
 		return nil, fmt.Errorf("unseal: read file: %w", err)
 	}
 
-	sealKey := deriveSealKey()
-	block, err := aes.NewCipher(sealKey)
+	aead, err := newAEAD(s.sealKey)
 	if err != nil {
-		return nil, fmt.Errorf("unseal: create cipher: %w", err)
-	}
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("unseal: create GCM: %w", err)
+		return nil, fmt.Errorf("unseal: %w", err)
 	}
 
 	nonceSize := aead.NonceSize()
@@ -94,17 +87,32 @@ func (s *SealedStorage) Unseal() ([]byte, error) {
 	return plaintext, nil
 }
 
-// deriveSealKey returns the 32-byte key used for sealing.
-//
-// TODO(production): Replace this with a TEE platform-specific seal key:
-//   - SGX: Use sgx_seal_data() with MRSIGNER policy
-//   - TDX: Use TDX.REPORTDATA-bound key via KDF
-//   - SEV-SNP: Use VMPCK-derived key
-//
-// The current implementation derives from a machine-local identity
-// (hostname) — suitable ONLY for development and testing.
-func deriveSealKey() []byte {
+// DevSealKeyFromHostname derives a deterministic 32-byte seal key from the
+// host's hostname. DEV/TEST ONLY: the hostname is guessable and provides no
+// cryptographic isolation between enclave instances.
+func DevSealKeyFromHostname() [32]byte {
 	hostname, _ := os.Hostname()
-	h := sha256.Sum256([]byte("vrf-enclave-dev-seal-" + hostname))
-	return h[:]
+	return sha256.Sum256([]byte("vrf-enclave-dev-seal-" + hostname))
+}
+
+// SealKeyFromHex parses a 64-character hex string as a 32-byte seal key.
+func SealKeyFromHex(s string) ([32]byte, error) {
+	var key [32]byte
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return key, fmt.Errorf("seal key: invalid hex: %w", err)
+	}
+	if len(b) != 32 {
+		return key, fmt.Errorf("seal key: want 32 bytes, got %d", len(b))
+	}
+	copy(key[:], b)
+	return key, nil
+}
+
+func newAEAD(key [32]byte) (cipher.AEAD, error) {
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, fmt.Errorf("create cipher: %w", err)
+	}
+	return cipher.NewGCM(block)
 }

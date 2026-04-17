@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"google.golang.org/grpc"
@@ -19,15 +20,21 @@ import (
 func main() {
 	listen := flag.String("listen", "localhost:50051", "gRPC listen address (TCP or unix:///path/to/sock)")
 	sealDir := flag.String("seal-dir", "./sealed", "Directory for sealed key storage")
+	devSeal := flag.Bool("dev-seal", false, "Derive seal key from hostname (INSECURE — dev/test only)")
 	flag.Parse()
 
-	storage := enclave.NewSealedStorage(*sealDir)
+	sealKey, err := resolveSealKey(*devSeal)
+	if err != nil {
+		log.Fatalf("seal key: %v", err)
+	}
+
+	storage := enclave.NewSealedStorage(*sealDir, sealKey)
 	srv, err := enclave.NewServer(storage)
 	if err != nil {
 		log.Fatalf("Failed to initialize enclave server: %v", err)
 	}
 
-	lis, err := listen2(*listen)
+	lis, err := listenAddr(*listen)
 	if err != nil {
 		log.Fatalf("Failed to listen on %s: %v", *listen, err)
 	}
@@ -51,16 +58,31 @@ func main() {
 	}
 }
 
-func listen2(addr string) (net.Listener, error) {
-	const unixPrefix = "unix://"
-	if len(addr) > len(unixPrefix) && addr[:len(unixPrefix)] == unixPrefix {
-		sockPath := addr[len(unixPrefix):]
-		// Remove stale socket file if it exists
+// resolveSealKey picks the seal key source. Exactly one of VRF_ENCLAVE_SEAL_KEY
+// (hex-encoded 32 bytes) or the --dev-seal flag must be set — there is no
+// implicit fallback, so a misconfigured deployment fails loudly instead of
+// silently using a predictable key.
+func resolveSealKey(devSeal bool) ([32]byte, error) {
+	hex := os.Getenv("VRF_ENCLAVE_SEAL_KEY")
+	switch {
+	case hex != "" && devSeal:
+		return [32]byte{}, fmt.Errorf("set either VRF_ENCLAVE_SEAL_KEY or --dev-seal, not both")
+	case hex != "":
+		return enclave.SealKeyFromHex(hex)
+	case devSeal:
+		log.Printf("WARNING: --dev-seal in use; seal key derived from hostname is NOT production-safe")
+		return enclave.DevSealKeyFromHostname(), nil
+	default:
+		return [32]byte{}, fmt.Errorf("no seal key: set VRF_ENCLAVE_SEAL_KEY (hex 32B) or pass --dev-seal")
+	}
+}
+
+// listenAddr opens a listener for either a unix socket (unix:///path) or a
+// TCP address (host:port). For unix sockets it clears any stale socket file.
+func listenAddr(addr string) (net.Listener, error) {
+	if sockPath, ok := strings.CutPrefix(addr, "unix://"); ok {
 		os.Remove(sockPath)
 		return net.Listen("unix", sockPath)
-	}
-	if _, err := fmt.Sscanf(addr, "%s", &addr); err == nil {
-		return net.Listen("tcp", addr)
 	}
 	return net.Listen("tcp", addr)
 }
