@@ -26,7 +26,7 @@ func startTestEnclave(t *testing.T) (addr string, pk *secp256k1.PublicKey) {
 		sealKey[i] = byte(i) ^ 0x5a
 	}
 	storage := enclave.NewSealedStorage(t.TempDir(), sealKey)
-	srv, err := enclave.NewServer(storage)
+	srv, err := enclave.NewServer(storage, enclave.AttestNone)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestTEEVRFProverMatchesLocal(t *testing.T) {
 	}
 
 	// Start enclave with this specific key
-	srv := enclave.NewServerFromKey(sk)
+	srv := enclave.NewServerFromKey(sk, enclave.AttestNone)
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
