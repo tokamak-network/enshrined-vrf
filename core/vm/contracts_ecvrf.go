@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/ethereum/go-ethereum/crypto/ecvrf"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -31,25 +32,28 @@ func (c *ecvrfVerify) Run(input []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	// Parse public key
 	pk, err := secp256k1.ParsePubKey(input[0:33])
 	if err != nil {
 		return []byte{0x00}, nil
 	}
 
-	// Parse alpha, expected beta, proof
 	alpha := input[33:65]
 	expectedBeta := input[65:97]
 	var pi [ecvrf.ProofLen]byte
 	copy(pi[:], input[97:178])
 
-	// Verify
 	valid, beta, err := ecvrf.Verify(pk, alpha, pi)
-	if err != nil || !valid {
+	if err != nil {
+		// Surface unexpected verify failures (e.g. malformed scalar in pi).
+		// The normal "invalid proof" path returns valid=false with nil err
+		// and stays silent.
+		log.Debug("ECVRF verify error", "err", err)
+		return []byte{0x00}, nil
+	}
+	if !valid {
 		return []byte{0x00}, nil
 	}
 
-	// Check beta matches
 	if !bytes.Equal(beta[:], expectedBeta) {
 		return []byte{0x00}, nil
 	}

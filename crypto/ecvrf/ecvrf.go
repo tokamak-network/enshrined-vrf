@@ -1,3 +1,4 @@
+// Mirror of enshrined-vrf/crypto/ecvrf — must stay byte-compatible; this precompile verifies proofs produced there.
 package ecvrf
 
 import (
