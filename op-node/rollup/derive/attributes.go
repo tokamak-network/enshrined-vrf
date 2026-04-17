@@ -80,11 +80,6 @@ func (ba *FetchingAttributesBuilder) SetVRFProver(prover VRFProver) {
 	ba.vrfProver = prover
 }
 
-// SetVRFRetryConfig overrides the default VRF retry configuration.
-func (ba *FetchingAttributesBuilder) SetVRFRetryConfig(cfg VRFRetryConfig) {
-	ba.vrfRetry = cfg
-}
-
 // computeVRFProofWithRetry attempts to compute a VRF proof, retrying on failure.
 // Returns an error only after all retries are exhausted.
 func (ba *FetchingAttributesBuilder) computeVRFProofWithRetry(blockNumber uint64, nonce uint64) (beta [32]byte, pi [81]byte, err error) {
