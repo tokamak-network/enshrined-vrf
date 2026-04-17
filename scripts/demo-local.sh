@@ -4,7 +4,7 @@
 # =============================================================================
 # Demonstrates the full VRF flow on a local Anvil chain:
 #   1. Start Anvil
-#   2. Deploy PredeployedVRF at the predeploy address
+#   2. Deploy EnshrainedVRF at the predeploy address
 #   3. Deploy CoinFlip (randomness consumer)
 #   4. Generate a VRF proof using Go enclave
 #   5. Commit one randomness per block as DEPOSITOR_ACCOUNT
@@ -60,19 +60,19 @@ for i in $(seq 1 30); do
 done
 echo "  ✓ Anvil running (PID=$ANVIL_PID)"
 
-# ── Step 2: Deploy PredeployedVRF at predeploy address ──
+# ── Step 2: Deploy EnshrainedVRF at predeploy address ──
 echo ""
-echo "▸ Deploying PredeployedVRF at $VRF_ADDR..."
+echo "▸ Deploying EnshrainedVRF at $VRF_ADDR..."
 
 # Build contracts
 (cd "$CONTRACTS" && forge build --quiet)
 
-# Get bytecode
-BYTECODE=$(jq -r '.deployedBytecode.object' "$CONTRACTS/out/PredeployedVRF.sol/PredeployedVRF.json")
+# Get bytecode (contract source lives in optimism submodule, imported via remappings)
+BYTECODE=$(jq -r '.deployedBytecode.object' "$CONTRACTS/out/EnshrainedVRF.sol/EnshrainedVRF.json")
 
 # Use anvil_setCode to place contract at predeploy address
 cast rpc anvil_setCode "$VRF_ADDR" "$BYTECODE" --rpc-url "$RPC" > /dev/null
-echo "  ✓ PredeployedVRF deployed at $VRF_ADDR"
+echo "  ✓ EnshrainedVRF deployed at $VRF_ADDR"
 
 # Verify
 CODE_LEN=$(cast code "$VRF_ADDR" --rpc-url "$RPC" | wc -c)

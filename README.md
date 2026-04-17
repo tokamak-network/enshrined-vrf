@@ -73,9 +73,9 @@ op-node \
 
 | Component | Location | Description |
 |-----------|----------|-------------|
-| **ECVRF Library** | `crypto/ecvrf/` | ECVRF-SECP256K1-SHA256-TAI (RFC 9381) |
-| **Verify Precompile** | `core/vm/` | EVM precompile at `0x0101`, 3,000 gas |
-| **PredeployedVRF** | `contracts/src/` | L2 predeploy at `0x42...f0` |
+| **ECVRF Library** | `crypto/ecvrf/` (mirrored in `op-geth/`) | ECVRF-SECP256K1-SHA256-TAI (RFC 9381) |
+| **Verify Precompile** | `op-geth/core/vm/contracts_ecvrf.go` | EVM precompile at `0x0101`, 3,000 gas |
+| **EnshrainedVRF** | `optimism/packages/contracts-bedrock/src/L2/` | L2 predeploy at `0x42...f0` |
 | **VRFVerifier** | `contracts/src/L1/` | L1 dispute resolution |
 | **TEE Enclave** | `vrf-enclave/` | gRPC server, key sealing, attestation |
 | **Derivation** | `optimism/op-node/` | Fork config, payload attributes |

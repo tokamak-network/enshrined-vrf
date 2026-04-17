@@ -50,7 +50,7 @@ cd contracts
 forge test -v
 
 # 특정 컨트랙트만
-forge test --match-contract PredeployedVRFTest -v
+forge test --match-contract EnshrainedVRFTest -v
 forge test --match-contract VRFVerifierTest -v
 
 # 가스 측정
@@ -58,7 +58,7 @@ forge test --match-test "test_gas" -vvv
 ```
 
 **기대 결과:**
-- PredeployedVRFTest: 31 PASS
+- EnshrainedVRFTest: 30 PASS
 - VRFVerifierTest: 20 PASS
 - getRandomness gas: ~24K
 - commitRandomness gas: ~165K
@@ -173,7 +173,7 @@ just devnet-up
 
 devnet이 올라간 후:
 
-**Check 1: PredeployedVRF 컨트랙트 존재 확인**
+**Check 1: EnshrainedVRF 컨트랙트 존재 확인**
 
 ```bash
 cast code 0x42000000000000000000000000000000000000f0 --rpc-url http://localhost:8545
@@ -305,7 +305,7 @@ sequencer가 VRF를 커밋하지 않고 있습니다.
 - sequencer에 VRF private key가 설정되었는지 확인
 - `EnshrainedVRFTime`이 현재 timestamp 이전인지 확인
 
-### PredeployedVRF에 코드가 없음
+### EnshrainedVRF에 코드가 없음
 
 genesis에 배치되지 않았습니다.
 - `just genesis` 재실행
@@ -334,7 +334,7 @@ fork가 활성화되지 않았습니다.
 | Crypto | ECVRF round-trip | `go test ./crypto/ecvrf/ -v` | 22 PASS |
 | Crypto | Fuzz | `go test ./crypto/ecvrf/ -fuzz=FuzzProveVerify -fuzztime=30s` | 0 crashes |
 | EVM | Precompile | `go test ./core/vm/ -v` | 9 PASS |
-| L2 | PredeployedVRF | `cd contracts && forge test --match-contract PredeployedVRFTest` | 31 PASS |
+| L2 | EnshrainedVRF | `cd contracts && forge test --match-contract EnshrainedVRFTest` | 30 PASS |
 | L1 | VRFVerifier | `cd contracts && forge test --match-contract VRFVerifierTest` | 20 PASS |
 | Build | op-geth binary | `cd op-geth && go build ./cmd/geth` | exit 0 |
 | Build | op-node binary | `cd optimism && go build ./op-node/cmd` | exit 0 |
