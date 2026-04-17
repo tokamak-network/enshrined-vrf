@@ -222,6 +222,11 @@ func (s *Driver) Close() error {
 	s.driverCancel()
 	s.wg.Wait()
 	s.sequencer.Close()
+	if s.driverConfig.VRFProver != nil {
+		if err := s.driverConfig.VRFProver.Close(); err != nil {
+			s.log.Warn("VRF prover close failed", "err", err)
+		}
+	}
 	return nil
 }
 

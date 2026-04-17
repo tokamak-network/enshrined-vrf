@@ -3,11 +3,13 @@ package derive
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -16,17 +18,20 @@ import (
 )
 
 // ComputeVRFSeed computes the VRF seed from the block number and nonce.
-// seed = sha256(blockNumber || nonce)
+// seed = sha256(blockNumber || nonce), each encoded as a 32-byte big-endian
+// uint256 to match the on-chain abi.encode(uint256,uint256) layout.
 // Each (blockNumber, nonce) pair produces a unique seed, allowing multiple
 // VRF commitments per block. Unpredictability is guaranteed by the
 // TEE-protected secret key — the sequencer cannot compute VRF outputs without
 // the enclave, so a predictable seed does not weaken the scheme.
 func ComputeVRFSeed(blockNumber uint64, nonce uint64) [32]byte {
+	var buf [32]byte
 	h := sha256.New()
-	blockNumBytes := common.BigToHash(new(big.Int).SetUint64(blockNumber))
-	h.Write(blockNumBytes.Bytes())
-	nonceBytes := common.BigToHash(new(big.Int).SetUint64(nonce))
-	h.Write(nonceBytes.Bytes())
+	binary.BigEndian.PutUint64(buf[24:], blockNumber)
+	h.Write(buf[:])
+	buf = [32]byte{}
+	binary.BigEndian.PutUint64(buf[24:], nonce)
+	h.Write(buf[:])
 	var seed [32]byte
 	copy(seed[:], h.Sum(nil))
 	return seed
@@ -43,6 +48,9 @@ type VRFProver interface {
 	Prove(seed []byte) (beta [32]byte, pi [81]byte, err error)
 	// PublicKey returns the compressed 33-byte secp256k1 public key.
 	PublicKey() []byte
+	// Close releases resources: local provers zero sk in memory, TEE provers
+	// tear down the gRPC connection. Safe to call once at node shutdown.
+	Close() error
 }
 
 // LocalVRFProver holds the secret key in Go memory.
@@ -78,6 +86,15 @@ func (l *LocalVRFProver) PublicKey() []byte {
 	return l.pk
 }
 
+// Close zeroes the secret key scalar in-place.
+func (l *LocalVRFProver) Close() error {
+	if l.sk != nil {
+		l.sk.Key.Zero()
+		l.sk = nil
+	}
+	return nil
+}
+
 // ComputeVRFProof computes the VRF proof for a block and nonce using the given prover.
 func ComputeVRFProof(prover VRFProver, blockNumber uint64, nonce uint64) (beta [32]byte, pi [81]byte, err error) {
 	seed := ComputeVRFSeed(blockNumber, nonce)
@@ -93,7 +110,25 @@ var (
 
 	// L1Info depositor address (also used for VRF deposits)
 	vrfDepositorAddr = common.HexToAddress("0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001")
+
+	// commitRandomnessArgs describes the ABI-encoded argument layout of
+	// commitRandomness(uint256,bytes32,bytes32,bytes) so the decoder validates
+	// types instead of chasing hardcoded byte offsets.
+	commitRandomnessArgs = abi.Arguments{
+		{Type: abiType("uint256")},
+		{Type: abiType("bytes32")},
+		{Type: abiType("bytes32")},
+		{Type: abiType("bytes")},
+	}
 )
+
+func abiType(s string) abi.Type {
+	t, err := abi.NewType(s, "", nil)
+	if err != nil {
+		panic(fmt.Sprintf("invalid abi type %q: %v", s, err))
+	}
+	return t
+}
 
 // vrfCommitment holds VRF data extracted from a deposit transaction.
 type vrfCommitment struct {
@@ -122,36 +157,40 @@ func extractVRFFromDeposits(txs types.Transactions) *vrfCommitment {
 	return nil
 }
 
-// decodeCommitRandomness decodes the ABI-encoded commitRandomness calldata.
-// Layout: selector(4) + nonce(32) + seed(32) + beta(32) + offset(32) + piLen(32) + piData(96)
+// decodeCommitRandomness decodes the ABI-encoded commitRandomness calldata
+// using the declared argument types; any deviation from the expected layout
+// (wrong selector length, truncated data, wrong pi length) returns nil.
 func decodeCommitRandomness(data []byte) *vrfCommitment {
-	const expectedMinLen = 4 + 32 + 32 + 32 + 32 + 32 + 81 // 245
-	if len(data) < expectedMinLen {
+	if len(data) < 4 {
+		return nil
+	}
+	values, err := commitRandomnessArgs.Unpack(data[4:])
+	if err != nil {
 		return nil
 	}
 
-	c := &vrfCommitment{}
-
-	// nonce: bytes 4..36
-	nonceBig := new(big.Int).SetBytes(data[4:36])
-	c.nonce = nonceBig.Uint64()
-
-	// seed: bytes 36..68
-	copy(c.seed[:], data[36:68])
-
-	// beta: bytes 68..100
-	copy(c.beta[:], data[68:100])
-
-	// offset to dynamic data: bytes 100..132 (should be 128 = 0x80)
-	// pi length: bytes 132..164 (should be 81)
-	piLenBig := new(big.Int).SetBytes(data[132:164])
-	piLen := piLenBig.Uint64()
-	if piLen != 81 || len(data) < 164+81 {
+	nonce, ok := values[0].(*big.Int)
+	if !ok {
+		return nil
+	}
+	seed, ok := values[1].([32]byte)
+	if !ok {
+		return nil
+	}
+	beta, ok := values[2].([32]byte)
+	if !ok {
+		return nil
+	}
+	pi, ok := values[3].([]byte)
+	if !ok || len(pi) != 81 {
 		return nil
 	}
 
-	// pi data: bytes 164..245
-	copy(c.pi[:], data[164:245])
-
+	c := &vrfCommitment{
+		nonce: nonce.Uint64(),
+		seed:  seed,
+		beta:  beta,
+	}
+	copy(c.pi[:], pi)
 	return c
 }

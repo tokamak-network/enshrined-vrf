@@ -21,7 +21,11 @@ import (
 func startTestEnclave(t *testing.T) (addr string, pk *secp256k1.PublicKey) {
 	t.Helper()
 
-	storage := enclave.NewSealedStorage(t.TempDir())
+	var sealKey [32]byte
+	for i := range sealKey {
+		sealKey[i] = byte(i) ^ 0x5a
+	}
+	storage := enclave.NewSealedStorage(t.TempDir(), sealKey)
 	srv, err := enclave.NewServer(storage)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -182,9 +186,9 @@ func TestTEEVRFProverMatchesLocal(t *testing.T) {
 
 // failingVRFProver is a mock prover that fails N times then succeeds.
 type failingVRFProver struct {
-	inner      VRFProver
-	failCount  int
-	callCount  atomic.Int32
+	inner     VRFProver
+	failCount int
+	callCount atomic.Int32
 }
 
 func (f *failingVRFProver) Prove(seed []byte) (beta [32]byte, pi [81]byte, err error) {
@@ -197,6 +201,10 @@ func (f *failingVRFProver) Prove(seed []byte) (beta [32]byte, pi [81]byte, err e
 
 func (f *failingVRFProver) PublicKey() []byte {
 	return f.inner.PublicKey()
+}
+
+func (f *failingVRFProver) Close() error {
+	return f.inner.Close()
 }
 
 // TestComputeVRFProofWithRetry_SuccessAfterRetries verifies that transient
