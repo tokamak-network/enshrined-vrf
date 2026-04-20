@@ -6,7 +6,7 @@
     "dev": "mintlify dev",
     "broken-links": "mintlify broken-links",
     "sync-contracts": "node scripts/sync-contracts.mjs",
-    "build": "npx mintlify export --output .build.zip && rm -rf out && mkdir out && cd out && unzip -oq ../.build.zip && cd .. && rm .build.zip",
+    "build": "npx mintlify export --output .build.zip --disable-openapi && rm -rf out && mkdir out && cd out && unzip -oq ../.build.zip && cd .. && rm .build.zip",
     "build:full": "npm run sync-contracts && npm run build"
   },
   "devDependencies": {
