@@ -1,0 +1,184 @@
+---
+title: "SessionKeyManager"
+description: "Registry and validator for scoped session keys."
+---
+
+<Note>
+  Auto-generated from Solidity NatSpec via `forge doc`. Hand edits here will be overwritten.
+  Run `npm run sync-contracts` from `docs-site/` to regenerate.
+</Note>
+
+<Info>
+  **Predeploy address:** `0x4200000000000000000000000000000000000000A1`
+</Info>
+
+Tracks scoped session keys for GameHub accounts.
+Only the Hub itself may register/revoke keys for its own address.
+Validation is pure view — callers (Hubs) enforce the result.
+Designed to be a predeploy (address TBD).
+
+
+## State Variables
+### _scopes
+
+```solidity
+mapping(address hub => mapping(address key => Scope)) private _scopes
+```
+
+
+### _active
+
+```solidity
+mapping(address hub => mapping(address key => bool)) private _active
+```
+
+
+## Functions
+### register
+
+Register a session key for the calling Hub.
+
+msg.sender is the Hub. Only the Hub can register keys for itself.
+
+
+```solidity
+function register(address sessionKey, Scope calldata scope) external;
+```
+
+### revoke
+
+Revoke a session key. Callable by the Hub that owns it.
+
+
+```solidity
+function revoke(address sessionKey) external;
+```
+
+### refill
+
+Top up an active session key's remaining cap and/or extend its expiry.
+
+Works on sessions whose expiry has passed (revives gameplay), but NOT on
+revoked sessions — those must be re-registered from scratch.
+
+
+```solidity
+function refill(address sessionKey, uint256 addedCap, uint64 newExpiry) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`sessionKey`|`address`| The key to refill.|
+|`addedCap`|`uint256`|   Wei to add to `spendingCap`. May be zero if only extending expiry.|
+|`newExpiry`|`uint64`|  New absolute unix timestamp. 0 leaves expiry unchanged; any non-zero value must be in the future.|
+
+
+### canCall
+
+Check whether a session key is authorized for a given call.
+Pure view — does not mutate cap. Hub must call consume() after execution.
+
+
+```solidity
+function canCall(address hub, address sessionKey, address gameAddr, bytes4 selector, uint256 value)
+    external
+    view
+    returns (bool);
+```
+
+### consume
+
+Deduct spent value from the session key's remaining cap.
+
+Called by the Hub after a successful session-key execution.
+
+
+```solidity
+function consume(address sessionKey, uint256 amount) external;
+```
+
+### scopeOf
+
+
+```solidity
+function scopeOf(address hub, address sessionKey) external view returns (Scope memory);
+```
+
+### isActive
+
+
+```solidity
+function isActive(address hub, address sessionKey) external view returns (bool);
+```
+
+## Events
+### SessionRegistered
+
+```solidity
+event SessionRegistered(
+    address indexed hub, address indexed sessionKey, address indexed gameAddr, uint256 cap, uint64 expiry
+);
+```
+
+### SessionRevoked
+
+```solidity
+event SessionRevoked(address indexed hub, address indexed sessionKey);
+```
+
+### CapConsumed
+
+```solidity
+event CapConsumed(address indexed hub, address indexed sessionKey, uint256 amount, uint256 remaining);
+```
+
+### SessionRefilled
+
+```solidity
+event SessionRefilled(address indexed hub, address indexed sessionKey, uint256 addedCap, uint64 newExpiry);
+```
+
+## Errors
+### AlreadyActive
+
+```solidity
+error AlreadyActive();
+```
+
+### NotActive
+
+```solidity
+error NotActive();
+```
+
+### InvalidGame
+
+```solidity
+error InvalidGame();
+```
+
+### InvalidExpiry
+
+```solidity
+error InvalidExpiry();
+```
+
+### NotHub
+
+```solidity
+error NotHub();
+```
+
+## Structs
+### Scope
+
+```solidity
+struct Scope {
+    address gameAddr; // target game contract
+    uint256 spendingCap; // remaining value (wei) the key may spend
+    uint64 expiry; // unix timestamp; 0 = no expiry
+    bytes4[] selectors; // allowed function selectors; empty = any
+}
+```
+

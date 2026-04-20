@@ -1,0 +1,102 @@
+---
+title: "GameRegistry"
+description: "Whitelist of contracts session keys may call."
+---
+
+<Note>
+  Auto-generated from Solidity NatSpec via `forge doc`. Hand edits here will be overwritten.
+  Run `npm run sync-contracts` from `docs-site/` to regenerate.
+</Note>
+
+<Info>
+  **Predeploy address:** `0x4200000000000000000000000000000000000000A2`
+</Info>
+
+Whitelist of contracts recognized as "games" on the L2.
+Session keys may only call contracts registered here.
+Designed to be a predeploy (address TBD).
+
+
+## State Variables
+### _registered
+
+```solidity
+mapping(address => bool) private _registered
+```
+
+
+### _owner
+
+```solidity
+mapping(address => address) private _owner
+```
+
+
+## Functions
+### register
+
+Register the caller as a game. Intended to be called by the
+game contract itself from its constructor, so registration
+authority cannot be spoofed by an EOA.
+
+
+```solidity
+function register() external;
+```
+
+### deregister
+
+Deregister a game. Only the original registrar (tx.origin at
+register time) may deregister.
+
+
+```solidity
+function deregister(address game) external;
+```
+
+### isRegistered
+
+
+```solidity
+function isRegistered(address game) external view returns (bool);
+```
+
+### ownerOf
+
+
+```solidity
+function ownerOf(address game) external view returns (address);
+```
+
+## Events
+### GameRegistered
+
+```solidity
+event GameRegistered(address indexed game, address indexed registrar);
+```
+
+### GameDeregistered
+
+```solidity
+event GameDeregistered(address indexed game, address indexed caller);
+```
+
+## Errors
+### NotRegistered
+
+```solidity
+error NotRegistered();
+```
+
+### AlreadyRegistered
+
+```solidity
+error AlreadyRegistered();
+```
+
+### NotOwner
+
+```solidity
+error NotOwner();
+```
+

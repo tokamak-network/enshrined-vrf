@@ -1,0 +1,258 @@
+---
+title: "GameHubAccount"
+description: "Per-user smart account: owner for setup and withdrawal, session keys for gameplay."
+---
+
+<Note>
+  Auto-generated from Solidity NatSpec via `forge doc`. Hand edits here will be overwritten.
+  Run `npm run sync-contracts` from `docs-site/` to regenerate.
+</Note>
+
+Per-user smart account. Owner (EOA) retains full authority;
+session keys may call registered games within their scope.
+Holds per-game balance slots.
+
+
+## State Variables
+### owner
+
+```solidity
+address public immutable owner
+```
+
+
+### factory
+
+```solidity
+address public immutable factory
+```
+
+
+### sessionKeys
+
+```solidity
+SessionKeyManager public immutable sessionKeys
+```
+
+
+### registry
+
+```solidity
+GameRegistry public immutable registry
+```
+
+
+### balances
+Per-game balance slots. Funds are earmarked for a specific game.
+
+
+```solidity
+mapping(address game => uint256) public balances
+```
+
+
+### sessionNonce
+Monotonic nonce for session-key-signed calls.
+
+
+```solidity
+mapping(address sessionKey => uint256) public sessionNonce
+```
+
+
+## Functions
+### constructor
+
+
+```solidity
+constructor(address owner_, SessionKeyManager skm, GameRegistry reg, address factory_) ;
+```
+
+### onlyOwnerOrFactory
+
+
+```solidity
+modifier onlyOwnerOrFactory() ;
+```
+
+### receive
+
+
+```solidity
+receive() external payable;
+```
+
+### deposit
+
+Deposit ETH into a game-specific slot. Callable by owner only.
+
+
+```solidity
+function deposit(address game) external payable onlyOwnerOrFactory;
+```
+
+### registerSession
+
+Register a session key for a game. Callable by owner or factory.
+
+
+```solidity
+function registerSession(address sessionKey, SessionKeyManager.Scope calldata scope) external onlyOwnerOrFactory;
+```
+
+### revokeSession
+
+Revoke a session key. Callable by owner only.
+
+
+```solidity
+function revokeSession(address sessionKey) external;
+```
+
+### refillSession
+
+Top up an existing session key: optional game-slot deposit, cap increase,
+and/or expiry extension. Single owner signature extends an active session
+without rotating keys.
+
+
+```solidity
+function refillSession(address sessionKey, address game, uint256 addedCap, uint64 newExpiry)
+    external
+    payable
+    onlyOwnerOrFactory;
+```
+
+### withdraw
+
+Withdraw from a game slot back to the caller or a recipient.
+
+
+```solidity
+function withdraw(address game, uint256 amount, address payable to) external;
+```
+
+### executeAsOwner
+
+Execute a call directly (owner-signed path).
+
+
+```solidity
+function executeAsOwner(address game, uint256 value, bytes calldata data) external returns (bytes memory);
+```
+
+### executeAsSession
+
+Execute a call on behalf of a session key. Anyone may submit
+this transaction (including a relayer) as long as the signature
+and scope validate.
+
+
+```solidity
+function executeAsSession(
+    address sessionKey,
+    address game,
+    uint256 value,
+    bytes calldata data,
+    uint256 nonce,
+    bytes calldata signature
+) external returns (bytes memory);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`sessionKey`|`address`| The session key signer.|
+|`game`|`address`|       Target game contract.|
+|`value`|`uint256`|      Wei to forward from balances[game].|
+|`data`|`bytes`|       Calldata (must include selector).|
+|`nonce`|`uint256`|      Expected sessionNonce[sessionKey].|
+|`signature`|`bytes`|  65-byte ECDSA signature over the digest below.|
+
+
+### _call
+
+
+```solidity
+function _call(address target, uint256 value, bytes calldata data) internal returns (bytes memory);
+```
+
+### _digest
+
+
+```solidity
+function _digest(address sessionKey, address game, uint256 value, bytes calldata data, uint256 nonce)
+    internal
+    view
+    returns (bytes32);
+```
+
+### _recover
+
+
+```solidity
+function _recover(bytes32 digest, bytes calldata sig) internal pure returns (address);
+```
+
+## Events
+### Deposited
+
+```solidity
+event Deposited(address indexed game, uint256 amount);
+```
+
+### Withdrawn
+
+```solidity
+event Withdrawn(address indexed game, uint256 amount, address indexed to);
+```
+
+### SessionExecuted
+
+```solidity
+event SessionExecuted(address indexed sessionKey, address indexed game, bytes4 selector, uint256 value);
+```
+
+## Errors
+### NotOwner
+
+```solidity
+error NotOwner();
+```
+
+### GameNotRegistered
+
+```solidity
+error GameNotRegistered();
+```
+
+### InsufficientBalance
+
+```solidity
+error InsufficientBalance();
+```
+
+### InvalidSignature
+
+```solidity
+error InvalidSignature();
+```
+
+### Unauthorized
+
+```solidity
+error Unauthorized();
+```
+
+### CallFailed
+
+```solidity
+error CallFailed(bytes reason);
+```
+
+### BadNonce
+
+```solidity
+error BadNonce();
+```
+

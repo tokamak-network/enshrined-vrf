@@ -1,0 +1,189 @@
+---
+title: "VRFVerifier (L1)"
+description: "Pure-Solidity ECVRF verifier used on L1 during fault-proof disputes."
+---
+
+<Note>
+  Auto-generated from Solidity NatSpec via `forge doc`. Hand edits here will be overwritten.
+  Run `npm run sync-contracts` from `docs-site/` to regenerate.
+</Note>
+
+On-chain ECVRF proof verifier for L1 dispute resolution.
+Verifies ECVRF-SECP256K1-SHA256-TAI proofs without requiring
+the L2 precompile, enabling fault proof challenges on L1.
+
+This contract provides a pure Solidity implementation of ECVRF
+verification. It is used during fault proof disputes to verify
+that the sequencer's VRF output was correctly computed.
+The verification checks:
+1. The proof (pi) is valid for the given (pk, seed) pair
+2. The output (beta) matches what was committed on L2
+This is NOT used during normal operation — only during disputes.
+For gas efficiency, it uses the secp256k1 ecrecover trick for
+scalar multiplication verification.
+
+
+## State Variables
+### N
+The secp256k1 curve order.
+
+
+```solidity
+uint256 internal constant N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+```
+
+
+### P
+The secp256k1 field prime.
+
+
+```solidity
+uint256 internal constant P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+```
+
+
+### SUITE_STRING
+The VRF suite string for ECVRF-SECP256K1-SHA256-TAI.
+
+
+```solidity
+uint8 internal constant SUITE_STRING = 0xFE
+```
+
+
+## Functions
+### verifyProofStructure
+
+Performs partial VRF verification: checks proof structure and
+beta consistency (proof-to-hash), but does NOT perform full
+elliptic curve verification (encode_to_curve, scalar multiply).
+Full EC verification is delegated to the fault proof VM via
+op-program re-execution, which includes the ECVRF verify
+precompile at 0x0101.
+
+
+```solidity
+function verifyProofStructure(
+    bytes memory pk,
+    bytes32 seed, // solhint-disable-line no-unused-vars
+    bytes32 beta,
+    bytes memory pi
+)
+    external
+    pure
+    returns (bool valid);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pk`|`bytes`|   The sequencer's compressed public key (33 bytes).|
+|`seed`|`bytes32`| The VRF seed (32 bytes), reserved for future full verification.|
+|`beta`|`bytes32`| The claimed VRF output (32 bytes).|
+|`pi`|`bytes`|   The VRF proof (81 bytes: 33 gamma + 16 c + 32 s).|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`valid`|`bool`|True if proof structure is valid and beta matches proof-to-hash.|
+
+
+### verifySeed
+
+Verifies that the VRF seed was correctly constructed.
+
+
+```solidity
+function verifySeed(uint256 blockNumber, uint256 nonce, bytes32 expectedSeed) external pure returns (bool valid);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`blockNumber`|`uint256`|The L2 block number.|
+|`nonce`|`uint256`|      The VRF nonce for this block.|
+|`expectedSeed`|`bytes32`|The seed to verify.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`valid`|`bool`|True if the seed matches the expected construction.|
+
+
+### computeSeed
+
+Computes the VRF seed from components.
+
+
+```solidity
+function computeSeed(uint256 blockNumber, uint256 nonce) external pure returns (bytes32 seed);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`blockNumber`|`uint256`|The L2 block number.|
+|`nonce`|`uint256`|      The VRF nonce for this block.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`seed`|`bytes32`|The computed seed.|
+
+
+### proofToHash
+
+Extracts beta from a VRF proof using proof_to_hash.
+
+
+```solidity
+function proofToHash(bytes memory pi) external pure returns (bytes32 beta);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pi`|`bytes`|The VRF proof (81 bytes).|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`beta`|`bytes32`|The VRF output hash.|
+
+
+### _extractGamma
+
+Extracts the 33-byte compressed Gamma point from the proof.
+
+
+```solidity
+function _extractGamma(bytes memory pi) internal pure returns (bytes memory gammaBytes);
+```
+
+## Errors
+### InvalidProofLength
+Thrown when the proof has invalid length.
+
+
+```solidity
+error InvalidProofLength();
+```
+
+## Structs
+### VrfProof
+Result of a VRF verification.
+
+
+```solidity
+struct VrfProof {
+    bytes32 gammaX; // x-coordinate of Gamma point
+    uint8 gammaPrefix; // 0x02 or 0x03 prefix byte
+    bytes16 c; // challenge (truncated to 16 bytes)
+    bytes32 s; // response scalar
+}
+```
+

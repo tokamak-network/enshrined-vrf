@@ -1,0 +1,34 @@
+---
+title: "EnshrainedVRF"
+description: "Per-block randomness predeploy. Interface, call semantics, and events."
+---
+
+<Info>
+  **Predeploy address:** `0x4200000000000000000000000000000000000000F0`
+</Info>
+
+<Note>
+  This reference page will be auto-generated from Solidity NatSpec in a later pass. For now it mirrors [`IEnshrainedVRF.sol`](https://github.com/tokamak-network/enshrined-vrf/blob/main/optimism/packages/contracts-bedrock/interfaces/L2/IEnshrainedVRF.sol) by hand.
+</Note>
+
+## Interface
+
+```solidity
+interface IEnshrainedVRF {
+    event RandomnessCommitted(uint256 indexed nonce, bytes32 beta, address indexed caller);
+    event SequencerPublicKeyUpdated(bytes pk);
+
+    function getRandomness() external returns (uint256 randomness);
+    function getResult(uint256 nonce) external view returns (bytes32 seed, bytes32 beta, bytes memory pi);
+    function sequencerPublicKey() external view returns (bytes memory pk);
+    function commitNonce() external view returns (uint256);
+    function callCounter() external view returns (uint256);
+    function commitRandomness(uint256 nonce, bytes32 seed, bytes32 beta, bytes calldata pi) external;
+    function setSequencerPublicKey(bytes calldata pk) external;
+}
+```
+
+## Related
+
+- [Enshrined VRF concept](/concepts/enshrined-vrf)
+- [Build a VRF-backed game](/guides/build-vrf-game)
