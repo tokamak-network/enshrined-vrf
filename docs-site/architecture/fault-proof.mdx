@@ -1,0 +1,93 @@
+---
+title: "Fault proof"
+description: "How L1 re-verifies a disputed VRF commitment via the `VRFVerifier` contract."
+---
+
+The fault proof path ensures that **a dishonest sequencer cannot rewrite history with fake randomness**. It extends the OP Stack dispute game with one additional opcode: verify an ECVRF proof on L1.
+
+## Where VRF fits in the dispute game
+
+<Steps>
+  <Step title="A proposer posts an output root">
+    Output roots commit to the L2 state, including `EnshrainedVRF` storage (every commit proof that has ever been published).
+  </Step>
+  <Step title="A challenger disputes a specific transaction">
+    The dispute game bisects execution to find the disputed state transition. Eventually it reduces to a single L2 transaction to re-execute on L1.
+  </Step>
+  <Step title="If that transaction is a `commitRandomness`...">
+    The dispute game replays it through L1 `VRFVerifier`:
+
+    ```solidity
+    verify(pk, seed, beta, pi) → bool
+    ```
+
+    - `pk` comes from `SystemConfig.vrfPublicKey()` — the L1 anchor.
+    - `seed`, `beta`, `pi` come from the disputed commit.
+
+    If `verify` returns `false`, the commit was forged. The challenger wins; the proposer's bond is slashed.
+  </Step>
+  <Step title="If that transaction is anything else">
+    Standard OP Stack dispute semantics apply. Session-account logic is pure EVM and re-executes identically on L1.
+  </Step>
+</Steps>
+
+## `VRFVerifier` contract
+
+Pure Solidity ECVRF verifier for `ECVRF-SECP256K1-SHA256-TAI`. Two responsibilities:
+
+1. Hash-to-curve the seed using the suite string `0xFE`.
+2. Verify `(gamma, c, s)` against the public key using an `ecrecover` trick for the scalar multiplication.
+
+It is **never called during normal operation** — L2 `getRandomness()` does not trigger it. It only runs during a dispute, which keeps gas costs on the fast path minimal.
+
+<Info>
+  Source: [`contracts/src/L1/VRFVerifier.sol`](https://github.com/tokamak-network/enshrined-vrf/blob/main/contracts/src/L1/VRFVerifier.sol).
+</Info>
+
+## Threat model addressed
+
+<CardGroup cols={2}>
+  <Card title="Forged beta" icon="shield-halved">
+    Sequencer computes a `beta` not derived from `ECVRF.Prove(sk, seed)`.
+    **Caught by:** `VRFVerifier.verify` returns false on replay.
+  </Card>
+  <Card title="Wrong public key" icon="shield-halved">
+    Sequencer uses a different `sk` whose `pk` differs from the anchored `SystemConfig.vrfPublicKey`.
+    **Caught by:** verifier compares against the L1 value, not whatever the sequencer claims.
+  </Card>
+  <Card title="Replayed old proof" icon="shield-halved">
+    Sequencer reuses a valid `(beta, pi)` for a new seed.
+    **Caught by:** seeds include `block.number` and `commitNonce`, so old proofs verify against the wrong seed.
+  </Card>
+  <Card title="Silent skip" icon="shield-halved">
+    Sequencer omits the commit for a block.
+    **Caught by:** block validity rules — blocks without a valid commit deposit tx are rejected by honest nodes.
+  </Card>
+</CardGroup>
+
+## What `VRFVerifier` does NOT prove
+
+The verifier only proves that **a given beta matches the committed pk and seed**. It does not, and cannot, prove:
+
+- That the sequencer did not selectively reveal the beta early (this is prevented by TEE confidentiality, not by L1).
+- That the block ordering is optimal — censorship-resistance is the OP Stack's force-inclusion mechanism, not a VRF property.
+- That the TEE enclave itself is honest — attestation review is a governance process, not an on-chain proof.
+
+## Slashing and economic security
+
+If a fault proof lands:
+
+1. The proposer's bond is forfeited.
+2. The disputed output root is invalidated; the canonical L2 head rolls back to the last undisputed state.
+3. Game state affected by the forged randomness is also rolled back — this is why games must not rely on off-chain caching of VRF results.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Execution path" href="/architecture/execution" icon="microchip">
+    Where the commit is written and how it's consumed in normal operation.
+  </Card>
+  <Card title="Sequencer & TEE" href="/architecture/sequencer" icon="lock">
+    Why the sequencer operator cannot produce a forged proof in the first place.
+  </Card>
+</CardGroup>
