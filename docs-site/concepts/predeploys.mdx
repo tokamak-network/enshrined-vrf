@@ -1,0 +1,60 @@
+---
+title: "Predeploys"
+description: "Contracts that ship inside the chain itself, providing VRF, game registration, and session accounts as native primitives."
+---
+
+A **predeploy** is a contract deployed at genesis at a fixed address. On this L2, predeploys give every game and frontend a shared foundation for randomness, account management, and scope enforcement.
+
+## The predeploy set
+
+<CardGroup cols={2}>
+  <Card title="EnshrainedVRF" icon="dice" href="/contracts/enshrined-vrf">
+    `0x42…00F0` — per-block randomness used by every game.
+  </Card>
+  <Card title="GameHubFactory" icon="hammer" href="/contracts/game-hub-factory">
+    `0x42…00A0` — CREATE2 deployer for per-user GameHubs. Atomic onboarding and refill flows.
+  </Card>
+  <Card title="SessionKeyManager" icon="key" href="/contracts/session-key-manager">
+    `0x42…00A1` — registry and validator for scoped session keys.
+  </Card>
+  <Card title="GameRegistry" icon="shield-check" href="/contracts/game-registry">
+    `0x42…00A2` — whitelist of contracts recognized as games.
+  </Card>
+</CardGroup>
+
+<Info>
+  `GameHubAccount` is not a predeploy — it is deployed per user by the factory. Its code is identical across all users because it is created via CREATE2 with a fixed init-code hash.
+</Info>
+
+## Why enshrine rather than deploy
+
+Three reasons.
+
+**Gas.** A predeploy call is a direct `SLOAD`/`SSTORE` on the EVM. An equivalent "user-deployed library" would require a `DELEGATECALL` through an application contract, paying more gas every time.
+
+**UX.** Frontends, wallets, and tooling can hard-code a single address. There's no "which VRF contract is this game using?" question.
+
+**Trust.** Predeploys are upgraded through the same mechanism that upgrades the chain itself. A user trusting the chain implicitly trusts the predeploys.
+
+## Predeploy upgrade path
+
+Predeploys follow the standard L2 hardfork flow:
+
+1. A proposal changes the predeploy's bytecode at a specific block.
+2. Sequencer and challenger nodes adopt the new code.
+3. The old storage layout is preserved where possible; breaking changes ship with a migration function.
+
+See [Architecture › Execution](/architecture/execution) for the exact upgrade machinery.
+
+## Addressing convention
+
+Predeploys use the same `0x4200…` prefix as standard OP Stack predeploys. The low-order suffix identifies the specific contract:
+
+| Suffix | Contract             |
+| ------ | -------------------- |
+| `00F0` | `EnshrainedVRF`      |
+| `00A0` | `GameHubFactory`     |
+| `00A1` | `SessionKeyManager`  |
+| `00A2` | `GameRegistry`       |
+
+Addresses are final only after mainnet launch; devnet may rotate them.

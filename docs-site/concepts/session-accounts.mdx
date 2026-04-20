@@ -1,0 +1,148 @@
+---
+title: "Session Accounts"
+description: "Three-layer account model — EOA, GameHub, session keys — that replaces wallet popups with scoped, in-place authorization."
+---
+
+Session Accounts are how this chain replaces **"sign every action"** with **"sign once, play freely."** The design is a three-layer delegation model with on-chain scope enforcement.
+
+## The three layers
+
+```
+┌─ EOA (main wallet, full custody) ──────────────────┐
+│     │                                               │
+│     │ deposit + register (one signature)           │
+│     ▼                                               │
+│  GameHub Account (smart account, per-user)         │
+│     │   holds per-game balance slots                │
+│     │   validates session signatures                │
+│     │                                               │
+│     ├─ SessionKey_A ──▶ Game A contract only       │
+│     ├─ SessionKey_B ──▶ Game B contract only       │
+│     └─ SessionKey_C ──▶ Game C contract only       │
+└─────────────────────────────────────────────────────┘
+```
+
+<CardGroup cols={3}>
+  <Card title="Layer 1 · EOA" icon="wallet">
+    The user's main wallet. Full custody, signs only at onboarding, extension, and withdrawal.
+  </Card>
+  <Card title="Layer 2 · GameHub" icon="vault">
+    A per-user smart account. One per EOA, deployed at a CREATE2 address. Holds funds in per-game slots.
+  </Card>
+  <Card title="Layer 3 · Session key" icon="key">
+    Per-game ephemeral key. Lives in the browser. Signs only within its declared scope.
+  </Card>
+</CardGroup>
+
+## What is a scope?
+
+A `Scope` is the on-chain declaration of what a session key is allowed to do:
+
+| Field          | Purpose                                                  |
+| -------------- | -------------------------------------------------------- |
+| `gameAddr`     | The only contract this key may call                      |
+| `spendingCap`  | Maximum wei this key can spend before requiring refill   |
+| `expiry`       | Unix timestamp after which the key is rejected           |
+| `selectors`    | Optional allowlist of function selectors on `gameAddr`   |
+
+<Tip>
+  Scopes are the reason the browser-storage risk of session keys is bounded. A stolen key cannot drain the EOA — only the declared cap, on the declared game, before the declared expiry.
+</Tip>
+
+## The three transaction flows
+
+### Onboarding — one signature
+
+```solidity
+factory.depositAndRegister{value: 0.05 ether}(
+    sessionKey,
+    Scope({
+        gameAddr: address(drawGame),
+        spendingCap: 0.05 ether,
+        expiry: uint64(block.timestamp + 1 hours),
+        selectors: new bytes4[](0)
+    })
+);
+```
+
+The factory deploys the Hub via CREATE2 if it doesn't exist, deposits the value into `balances[drawGame]`, and registers the session key — all atomically.
+
+### Gameplay — zero signatures from the main wallet
+
+The browser holds the session key and signs `executeAsSession` transactions locally:
+
+```solidity
+hub.executeAsSession(
+    sessionKey,
+    drawGame,
+    0.01 ether,        // BET
+    data,              // encodeCall(draw)
+    nonce,
+    signature
+);
+```
+
+Anyone may submit this transaction (the session key itself pays gas in the simplest setup). The Hub:
+
+1. Recovers the signer and checks it against `sessionKey`.
+2. Queries `SessionKeyManager.canCall` to verify the scope.
+3. Decrements `balances[gameAddr]` and the session's cap.
+4. Forwards the call to the game contract.
+
+If any check fails, the call reverts with `Unauthorized()` and the state is unchanged.
+
+### Withdrawal — owner only
+
+```solidity
+hub.withdraw(drawGame, amount, to);
+```
+
+`onlyOwner`. Session keys cannot withdraw, by construction.
+
+## Extending a live session
+
+Rather than starting a fresh session when the cap runs low, the owner can refill in place:
+
+```solidity
+factory.depositAndRefill{value: 0.05 ether}(
+    sessionKey,
+    drawGame,
+    0.05 ether,                           // additional cap
+    uint64(block.timestamp + 1 hours)     // new expiry
+);
+```
+
+The same session key, the same gas balance, the same browser-side state — only the on-chain scope advances. One signature.
+
+<Note>
+  A revoked session cannot be refilled. That's intentional: revoke is a security primitive, not a pause.
+</Note>
+
+## Invariants
+
+<Accordion title="One Hub per EOA">
+  `hubOf(owner)` is deterministic — the CREATE2 salt is the owner's address. A given user has exactly one Hub on this chain, no matter how many games they play.
+</Accordion>
+
+<Accordion title="Session keys can never withdraw">
+  `Hub.withdraw` is `onlyOwner`. Session keys calling `executeAsSession` cannot target the Hub itself, because the Hub is not a registered game.
+</Accordion>
+
+<Accordion title="Scope is enforced on every call">
+  The Hub queries `SessionKeyManager.canCall` before every execution. There is no caching, no shortcut, no privileged session. Every call re-validates.
+</Accordion>
+
+<Accordion title="Registered games only">
+  `canCall` cross-checks `GameRegistry.isRegistered(gameAddr)`. A session key cannot be fooled into calling a malicious contract that claims to be a game.
+</Accordion>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Integrate session accounts" href="/guides/integrate-session-accounts" icon="plug">
+    Browser and frontend wiring, including the one-signature onboarding and silent-play flow.
+  </Card>
+  <Card title="SessionKeyManager reference" href="/contracts/session-key-manager" icon="file-code">
+    The on-chain registry: register, revoke, refill, canCall, consume.
+  </Card>
+</CardGroup>
