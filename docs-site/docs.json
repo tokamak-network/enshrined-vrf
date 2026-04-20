@@ -4,9 +4,19 @@
   "name": "Enshrined VRF",
   "description": "A gaming Layer 2 with verifiable randomness and session accounts enshrined at the protocol level.",
   "colors": {
-    "primary": "#1B3A8A",
-    "light": "#818CF8",
+    "primary": "#2A72E5",
+    "light": "#5B8DEF",
     "dark": "#17233A"
+  },
+  "background": {
+    "decoration": "grid"
+  },
+  "appearance": {
+    "default": "dark",
+    "strict": false
+  },
+  "fonts": {
+    "family": "Geist"
   },
   "favicon": "/favicon.ico",
   "navigation": {
@@ -69,6 +79,11 @@
           "anchor": "GitHub",
           "href": "https://github.com/tokamak-network/enshrined-vrf",
           "icon": "github"
+        },
+        {
+          "anchor": "Rollup Hub",
+          "href": "https://rolluphub.tokamak.network",
+          "icon": "layer-group"
         }
       ]
     }
@@ -83,6 +98,10 @@
       {
         "label": "GitHub",
         "href": "https://github.com/tokamak-network/enshrined-vrf"
+      },
+      {
+        "label": "Tokamak Network",
+        "href": "https://tokamak.network"
       }
     ],
     "primary": {
@@ -93,7 +112,12 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/tokamak-network/enshrined-vrf"
+      "github": "https://github.com/tokamak-network",
+      "x": "https://twitter.com/tokamak_network",
+      "discord": "https://discord.com/invite/J4chV2zuAK",
+      "telegram": "https://t.me/tokamak_network",
+      "medium": "https://medium.com/tokamak-network",
+      "linkedin": "https://www.linkedin.com/company/tokamaknetwork/"
     }
   }
 }
