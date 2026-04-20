@@ -10,6 +10,6 @@
     "build:full": "npm run sync-contracts && npm run build"
   },
   "devDependencies": {
-    "mintlify": "latest"
+    "mintlify": "^4.2.521"
   }
 }
