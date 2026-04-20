@@ -1,0 +1,125 @@
+---
+title: "Quickstart"
+description: "Stand up a local devnet, deploy the session-account stack, and play a VRF-backed game — all from scratch in under ten minutes."
+---
+
+By the end of this guide, you'll have a local chain running, two example games deployed (`DrawGame` and `CoinFlipGame`), and a browser demo in which you sign **once** to start a session and then play indefinitely without any further wallet popups.
+
+## Prerequisites
+
+<Check>Foundry installed (`anvil`, `forge`)</Check>
+<Check>Node.js 20+</Check>
+<Check>MetaMask browser extension</Check>
+<Check>Python 3 (for `python3 -m http.server`)</Check>
+
+## 1. Start a local chain
+
+<CodeGroup>
+```bash terminal A
+anvil --chain-id 1337
+```
+</CodeGroup>
+
+Keep this terminal open. Copy any of the printed **Private Key (0)** — you will use it to deploy contracts and (optionally) import the account into MetaMask.
+
+## 2. Deploy the stack
+
+<CodeGroup>
+```bash terminal B
+cd contracts
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  forge script script/DeploySessionAccounts.s.sol \
+  --rpc-url http://localhost:8545 \
+  --broadcast
+```
+</CodeGroup>
+
+The script deploys five contracts and prints their addresses under `=== Frontend config ===`:
+
+| Address            | Contract              |
+| ------------------ | --------------------- |
+| `registry`         | `GameRegistry`        |
+| `sessionKeys`      | `SessionKeyManager`   |
+| `factory`          | `GameHubFactory`      |
+| `drawGame`         | `DrawGame`            |
+| `coinFlipGame`     | `CoinFlipGame`        |
+| `vrf`              | `MockVRF`             |
+
+Copy these five values — you'll paste them into the demo.
+
+## 3. Add the Anvil network to MetaMask
+
+<Steps>
+  <Step title="Open MetaMask">
+    Click the network dropdown → **Add network manually**.
+  </Step>
+  <Step title="Fill in the fields">
+    - **Network name:** Anvil
+    - **RPC URL:** `http://localhost:8545`
+    - **Chain ID:** `1337`
+    - **Currency:** ETH
+  </Step>
+  <Step title="Import the deployer account">
+    Import the Anvil private key from step 1. You should see 10 000 ETH.
+  </Step>
+</Steps>
+
+## 4. Serve the demo
+
+<CodeGroup>
+```bash terminal C
+cd demo
+python3 -m http.server 8000
+```
+</CodeGroup>
+
+<Warning>
+  Opening the HTML via `file://` prevents MetaMask from injecting `window.ethereum`. You must serve over HTTP.
+</Warning>
+
+Open the browser at:
+
+```
+http://localhost:8000/session-play.html
+```
+
+## 5. Play
+
+<Steps>
+  <Step title="Paste contract addresses">
+    In the **CONFIG** panel, paste the five addresses from step 2 and click **Save Config**.
+  </Step>
+  <Step title="Connect MetaMask">
+    Click **Connect MetaMask**. The activity log should show `wallet chain id: 1337`.
+  </Step>
+  <Step title="Start a session">
+    In the DrawGame card, click **Start Session (0.05 ETH)**. Two MetaMask popups appear — the first registers the session on-chain, the second pre-funds the session key with gas.
+  </Step>
+  <Step title="Play silently">
+    Click **Draw × 10**. Watch five tiers appear with no MetaMask popup. Once the session's 0.05 ETH cap is consumed, the demo stops and tells you to **Extend** the session.
+  </Step>
+  <Step title="Extend in one signature">
+    Click **Extend (+0.05 ETH)**. A single MetaMask popup extends the session in place without rotating the key.
+  </Step>
+</Steps>
+
+<Note>
+  The CoinFlip card on the same page shows that a second game can run with its own session key, independently of DrawGame — a single Hub hosting isolated sessions.
+</Note>
+
+## What just happened
+
+<CardGroup cols={2}>
+  <Card title="Enshrined VRF" icon="dice" href="/concepts/enshrined-vrf">
+    Each draw called the VRF predeploy. Against a real deployment, this resolves on the sequencer's per-block commitment — no oracle round-trip.
+  </Card>
+  <Card title="Session scopes held the line" icon="shield-check" href="/concepts/session-accounts">
+    After five plays your session ran out of cap, not because the client gave up but because `SessionKeyManager.canCall` refused a sixth draw.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<Card title="Build your own VRF game" icon="hammer" href="/guides/build-vrf-game">
+  A step-by-step pattern for writing a game that self-registers with `GameRegistry` and consumes VRF safely.
+</Card>

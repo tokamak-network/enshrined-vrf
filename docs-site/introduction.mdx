@@ -1,0 +1,47 @@
+---
+title: "Introduction"
+description: "A gaming Layer 2 with verifiable randomness and session accounts enshrined at the protocol level."
+---
+
+Enshrined VRF is a Layer 2 built around a simple conviction: **a chain for games should treat randomness and session-based authentication as first-class primitives**, not as third-party add-ons.
+
+<CardGroup cols={2}>
+  <Card title="Enshrined VRF" icon="dice" href="/concepts/enshrined-vrf">
+    Per-block verifiable randomness produced by the sequencer and shared across every game on the chain — no external oracle, no round-trip fee.
+  </Card>
+  <Card title="Session Accounts" icon="key" href="/concepts/session-accounts">
+    One signature to onboard, then silent gameplay. Scoped session keys let players interact with games without a wallet popup per action.
+  </Card>
+</CardGroup>
+
+## Why this chain exists
+
+Onchain games have two chronic friction points. First, **reliable randomness is hard**: app-level VRFs rely on oracle networks, which add latency and fees. Second, **wallet UX is hostile to play**: signing every in-game action destroys immersion.
+
+This L2 collapses both problems into protocol features:
+
+- **VRF** is a predeploy. Every game uses the same primitive. The sequencer commits once per block, and each call returns a unique value derived from that commitment.
+- **Session accounts** are predeploys. A player deposits and registers a scoped session key in a single transaction, then plays indefinitely without signing, until the session hits its declared cap or expiry.
+
+Everything else — games, frontends, tooling — builds on top.
+
+## What this documentation covers
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Stand up a local devnet and play a VRF-backed game end-to-end in under ten minutes.
+  </Card>
+  <Card title="Core concepts" icon="book-open" href="/concepts/enshrined-vrf">
+    The model behind VRF, session accounts, and the chain's predeploys.
+  </Card>
+  <Card title="Guides" icon="hammer" href="/guides/build-vrf-game">
+    Step-by-step patterns for building games and integrating session accounts.
+  </Card>
+  <Card title="Contracts reference" icon="file-code" href="/contracts/session-key-manager">
+    Full Solidity reference for every predeploy and factory contract.
+  </Card>
+</CardGroup>
+
+<Note>
+  This project is under active development. See the [GitHub repo](https://github.com/tokamak-network/enshrined-vrf) for the current roadmap and open issues.
+</Note>

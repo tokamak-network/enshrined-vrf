@@ -1,0 +1,17 @@
+---
+title: "Changelog"
+description: "Notable protocol and documentation changes, newest first."
+---
+
+<Update label="2026-04-20" description="Phase 1 — Session Accounts">
+  - Four new predeploys (spec): `GameHubFactory`, `SessionKeyManager`, `GameRegistry`, plus the existing `EnshrainedVRF`.
+  - `refillSession` added to `GameHubAccount`; same-key top-ups in a single signature.
+  - `GameHubFactory.depositAndRegister` / `depositAndRefill` for one-transaction onboarding and extension flows.
+  - Example games: `DrawGame` (tier 0–99) and `CoinFlipGame` (heads/tails).
+  - Foundry tests: 19 covering scope enforcement, refill semantics, cross-game isolation, and E2E VRF consumption.
+</Update>
+
+<Update label="2026-04-02" description="Architecture v2">
+  - `PredeployedVRF` renamed to `EnshrainedVRF` across contracts and tooling.
+  - Sequencer ECVRF commit path hardened; explicit seal key and attestation modes in `vrf-enclave`.
+</Update>

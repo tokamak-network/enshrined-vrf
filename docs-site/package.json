@@ -1,0 +1,13 @@
+{
+  "name": "enshrined-vrf-docs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "mintlify dev",
+    "broken-links": "mintlify broken-links",
+    "sync-contracts": "node scripts/sync-contracts.mjs"
+  },
+  "devDependencies": {
+    "mintlify": "latest"
+  }
+}

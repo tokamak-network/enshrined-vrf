@@ -1,0 +1,99 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Enshrined VRF",
+  "description": "A gaming Layer 2 with verifiable randomness and session accounts enshrined at the protocol level.",
+  "colors": {
+    "primary": "#1B3A8A",
+    "light": "#818CF8",
+    "dark": "#17233A"
+  },
+  "favicon": "/favicon.ico",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/enshrined-vrf",
+              "concepts/session-accounts",
+              "concepts/predeploys"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/build-vrf-game",
+              "guides/integrate-session-accounts"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/execution",
+              "architecture/sequencer",
+              "architecture/fault-proof"
+            ]
+          },
+          {
+            "group": "Contracts Reference",
+            "pages": [
+              "contracts/enshrined-vrf",
+              "contracts/game-hub-factory",
+              "contracts/session-key-manager",
+              "contracts/game-registry",
+              "contracts/game-hub-account",
+              "contracts/vrf-verifier"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "pages": ["changelog"]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/tokamak-network/enshrined-vrf",
+          "icon": "github"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/developers-light.svg",
+    "dark": "/logo/developers-dark.svg",
+    "href": "/"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/tokamak-network/enshrined-vrf"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Launch Devnet",
+      "href": "/quickstart"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/tokamak-network/enshrined-vrf"
+    }
+  }
+}
