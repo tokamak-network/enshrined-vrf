@@ -1,0 +1,168 @@
+---
+title: "Integrate Session Accounts in a frontend"
+description: "Wire up one-signature onboarding and silent gameplay in a TypeScript / viem frontend."
+---
+
+This guide shows the minimum amount of frontend code required to replace "sign every action" with "sign once, play freely."
+
+## Overall shape
+
+<Steps>
+  <Step title="On first run, generate a fresh session private key">
+    Store it in `localStorage`. Treat it like a short-lived browser credential — high risk of theft, tight blast radius from on-chain scope.
+  </Step>
+  <Step title="One transaction to start a session">
+    Call `GameHubFactory.depositAndRegister`. The wallet signs once. Immediately afterward, send a small native transfer to fund the session key's gas.
+  </Step>
+  <Step title="Sign executeAsSession transactions locally">
+    Use the session private key — never the user's main wallet — to sign. Submit via `writeContract` from a viem wallet client bound to that key.
+  </Step>
+  <Step title="Refill in place when scope runs low">
+    `GameHubFactory.depositAndRefill` tops up cap and expiry on the same session key. One wallet signature, no key rotation.
+  </Step>
+</Steps>
+
+## Generating and storing a session key
+
+<CodeGroup>
+```ts TypeScript
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+
+const KEY = 'app.sessionKey';
+
+function loadOrCreateSession() {
+  let pk = localStorage.getItem(KEY);
+  if (!pk) {
+    pk = generatePrivateKey();
+    localStorage.setItem(KEY, pk);
+  }
+  return privateKeyToAccount(pk as `0x${string}`);
+}
+```
+</CodeGroup>
+
+<Warning>
+  Browser storage is compromisable. Rely on the on-chain `Scope` to bound damage — a stolen key is capped at `spendingCap` on a single `gameAddr` until `expiry`.
+</Warning>
+
+## Starting a session (user signs)
+
+<CodeGroup>
+```ts TypeScript
+import { parseEther } from 'viem';
+
+const DEPOSIT = parseEther('0.05');
+const GAS_FUND = parseEther('0.01');
+
+const scope = {
+  gameAddr: drawGameAddress,
+  spendingCap: DEPOSIT,
+  expiry: BigInt(Math.floor(Date.now() / 1000) + 3600),
+  selectors: [],
+};
+
+// 1) Register + deposit (user wallet signs)
+await walletClient.writeContract({
+  address: factoryAddress,
+  abi: factoryAbi,
+  functionName: 'depositAndRegister',
+  args: [sessionAccount.address, scope],
+  value: DEPOSIT,
+});
+
+// 2) Fund the session key's gas (user wallet signs)
+await walletClient.sendTransaction({
+  to: sessionAccount.address,
+  value: GAS_FUND,
+});
+```
+</CodeGroup>
+
+<Note>
+  Two signatures for onboarding is temporary. When the `GamePaymaster` predeploy ships, a dApp can sponsor the session's gas automatically, collapsing the flow to a single signature.
+</Note>
+
+## Executing a play (session signs silently)
+
+<CodeGroup>
+```ts TypeScript
+import {
+  encodeFunctionData, keccak256, encodeAbiParameters, parseAbiParameters,
+  createWalletClient, http,
+} from 'viem';
+
+async function play(hubAddress, gameAddress, bet, playFn, playAbi) {
+  const nonce = await publicClient.readContract({
+    address: hubAddress,
+    abi: hubAbi,
+    functionName: 'sessionNonce',
+    args: [sessionAccount.address],
+  });
+
+  const data = encodeFunctionData({ abi: playAbi, functionName: playFn });
+  const digest = keccak256(
+    encodeAbiParameters(
+      parseAbiParameters('address, uint256, address, address, uint256, bytes32, uint256'),
+      [hubAddress, BigInt(chainId), sessionAccount.address, gameAddress, bet, keccak256(data), nonce]
+    ),
+  );
+  const signature = await sessionAccount.signMessage({ message: { raw: digest } });
+
+  const sessionWallet = createWalletClient({
+    account: sessionAccount,
+    chain: currentChain,
+    transport: http(rpcUrl),
+  });
+
+  return sessionWallet.writeContract({
+    address: hubAddress,
+    abi: hubAbi,
+    functionName: 'executeAsSession',
+    args: [sessionAccount.address, gameAddress, bet, data, nonce, signature],
+  });
+}
+```
+</CodeGroup>
+
+<Tip>
+  No MetaMask popup — `sessionAccount` is a viem `privateKeyToAccount`, not an injected wallet. The session key signs and submits the transaction itself.
+</Tip>
+
+## Extending (user signs once)
+
+<CodeGroup>
+```ts TypeScript
+const ADD_CAP = parseEther('0.05');
+const NEW_EXPIRY = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+await walletClient.writeContract({
+  address: factoryAddress,
+  abi: factoryAbi,
+  functionName: 'depositAndRefill',
+  args: [sessionAccount.address, drawGameAddress, ADD_CAP, NEW_EXPIRY],
+  value: ADD_CAP,
+});
+```
+</CodeGroup>
+
+The session key address, local storage, and gas balance remain unchanged.
+
+## Friendly error decoding
+
+When the protocol rejects a session call, the revert selector tells you which invariant tripped. Map the common ones to human messages:
+
+| Selector     | Error                | Cause                                          |
+| ------------ | -------------------- | ---------------------------------------------- |
+| `0x82b42900` | `Unauthorized()`     | Scope check failed: cap / expiry / game / selector |
+| `0x8baa579f` | `InvalidSignature()` | Signature does not match `sessionKey`          |
+| `0xf4d678b8` | `InsufficientBalance()` | `balances[game]` too small for this call      |
+| `0x756688fe` | `BadNonce()`         | `nonce` does not match `sessionNonce[key]`     |
+
+<CardGroup cols={2}>
+  <Card title="Session Accounts concept" href="/concepts/session-accounts" icon="key">
+    Mental model behind the three layers and the invariants the protocol enforces.
+  </Card>
+  <Card title="SessionKeyManager reference" href="/contracts/session-key-manager" icon="file-code">
+    The exact methods, events, and errors available on-chain.
+  </Card>
+</CardGroup>

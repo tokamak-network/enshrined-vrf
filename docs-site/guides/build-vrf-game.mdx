@@ -1,0 +1,131 @@
+---
+title: "Build a VRF-backed game"
+description: "A minimal pattern for writing a Solidity game that self-registers with GameRegistry and consumes EnshrainedVRF correctly."
+---
+
+This guide walks through the shape of a safe, session-compatible game contract. The running example is a dice-roll that charges a bet per roll and returns a value from 1 to 6.
+
+## The complete contract
+
+<CodeGroup>
+```solidity DiceGame.sol
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.28;
+
+import {IEnshrainedVRF} from "interfaces/L2/IEnshrainedVRF.sol";
+
+interface IGameRegistry {
+    function register() external;
+}
+
+contract DiceGame {
+    IEnshrainedVRF public constant VRF =
+        IEnshrainedVRF(0x4200000000000000000000000000000000000000F0);
+
+    uint256 public constant BET = 0.01 ether;
+
+    event Rolled(address indexed player, uint8 face, uint256 randomness);
+
+    error WrongBet();
+
+    constructor(IGameRegistry registry) {
+        registry.register();
+    }
+
+    function roll() external payable returns (uint8 face) {
+        if (msg.value != BET) revert WrongBet();
+        uint256 r = VRF.getRandomness();
+        face = uint8((r % 6) + 1);
+        emit Rolled(msg.sender, face, r);
+    }
+}
+```
+</CodeGroup>
+
+## What makes it session-compatible
+
+<Steps>
+  <Step title="It self-registers with GameRegistry in the constructor">
+    Session keys can only target registered games. Registering from the constructor means the game is callable by session keys the moment it is deployed, without a second admin transaction.
+
+    <Warning>
+      `GameRegistry.register()` records `tx.origin` as the registrar. Deploy from a deterministic account if you want a stable owner-of record.
+    </Warning>
+  </Step>
+
+  <Step title="It accepts a predictable BET">
+    Session scopes declare a `spendingCap` per key. Games with a fixed BET make the cap easy to reason about — five plays of `BET = 0.01 ETH` require `spendingCap ≥ 0.05 ETH`.
+
+    Variable-bet games work too, but the frontend must pre-check scope remaining before signing.
+  </Step>
+
+  <Step title="It uses `getRandomness()` once per call">
+    The VRF predeploy increments a per-block call counter on each invocation. Calling it multiple times inside one transaction is fine — each call returns a distinct value.
+
+    <Tip>
+      Never call `getRandomness()` in a `view` function. The counter advance is a state change and a static call will revert.
+    </Tip>
+  </Step>
+
+  <Step title="It uses a named error, not a string revert">
+    Session-aware frontends decode error selectors to show friendly messages. Named errors (`error WrongBet()`) become a 4-byte selector in logs; string reverts are opaque.
+  </Step>
+</Steps>
+
+## Testing with MockVRF
+
+The repo ships a deterministic `MockVRF` that satisfies `IEnshrainedVRF` so you can run Foundry tests without a real sequencer.
+
+<CodeGroup>
+```solidity DiceGame.t.sol
+import {Test} from "forge-std/Test.sol";
+import {MockVRF} from "../src/mocks/MockVRF.sol";
+import {GameRegistry} from "../src/aa/GameRegistry.sol";
+import {DiceGame} from "../src/examples/DiceGame.sol";
+
+contract DiceGameTest is Test {
+    function test_rollDistribution() public {
+        GameRegistry reg = new GameRegistry();
+        MockVRF vrf = new MockVRF();
+        // swap MockVRF at the VRF predeploy address
+        vm.etch(address(vrf), address(vrf).code);
+        DiceGame dice = new DiceGame(IGameRegistry(address(reg)));
+
+        for (uint256 i; i < 10; ++i) {
+            uint8 face = dice.roll{value: 0.01 ether}();
+            assertGe(face, 1); assertLe(face, 6);
+        }
+    }
+}
+```
+</CodeGroup>
+
+## Deploying to the devnet
+
+Add your game to `script/DeploySessionAccounts.s.sol`:
+
+```solidity
+DiceGame dice = new DiceGame(registry);
+console2.log("diceGame:", address(dice));
+```
+
+Re-run the deploy script and the frontend picks up the new address through its config panel.
+
+## Hardening checklist
+
+<Check>`constructor` calls `registry.register()` so session keys can reach the contract</Check>
+<Check>Errors are named; no string reverts from hot paths</Check>
+<Check>`payable` functions validate `msg.value` against a declared constant</Check>
+<Check>No `view` function calls `VRF.getRandomness()`</Check>
+<Check>State mutations complete before `CALL` / `TRANSFER` to mitigate reentrancy</Check>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="EnshrainedVRF contract reference" href="/contracts/enshrined-vrf" icon="file-code">
+    Full interface, including events emitted on each block's commit.
+  </Card>
+  <Card title="Session Accounts concept" href="/concepts/session-accounts" icon="key">
+    How the scope a session key declares interacts with the bets your game charges.
+  </Card>
+</CardGroup>
