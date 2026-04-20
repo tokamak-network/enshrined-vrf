@@ -23,28 +23,29 @@ into `out/`.
 
 ## Deploying to Vercel
 
-The `vercel.json` at this directory's root is already wired for Vercel:
+Use the **prebuilt** path only. Vercel's automatic static-build step
+re-runs `mintlify export` without the `--disable-openapi` flag, which
+bloats every page to ~53 MB and breaks client-side hydration. Running
+the build locally first and uploading with `--prebuilt` sidesteps that.
 
-- `buildCommand`: `npm run build`
-- `outputDirectory`: `out`
-- `installCommand`: `npm install`
-
-### One-time setup
-
-1. In Vercel dashboard, import the repo.
-2. Set **Root Directory** to `docs-site`.
-3. Leave framework preset as "Other". Vercel will pick up `vercel.json`.
-4. Add any custom domain under Project → Domains.
-
-Subsequent pushes to `main` trigger automatic preview + production deploys.
-
-### Manual deploy via CLI
+### First time
 
 ```bash
-npm install -g vercel
-vercel --cwd docs-site          # preview
-vercel --cwd docs-site --prod   # production
+vercel link        # link to an existing Vercel project (or create one)
 ```
+
+Leave **Root Directory** as `docs-site`, framework as "Other".
+
+### Deploy
+
+```bash
+npm run deploy:preview   # preview URL
+npm run deploy:prod      # promote to production
+```
+
+These scripts run `npm run build` locally, assemble the Vercel
+Build Output v3 layout under `.vercel/output/`, then upload with
+`vercel deploy --prebuilt`. No rebuild on Vercel's side.
 
 ## Structure
 
