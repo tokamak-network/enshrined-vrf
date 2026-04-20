@@ -9,3 +9,6 @@ contracts/cache/
 # Built binaries
 vrf-enclave/vrf-enclave
 vrf-enclave/vrf-prove
+
+# Foundry broadcast artifacts
+contracts/broadcast/
