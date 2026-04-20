@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "mintlify dev",
     "broken-links": "mintlify broken-links",
-    "sync-contracts": "node scripts/sync-contracts.mjs"
+    "sync-contracts": "node scripts/sync-contracts.mjs",
+    "build": "npm run sync-contracts && npx mintlify export --output .build.zip && rm -rf out && mkdir out && cd out && unzip -oq ../.build.zip && cd .. && rm .build.zip"
   },
   "devDependencies": {
     "mintlify": "latest"
