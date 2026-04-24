@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plinko · Enshrined VRF Arcade</title>
+<link rel="stylesheet" href="../shared/arcade.css">
+<style>
+  .stage {
+    position: relative; margin: 8px auto 0;
+    width: 100%; max-width: 520px; aspect-ratio: 5 / 6;
+    background: #0A0D18; border: 1px solid var(--grid); border-radius: 12px;
+    overflow: hidden;
+  }
+  .peg {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-dim); transform: translate(-50%, -50%);
+  }
+  .ball {
+    position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, var(--accent-dark));
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px rgba(255,217,61,0.7);
+    transition: left 0.25s linear, top 0.25s linear;
+    z-index: 2;
+  }
+  .slots {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; height: 48px;
+  }
+  .slot {
+    flex: 1; display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace; font-size: 12px;
+    color: var(--text-dim); border-top: 2px solid var(--grid);
+    border-left: 1px solid var(--grid);
+  }
+  .slot:first-child { border-left: 0; }
+  .slot b { color: var(--text); font-size: 14px; }
+  .slot.hit {
+    background: linear-gradient(180deg, rgba(255,217,61,0.15), rgba(255,217,61,0.35));
+    color: var(--accent);
+  }
+  .slot.hit b { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="game-shell">
+    <div>
+      <h2><span class="emoji">📌</span> Plinko</h2>
+      <p class="lead">VRF 값의 하위 12비트가 12단 핀의 좌/우를 결정합니다. 최종 슬롯 = 비트 개수 (이항분포).</p>
+    </div>
+
+    <div class="panel">
+      <div class="stage" id="stage"></div>
+      <div class="row center" style="margin-top:18px">
+        <button class="btn primary" id="drop">📌 DROP</button>
+        <button class="btn ghost" id="dropx5">× 5</button>
+      </div>
+      <div class="row between" style="margin-top:16px">
+        <div class="kv">drops <b id="stat-n">0</b></div>
+        <div class="kv">last path <b id="stat-path">—</b></div>
+      </div>
+    </div>
+
+    <div class="panel dark">
+      <div class="kv" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex" id="rand">—</div>
+      <div class="history" id="history" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog } from 'https://esm.sh/viem@2.21.0';
+import { mountTopbar } from '../shared/topbar.js';
+import { pub, wallet, account, connect } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+
+mountTopbar(document.getElementById('topbar'));
+
+const ABI = parseAbi([
+  'function drop() returns (uint16, uint8)',
+  'event Dropped(address indexed player, uint16 path, uint8 slot, uint256 randomness)',
+]);
+
+const ROWS = 12;
+const SLOTS = ROWS + 1;
+
+const stage = document.getElementById('stage');
+const $ = (id) => document.getElementById(id);
+const randEl = $('rand'), histEl = $('history');
+const sN = $('stat-n'), sPath = $('stat-path');
+let drops = 0;
+
+// Layout pegs as a triangle; slot row at the bottom.
+function buildBoard() {
+  stage.innerHTML = '';
+  // Pegs
+  for (let row = 0; row < ROWS; row++) {
+    const pegCount = row + 2; // 2 pegs on row 0 up to ROWS+1 at bottom
+    const yPct = 6 + (row / ROWS) * 80;
+    for (let i = 0; i < pegCount; i++) {
+      const p = document.createElement('div');
+      p.className = 'peg';
+      const xPct = 50 + (i - (pegCount - 1) / 2) * (80 / ROWS);
+      p.style.left = xPct + '%';
+      p.style.top  = yPct + '%';
+      stage.appendChild(p);
+    }
+  }
+  // Slots
+  const slots = document.createElement('div');
+  slots.className = 'slots';
+  for (let i = 0; i < SLOTS; i++) {
+    const s = document.createElement('div');
+    s.className = 'slot';
+    const prob = binomProb(ROWS, i);
+    s.innerHTML = `<div><b>${i}</b><br>${(prob * 100).toFixed(1)}%</div>`;
+    slots.appendChild(s);
+  }
+  stage.appendChild(slots);
+}
+buildBoard();
+
+function binomProb(n, k) {
+  let c = 1;
+  for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1);
+  return c / Math.pow(2, n);
+}
+
+function slotToX(slotIdx) {
+  // Matches where the ball ends up after k right-moves from center.
+  // After ROWS rows, ball x = center + (rights - lefts) * step = center + (2k - ROWS) * (step/2)
+  const k = slotIdx;
+  return 50 + (2 * k - ROWS) * (80 / ROWS) / 2;
+}
+
+async function animateBall(path, slot) {
+  // Create ball at top-center
+  const ball = document.createElement('div');
+  ball.className = 'ball';
+  ball.style.left = '50%';
+  ball.style.top = '2%';
+  stage.appendChild(ball);
+
+  let rights = 0;
+  for (let row = 0; row < ROWS; row++) {
+    const bit = (path >> row) & 1;
+    if (bit) rights++;
+    const yPct = 6 + ((row + 1) / ROWS) * 80;
+    const xPct = 50 + (2 * rights - (row + 1)) * (80 / ROWS) / 2;
+    ball.style.left = xPct + '%';
+    ball.style.top  = yPct + '%';
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  // Land in slot
+  ball.style.left = slotToX(slot) + '%';
+  ball.style.top  = '92%';
+  await new Promise((r) => setTimeout(r, 220));
+
+  // Highlight slot
+  const slotEl = stage.querySelectorAll('.slot')[slot];
+  if (slotEl) { slotEl.classList.add('hit'); setTimeout(() => slotEl.classList.remove('hit'), 2200); }
+
+  setTimeout(() => ball.remove(), 2500);
+}
+
+async function dropOnce() {
+  if (!account()) await connect();
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.plinko, abi: ABI, functionName: 'drop',
+    });
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.plinko.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Dropped') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    const path = Number(args.path);
+    const slot = Number(args.slot);
+    drops++;
+    sN.textContent = drops;
+    sPath.textContent = path.toString(2).padStart(12, '0');
+    randEl.textContent = '0x' + args.randomness.toString(16).padStart(64, '0');
+    const item = document.createElement('div');
+    item.className = 'item ' + (slot === 0 || slot === SLOTS - 1 ? 'win' : '');
+    item.innerHTML = `<span>slot ${slot} (${path.toString(2).padStart(12, '0')})</span><span>${hash.slice(0,10)}…</span>`;
+    histEl.prepend(item);
+    while (histEl.children.length > 12) histEl.lastChild.remove();
+    await animateBall(path, slot);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.getElementById('drop').addEventListener('click', dropOnce);
+document.getElementById('dropx5').addEventListener('click', async () => {
+  for (let i = 0; i < 5; i++) { await dropOnce(); await new Promise((r) => setTimeout(r, 300)); }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dice Roll · Enshrined VRF Arcade</title>
+<link rel="stylesheet" href="../shared/arcade.css">
+<style>
+  .dice-wrap { display: flex; gap: 24px; justify-content: center; padding: 20px 0 12px; }
+  .die {
+    width: 120px; height: 120px; border-radius: 18px;
+    background: #F2EEE5; color: #0B0D14;
+    display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    padding: 14px; gap: 6px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.45), inset 0 -4px 0 rgba(0,0,0,0.1);
+  }
+  .die.rolling { animation: shake 0.25s linear infinite; }
+  .pip { background: #0B0D14; border-radius: 50%; }
+  .pip.off { background: transparent; }
+  .total { text-align: center; font-size: 28px; font-weight: 800; margin-top: 6px; color: var(--accent); }
+  .total small { font-size: 14px; color: var(--text-dim); font-weight: 400; margin-left: 8px; }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="game-shell">
+    <div>
+      <h2><span class="emoji">🎲</span> Dice Roll</h2>
+      <p class="lead">두 주사위 굴리기. 한 번의 <code>getRandomness()</code>에서 두 값을 <code>keccak(r, 1)</code>로 분리합니다.</p>
+    </div>
+
+    <div class="panel">
+      <div class="dice-wrap">
+        <div class="die" id="die1"></div>
+        <div class="die" id="die2"></div>
+      </div>
+      <div class="total" id="total">준비됨</div>
+      <div class="row center" style="margin-top:18px">
+        <button class="btn primary" id="roll">🎲 ROLL</button>
+        <button class="btn ghost" id="rollx10">× 10</button>
+      </div>
+      <div class="row between" style="margin-top:16px">
+        <div class="kv">rolls <b id="stat-n">0</b></div>
+        <div class="kv">avg sum <b id="stat-avg">—</b></div>
+      </div>
+    </div>
+
+    <div class="panel dark">
+      <div class="kv" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex" id="rand">—</div>
+      <div class="history" id="history" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog } from 'https://esm.sh/viem@2.21.0';
+import { mountTopbar } from '../shared/topbar.js';
+import { pub, wallet, account, connect } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+
+mountTopbar(document.getElementById('topbar'));
+
+const ABI = parseAbi([
+  'function roll() returns (uint8, uint8, uint8)',
+  'event Rolled(address indexed player, uint8 d1, uint8 d2, uint8 total, uint256 randomness)',
+]);
+
+const $ = (id) => document.getElementById(id);
+const die1 = $('die1'), die2 = $('die2'), total = $('total'), rand = $('rand'), hist = $('history');
+const sN = $('stat-n'), sAvg = $('stat-avg');
+let rolls = 0, sum = 0;
+
+// Pip positions for dice faces 1..6 (grid index 0..8).
+const FACES = {
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 2, 3, 5, 6, 8],
+};
+
+function renderDie(el, face) {
+  el.innerHTML = '';
+  const on = new Set(FACES[face] || []);
+  for (let i = 0; i < 9; i++) {
+    const p = document.createElement('div');
+    p.className = 'pip' + (on.has(i) ? '' : ' off');
+    el.appendChild(p);
+  }
+}
+renderDie(die1, 0); renderDie(die2, 0);
+
+async function rollOnce() {
+  if (!account()) await connect();
+  die1.classList.add('rolling'); die2.classList.add('rolling');
+  total.textContent = '전송 중…';
+
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.dice, abi: ABI, functionName: 'roll',
+    });
+    total.textContent = '블록 대기 중…';
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.dice.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Rolled') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    apply(args, hash);
+  } catch (err) {
+    console.error(err); total.textContent = 'failed';
+  } finally {
+    die1.classList.remove('rolling'); die2.classList.remove('rolling');
+  }
+}
+
+function apply({ d1, d2, total: t, randomness }, hash) {
+  renderDie(die1, Number(d1));
+  renderDie(die2, Number(d2));
+  total.innerHTML = `${d1} + ${d2} = <b>${t}</b><small>${t === 7 ? 'seven!' : ''}</small>`;
+  rand.textContent = '0x' + randomness.toString(16).padStart(64, '0');
+  rolls++; sum += Number(t);
+  sN.textContent = rolls; sAvg.textContent = (sum / rolls).toFixed(2);
+  const item = document.createElement('div');
+  item.className = 'item ' + (t === 7 || t === 11 ? 'win' : '');
+  item.innerHTML = `<span>${d1}·${d2} = ${t}</span><span>${hash.slice(0,10)}…</span>`;
+  hist.prepend(item);
+  while (hist.children.length > 12) hist.lastChild.remove();
+}
+
+$('roll').addEventListener('click', rollOnce);
+$('rollx10').addEventListener('click', async () => {
+  for (let i = 0; i < 10; i++) await rollOnce();
+});
+</script>
+</body>
+</html>

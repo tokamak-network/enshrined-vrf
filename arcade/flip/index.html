@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coin Flip · Enshrined VRF Arcade</title>
+<link rel="stylesheet" href="../shared/arcade.css">
+<style>
+  .coin {
+    width: 180px; height: 180px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #FFE97A, #C79B1B 70%, #8B6A0F);
+    display: grid; place-items: center;
+    font-size: 80px; font-weight: 900; color: #5D3E00;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45), inset 0 -6px 0 rgba(0,0,0,0.25);
+    margin: 12px auto 20px;
+  }
+  .coin.flipping { animation: spin-y 0.6s linear infinite; }
+  .result { text-align: center; font-size: 22px; font-weight: 700; min-height: 32px; }
+  .result.heads { color: var(--accent); }
+  .result.tails { color: var(--cyan); }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="game-shell">
+    <div>
+      <h2><span class="emoji">🪙</span> Coin Flip</h2>
+      <p class="lead">버튼을 누르면 <code>CoinFlip.flip()</code> 트랜잭션이 전송되고, VRF 결과가 이벤트로 돌아와 앞면/뒷면이 결정됩니다.</p>
+    </div>
+
+    <div class="panel">
+      <div class="coin" id="coin">?</div>
+      <div class="result" id="result">준비됨</div>
+      <div class="row center" style="margin-top:18px">
+        <button class="btn primary" id="flip">🎲 FLIP</button>
+        <button class="btn ghost" id="flipx5">× 5</button>
+      </div>
+      <div class="row between" style="margin-top:16px">
+        <div class="kv">heads <b id="stat-h">0</b> · tails <b id="stat-t">0</b></div>
+        <div class="kv">total <b id="stat-n">0</b></div>
+      </div>
+    </div>
+
+    <div class="panel dark">
+      <div class="kv" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex" id="rand">—</div>
+      <div class="history" id="history" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog } from 'https://esm.sh/viem@2.21.0';
+import { mountTopbar } from '../shared/topbar.js';
+import { pub, wallet, account, connect } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+
+mountTopbar(document.getElementById('topbar'));
+
+const ABI = parseAbi([
+  'function flip() returns (bool)',
+  'event Flipped(address indexed player, bool heads, uint256 randomness)',
+]);
+
+const $ = (id) => document.getElementById(id);
+const coin = $('coin'), result = $('result'), rand = $('rand'), hist = $('history');
+const sH = $('stat-h'), sT = $('stat-t'), sN = $('stat-n');
+let h = 0, t = 0;
+
+function updateStats() { sH.textContent = h; sT.textContent = t; sN.textContent = h + t; }
+
+async function flipOnce() {
+  if (!account()) await connect();
+  coin.classList.add('flipping');
+  coin.textContent = '⟳';
+  result.textContent = '전송 중…';
+  result.className = 'result';
+
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.flip, abi: ABI, functionName: 'flip',
+    });
+    result.textContent = '블록 대기 중…';
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.flip.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Flipped') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    applyResult(args.heads, args.randomness, hash);
+  } catch (err) {
+    console.error(err);
+    result.textContent = 'failed — see console';
+    coin.textContent = '?';
+  } finally {
+    coin.classList.remove('flipping');
+  }
+}
+
+function applyResult(heads, randomness, hash) {
+  coin.textContent = heads ? 'H' : 'T';
+  result.textContent = heads ? '앞면 (HEADS)' : '뒷면 (TAILS)';
+  result.className = 'result ' + (heads ? 'heads' : 'tails');
+  rand.textContent = '0x' + randomness.toString(16).padStart(64, '0');
+  if (heads) h++; else t++; updateStats();
+  const item = document.createElement('div');
+  item.className = 'item ' + (heads ? 'win' : 'lose');
+  item.innerHTML = `<span>${heads ? 'HEADS' : 'TAILS'}</span><span>${hash.slice(0, 10)}…</span>`;
+  hist.prepend(item);
+  while (hist.children.length > 12) hist.lastChild.remove();
+}
+
+$('flip').addEventListener('click', flipOnce);
+$('flipx5').addEventListener('click', async () => {
+  for (let i = 0; i < 5; i++) { await flipOnce(); }
+});
+</script>
+</body>
+</html>

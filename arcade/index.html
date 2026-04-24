@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enshrined VRF Arcade</title>
+<link rel="stylesheet" href="shared/arcade.css">
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <section class="hero">
+    <h1>온체인 난수로 돌아가는 <span class="grad">미니 아케이드</span></h1>
+    <p>
+      각 게임은 L2 컨트랙트가 <code style="color:var(--accent)">VRF.getRandomness()</code>를
+      호출한 결과로 직접 결정됩니다. 오라클 없음, 콜백 없음 — 단일 트랜잭션에 검증 가능한 난수.
+    </p>
+  </section>
+
+  <main class="grid">
+    <a class="card" href="flip/index.html">
+      <div class="emoji">🪙</div>
+      <div class="name">Coin Flip</div>
+      <div class="desc">앞/뒤 한 방. 가장 단순한 VRF 소비 예시 — <code>randomness % 2</code>.</div>
+      <div class="tag">contract <code>CoinFlip.sol</code></div>
+    </a>
+
+    <a class="card" href="dice/index.html">
+      <div class="emoji">🎲</div>
+      <div class="name">Dice Roll</div>
+      <div class="desc">두 주사위 굴리기. 한 번의 VRF 호출에서 두 값을 도메인 분리로 뽑습니다.</div>
+      <div class="tag">contract <code>DiceRoll.sol</code></div>
+    </a>
+
+    <a class="card" href="plinko/index.html">
+      <div class="emoji">📌</div>
+      <div class="name">Plinko</div>
+      <div class="desc">12단 플링코. VRF 값의 12비트로 핀마다 좌/우를 정해 최종 슬롯이 결정됩니다.</div>
+      <div class="tag">contract <code>Plinko.sol</code></div>
+    </a>
+
+    <a class="card" href="lottery/index.html">
+      <div class="emoji">🎟️</div>
+      <div class="name">Lottery</div>
+      <div class="desc">N명 중 1명 공정 추첨. 한 번의 VRF로 여러 참가자에게 균등한 당첨 확률.</div>
+      <div class="tag">contract <code>Lottery.sol</code></div>
+    </a>
+
+    <a class="card" href="../game/index.html">
+      <div class="emoji">🥊</div>
+      <div class="name">Pongy (짱깸뽀)</div>
+      <div class="desc">가위바위보 + 룰렛. USDC 베팅으로 승 시 배수 적용. 실전 PvE 데모.</div>
+      <div class="tag">contract <code>PongyBet.sol</code></div>
+    </a>
+  </main>
+
+  <footer class="footer">
+    실행 방법: <code>./scripts/arcade.sh</code> → 메타마스크를 <code>localhost:8545</code>에 연결.<br>
+    테스트 키 · 시퀀서 주소는 스크립트 종료 메시지에 표시됩니다.
+  </footer>
+
+  <script type="module">
+    import { mountTopbar } from './shared/topbar.js';
+    mountTopbar(document.getElementById('topbar'));
+  </script>
+</body>
+</html>

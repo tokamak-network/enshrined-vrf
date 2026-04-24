@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lottery · Enshrined VRF Arcade</title>
+<link rel="stylesheet" href="../shared/arcade.css">
+<style>
+  .ticket-grid {
+    display: grid; gap: 8px; margin-top: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+  .ticket {
+    padding: 10px 12px; border-radius: 8px;
+    background: var(--bg-panel-2); border: 1px solid var(--grid);
+    font-family: "JetBrains Mono", monospace; font-size: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: all 0.25s;
+  }
+  .ticket.me { border-color: var(--accent); color: var(--accent); }
+  .ticket.winner {
+    background: linear-gradient(135deg, rgba(255,217,61,0.3), rgba(78,216,184,0.2));
+    border-color: var(--accent); color: var(--text);
+    animation: pop 0.4s ease-out;
+  }
+  .ticket .idx { color: var(--text-dim); font-size: 10px; }
+  .winner-banner {
+    text-align: center; padding: 18px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--cabinet), var(--accent));
+    color: #0B0D14; font-weight: 800; font-size: 18px;
+    animation: pop 0.45s ease-out;
+  }
+  .round-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    background: var(--bg-panel-2); padding: 4px 10px; border-radius: 20px;
+    color: var(--cyan);
+  }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="game-shell">
+    <div>
+      <h2><span class="emoji">🎟️</span> Lottery</h2>
+      <p class="lead">여러 참가자 중 한 명을 VRF로 공정하게 뽑습니다. 참가자 N → <code>entries[r % N]</code>이 당첨.</p>
+    </div>
+
+    <div class="panel">
+      <div class="row between">
+        <div><span class="round-tag" id="round-tag">round #0</span></div>
+        <div class="kv">entries <b id="entry-count">0</b></div>
+      </div>
+
+      <div id="winner-slot" style="margin:16px 0 0"></div>
+      <div class="ticket-grid" id="tickets"></div>
+
+      <div class="row center" style="margin-top:20px; gap: 10px">
+        <button class="btn primary" id="enter">🎟 ENTER</button>
+        <button class="btn" id="fill">+ 5 bots</button>
+        <button class="btn ghost" id="draw">🎰 DRAW</button>
+      </div>
+      <div class="kv" style="margin-top:10px; text-align:center">
+        "5 bots" 는 Anvil 프리펀드 계정들을 추가로 참가시킵니다.
+      </div>
+    </div>
+
+    <div class="panel dark">
+      <div class="kv" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex" id="rand">—</div>
+      <div class="history" id="history" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog, http, createWalletClient } from 'https://esm.sh/viem@2.21.0';
+import { privateKeyToAccount as pk2acc } from 'https://esm.sh/viem@2.21.0/accounts';
+import { mountTopbar } from '../shared/topbar.js';
+import { pub, wallet, account, connect, anvil } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+
+mountTopbar(document.getElementById('topbar'));
+
+const ABI = parseAbi([
+  'function enter()',
+  'function draw() returns (address)',
+  'function round() view returns (uint256)',
+  'function entryCount() view returns (uint256)',
+  'function entryAt(uint256) view returns (address)',
+  'function hasEntered(address) view returns (bool)',
+  'event Entered(uint256 indexed round, address indexed player, uint256 entryCount)',
+  'event Drawn(uint256 indexed round, address indexed winner, uint256 entryCount, uint256 randomness)',
+]);
+
+// Anvil default private keys (accounts 1..5) — only used for the "+5 bots" helper.
+const BOT_KEYS = [
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+  '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
+  '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
+  '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+  '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
+];
+
+const $ = (id) => document.getElementById(id);
+const tickets = $('tickets'), histEl = $('history'), rand = $('rand'), winnerSlot = $('winner-slot');
+const roundTag = $('round-tag'), entryCount = $('entry-count');
+
+const state = { round: 0, entries: [], winner: null };
+
+async function refresh() {
+  try {
+    const [roundN, n] = await Promise.all([
+      pub.readContract({ address: CONFIG.lottery, abi: ABI, functionName: 'round' }),
+      pub.readContract({ address: CONFIG.lottery, abi: ABI, functionName: 'entryCount' }),
+    ]);
+    state.round = Number(roundN);
+    const entries = await Promise.all(
+      Array.from({ length: Number(n) }, (_, i) =>
+        pub.readContract({ address: CONFIG.lottery, abi: ABI, functionName: 'entryAt', args: [BigInt(i)] })
+      )
+    );
+    state.entries = entries;
+    render();
+  } catch (err) { console.error(err); }
+}
+
+function short(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
+
+function render() {
+  roundTag.textContent = `round #${state.round}`;
+  entryCount.textContent = state.entries.length;
+  tickets.innerHTML = '';
+  const me = account()?.toLowerCase();
+  state.entries.forEach((addr, i) => {
+    const el = document.createElement('div');
+    const isMe = addr.toLowerCase() === me;
+    const isWin = state.winner && addr.toLowerCase() === state.winner.toLowerCase();
+    el.className = 'ticket' + (isWin ? ' winner' : isMe ? ' me' : '');
+    el.innerHTML = `<span>${short(addr)}${isMe ? ' (you)' : ''}</span><span class="idx">#${i}</span>`;
+    tickets.appendChild(el);
+  });
+}
+
+async function enter(signer = null) {
+  let client;
+  let from;
+  if (signer) {
+    const acc = pk2acc(signer);
+    client = createWalletClient({ account: acc, chain: anvil, transport: http(CONFIG.rpc) });
+    from = acc.address;
+  } else {
+    if (!account()) await connect();
+    client = wallet();
+    from = account();
+  }
+  const hash = await client.writeContract({
+    account: from, chain: null,
+    address: CONFIG.lottery, abi: ABI, functionName: 'enter',
+  });
+  await pub.waitForTransactionReceipt({ hash });
+  await refresh();
+}
+
+async function draw() {
+  if (!account()) await connect();
+  if (state.entries.length === 0) return;
+  state.winner = null; render();
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.lottery, abi: ABI, functionName: 'draw',
+    });
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.lottery.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Drawn') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    state.winner = args.winner;
+    rand.textContent = '0x' + args.randomness.toString(16).padStart(64, '0');
+    const isMe = account() && args.winner.toLowerCase() === account().toLowerCase();
+    winnerSlot.innerHTML = `<div class="winner-banner">🎉 Winner: ${short(args.winner)}${isMe ? ' — YOU WIN!' : ''}</div>`;
+    render();
+    const item = document.createElement('div');
+    item.className = 'item win';
+    item.innerHTML = `<span>R${args.round} → ${short(args.winner)} (${args.entryCount} entries)</span><span>${hash.slice(0,10)}…</span>`;
+    histEl.prepend(item);
+    while (histEl.children.length > 12) histEl.lastChild.remove();
+    // Fetch next-round state shortly.
+    setTimeout(() => { state.winner = null; winnerSlot.innerHTML = ''; refresh(); }, 3000);
+  } catch (err) { console.error(err); }
+}
+
+$('enter').addEventListener('click', () => enter());
+$('fill').addEventListener('click', async () => {
+  for (const key of BOT_KEYS) {
+    try { await enter(key); }
+    catch (err) { if (String(err).includes('AlreadyEntered')) continue; console.error(err); }
+  }
+});
+$('draw').addEventListener('click', draw);
+
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

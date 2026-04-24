@@ -12,3 +12,6 @@ vrf-enclave/vrf-prove
 
 # Foundry broadcast artifacts
 contracts/broadcast/
+
+# Arcade demo config — written by scripts/arcade.sh on every run
+arcade/shared/config.js
