@@ -82,6 +82,9 @@ func NewServerFromKey(sk *secp256k1.PrivateKey, attestMode AttestationMode) *Ser
 }
 
 func (s *Server) Prove(ctx context.Context, req *pb.ProveRequest) (*pb.ProveResponse, error) {
+	if s.sk == nil {
+		return nil, status.Error(codes.FailedPrecondition, "enclave server closed")
+	}
 	if len(req.Seed) != 32 {
 		return nil, status.Errorf(codes.InvalidArgument, "seed must be 32 bytes, got %d", len(req.Seed))
 	}
@@ -103,9 +106,10 @@ func (s *Server) GetPublicKey(ctx context.Context, req *pb.GetPublicKeyRequest) 
 	}, nil
 }
 
-// Close zeros the secret key scalar in place. Safe to call once after the
-// gRPC server has stopped serving — concurrent Prove/GetAttestation calls
-// still holding s.sk would race.
+// Close zeros the secret key scalar in place and sets s.sk to nil. After
+// Close, Prove and GetAttestation return FailedPrecondition instead of
+// dereferencing a zeroed key. Intended to be called once, after the gRPC
+// server has stopped accepting new RPCs.
 func (s *Server) Close() error {
 	if s.sk != nil {
 		s.sk.Key.Zero()
@@ -120,6 +124,9 @@ func (s *Server) GetAttestation(ctx context.Context, req *pb.GetAttestationReque
 		// Dev HMAC report proves key possession but NOT that the code runs
 		// inside a secure enclave. Production must select a platform mode
 		// (SGX quote, TDX report, SEV-SNP report) once integrated.
+		if s.sk == nil {
+			return nil, status.Error(codes.FailedPrecondition, "enclave server closed")
+		}
 		skBytes := s.sk.Key.Bytes()
 		report := CreateDevAttestation(skBytes[:], s.pk, req.Challenge)
 		return &pb.GetAttestationResponse{

@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/tokamak-network/enshrined-vrf/crypto/ecvrf"
@@ -162,7 +164,8 @@ func TestServerOverGRPC(t *testing.T) {
 }
 
 // TestServerCloseZeroesKey checks that Server.Close zeros the scalar and
-// subsequent Prove/GetAttestation calls no longer succeed.
+// subsequent Prove/GetAttestation calls return FailedPrecondition instead
+// of panicking on a nil sk.
 func TestServerCloseZeroesKey(t *testing.T) {
 	storage := NewSealedStorage(t.TempDir(), testSealKey())
 	srv, err := NewServer(storage, AttestDev)
@@ -175,6 +178,15 @@ func TestServerCloseZeroesKey(t *testing.T) {
 	}
 	if srv.sk != nil {
 		t.Fatal("expected sk to be nil after Close")
+	}
+
+	seed := make([]byte, 32)
+	if _, err := srv.Prove(context.Background(), &pb.ProveRequest{Seed: seed}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("Prove after Close: want FailedPrecondition, got %v", err)
+	}
+
+	if _, err := srv.GetAttestation(context.Background(), &pb.GetAttestationRequest{Challenge: []byte("x")}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("GetAttestation after Close: want FailedPrecondition, got %v", err)
 	}
 }
 
