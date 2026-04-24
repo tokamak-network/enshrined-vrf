@@ -99,6 +99,23 @@ cd vrf-enclave && go run ./cmd/vrf-enclave/ --listen localhost:50051 --seal-dir 
 
 See [docs/testing-guide.md](docs/testing-guide.md) for the full testing guide including devnet setup and troubleshooting.
 
+## Arcade Demo
+
+A one-shot local demo of several VRF-powered games — CoinFlip, DiceRoll,
+Plinko, Lottery, Pongy.bet (짱깸뽀) — all settling randomness through
+the EnshrainedVRF predeploy:
+
+```bash
+./scripts/arcade.sh
+# → Anvil + ArcadeVRF predeploy + 5 game contracts + auto-commit
+#   sequencer daemon (1 block/s) + arcade UI at http://localhost:5173
+```
+
+Under the hood, `scripts/arcade.sh` builds the `vrf-prove` CLI, starts
+Anvil with automine OFF, installs [`ArcadeVRF`](contracts/src/examples/ArcadeVRF.sol)
+(a demo-only IEnshrainedVRF drop-in) at the predeploy address, and
+then delegates per-block randomness commits to [`scripts/vrf-sequencer.sh`](scripts/vrf-sequencer.sh).
+
 ## Specifications
 
 | Parameter | Value |
