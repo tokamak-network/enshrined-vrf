@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="lottery.title">Lottery · Tokamak Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokamak.css">
+<style>
+  :root { --accent: var(--lavender); --accent-deep: var(--lavender-deep); }
+  .ticket-grid {
+    display: grid; gap: 10px; margin-top: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+  .ticket {
+    position: relative;
+    padding: 12px 14px; border-radius: 14px;
+    background: var(--paper); border: 2.5px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 500;
+    display: flex; justify-content: space-between; align-items: center; gap: 6px;
+    transition: transform 0.2s ease, background 0.3s ease;
+  }
+  /* Ticket "punch" notches at the edges */
+  .ticket::before, .ticket::after {
+    content: ""; position: absolute; width: 10px; height: 10px;
+    background: var(--cream); border: 2.5px solid var(--ink); border-radius: 50%;
+    top: 50%; transform: translateY(-50%);
+  }
+  .ticket::before { left: -6px; }
+  .ticket::after  { right: -6px; }
+  .ticket.me { background: var(--butter); }
+  .ticket.winner {
+    background: linear-gradient(135deg, var(--butter) 0%, var(--pink) 100%);
+    animation: tokamak-pop 0.5s ease-out;
+    transform: rotate(-1.5deg) scale(1.04);
+  }
+  .ticket .idx { color: var(--ink-soft); font-size: 10px; font-weight: 500; }
+
+  .winner-banner {
+    text-align: center; padding: 22px 18px; border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--pink) 0%, var(--butter) 50%, var(--mint) 100%);
+    border: 3px solid var(--ink);
+    box-shadow: 5px 5px 0 var(--ink);
+    color: var(--ink); font-family: "Fredoka", sans-serif;
+    font-weight: 700; font-size: 20px;
+    animation: tokamak-pop 0.45s ease-out;
+    margin: 16px 0 4px;
+  }
+  .winner-banner small {
+    display: block; font-size: 13px; color: var(--ink-soft); font-weight: 500; margin-top: 6px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  .round-tag {
+    font-family: "Fredoka", sans-serif; font-size: 13px;
+    background: var(--sky); border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    padding: 6px 14px; border-radius: 999px;
+    color: var(--ink); display: inline-block;
+  }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="tokamak-shell">
+    <a class="tokamak-back" href="../games/index.html" data-i18n="common.back.games">← 게임 목록으로</a>
+
+    <div class="tokamak-shell-head">
+      <div class="mascot" id="mascot"></div>
+      <div>
+        <h2>Lottery</h2>
+        <p class="lead" data-i18n-html="lottery.lead">여러 참가자 중 한 명을 VRF로 공정하게 뽑습니다. 참가자 N → <code>entries[r % N]</code>이 선정.</p>
+      </div>
+    </div>
+
+    <div class="tokamak-panel">
+      <div class="tokamak-row between">
+        <span class="round-tag" id="round-tag">round #0</span>
+        <div class="kv">entries <b id="entry-count">0</b></div>
+      </div>
+
+      <div id="winner-slot"></div>
+      <div class="ticket-grid" id="tickets"></div>
+
+      <div class="tokamak-row center" style="margin-top:22px; gap:10px">
+        <button class="tokamak-btn primary" id="enter">🎟 ENTER</button>
+        <button class="tokamak-btn" id="fill">+ 5 bots</button>
+        <button class="tokamak-btn ghost" id="draw">🦄 DRAW</button>
+      </div>
+      <div class="kv" data-i18n="lottery.botsHint" style="margin-top:12px; text-align:center; justify-content:center">
+        ✦ "+5 bots"는 Anvil 프리펀드 계정들을 자동으로 참가시켜요
+      </div>
+    </div>
+
+    <div class="tokamak-panel paper-2">
+      <div class="kv" data-i18n="common.raw" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex-block" id="rand">—</div>
+      <div class="tokamak-history" id="history" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog, http, createWalletClient } from 'https://esm.sh/viem@2.21.0';
+import { privateKeyToAccount as pk2acc } from 'https://esm.sh/viem@2.21.0/accounts';
+import { mountTokamakTopbar } from '../shared/topbar.js';
+import { t, applyI18n } from '../shared/lang.js';
+import { pub, wallet, account, connect, anvil } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+import { unicornMascot } from '../shared/mascots.js';
+
+mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../games/index.html' });
+document.getElementById('mascot').innerHTML = unicornMascot({ size: 64 });
+applyI18n();
+
+const ABI = parseAbi([
+  'function enter()',
+  'function draw() returns (address)',
+  'function round() view returns (uint256)',
+  'function entryCount() view returns (uint256)',
+  'function entryAt(uint256) view returns (address)',
+  'function hasEntered(address) view returns (bool)',
+  'event Entered(uint256 indexed round, address indexed player, uint256 entryCount)',
+  'event Drawn(uint256 indexed round, address indexed winner, uint256 entryCount, uint256 randomness)',
+]);
+
+// Anvil default private keys (accounts 1..5) — only used by the +5 bots helper.
+const BOT_KEYS = [
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+  '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
+  '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
+  '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+  '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
+];
+
+const $ = (id) => document.getElementById(id);
+const tickets = $('tickets'), histEl = $('history'), rand = $('rand'), winnerSlot = $('winner-slot');
+const roundTag = $('round-tag'), entryCount = $('entry-count');
+
+const state = { round: 0, entries: [], winner: null };
+let lastDraw = null;  // { winner, round, entryCount } — persisted so we can re-render after lang change.
+
+function paintWinnerBanner() {
+  if (!lastDraw) { winnerSlot.innerHTML = ''; return; }
+  const isMe = account() && lastDraw.winner.toLowerCase() === account().toLowerCase();
+  winnerSlot.innerHTML = `
+    <div class="winner-banner">
+      ${t('lottery.winnerPre')}${short(lastDraw.winner)}${isMe ? t('lottery.youWin') : ''}
+      <small>round #${lastDraw.round} · entries ${lastDraw.entryCount}</small>
+    </div>`;
+}
+document.addEventListener('tokamak:langchange', paintWinnerBanner);
+
+async function refresh() {
+  try {
+    const [roundN, n] = await Promise.all([
+      pub.readContract({ address: CONFIG.lottery, abi: ABI, functionName: 'round' }),
+      pub.readContract({ address: CONFIG.lottery, abi: ABI, functionName: 'entryCount' }),
+    ]);
+    state.round = Number(roundN);
+    const entries = await Promise.all(
+      Array.from({ length: Number(n) }, (_, i) =>
+        pub.readContract({ address: CONFIG.lottery, abi: ABI, functionName: 'entryAt', args: [BigInt(i)] })
+      )
+    );
+    state.entries = entries;
+    render();
+  } catch (err) { console.error(err); }
+}
+
+function short(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
+
+function render() {
+  roundTag.textContent = `round #${state.round}`;
+  entryCount.textContent = state.entries.length;
+  tickets.innerHTML = '';
+  const me = account()?.toLowerCase();
+  state.entries.forEach((addr, i) => {
+    const el = document.createElement('div');
+    const isMe  = addr.toLowerCase() === me;
+    const isWin = state.winner && addr.toLowerCase() === state.winner.toLowerCase();
+    el.className = 'ticket' + (isWin ? ' winner' : isMe ? ' me' : '');
+    el.innerHTML = `<span>${short(addr)}${isMe ? ' (you)' : ''}</span><span class="idx">#${i}</span>`;
+    tickets.appendChild(el);
+  });
+}
+
+async function enter(signer = null) {
+  let client, from;
+  if (signer) {
+    const acc = pk2acc(signer);
+    client = createWalletClient({ account: acc, chain: anvil, transport: http(CONFIG.rpc) });
+    from = acc.address;
+  } else {
+    if (!account()) await connect();
+    client = wallet();
+    from = account();
+  }
+  const hash = await client.writeContract({
+    account: from, chain: null,
+    address: CONFIG.lottery, abi: ABI, functionName: 'enter',
+  });
+  await pub.waitForTransactionReceipt({ hash });
+  await refresh();
+}
+
+async function draw() {
+  if (!account()) await connect();
+  if (state.entries.length === 0) return;
+  state.winner = null; render();
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.lottery, abi: ABI, functionName: 'draw',
+    });
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.lottery.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Drawn') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    state.winner = args.winner;
+    rand.textContent = '0x' + args.randomness.toString(16).padStart(64, '0');
+    lastDraw = { winner: args.winner, round: Number(args.round), entryCount: Number(args.entryCount) };
+    paintWinnerBanner();
+    render();
+
+    const item = document.createElement('div');
+    item.className = 'item win';
+    item.innerHTML = `<span>R${args.round} → ${short(args.winner)} (${args.entryCount})</span><span>${hash.slice(0,10)}…</span>`;
+    histEl.prepend(item);
+    while (histEl.children.length > 12) histEl.lastChild.remove();
+
+    setTimeout(() => { state.winner = null; lastDraw = null; paintWinnerBanner(); refresh(); }, 3000);
+  } catch (err) { console.error(err); }
+}
+
+$('enter').addEventListener('click', () => enter());
+$('fill').addEventListener('click', async () => {
+  for (const key of BOT_KEYS) {
+    try { await enter(key); }
+    catch (err) { if (String(err).includes('AlreadyEntered')) continue; console.error(err); }
+  }
+});
+$('draw').addEventListener('click', draw);
+
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

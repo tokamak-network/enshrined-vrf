@@ -1,0 +1,422 @@
+/* Tokamak Arcade — hand-drawn sticker-book design system.
+   Tokamak Network's primary color is a vivid blue; the brand elements (logo tile,
+   primary CTA, chips) lead with --tk-blue while game-specific cards keep their
+   pastel accents for playful variety. */
+:root {
+  /* Surfaces — a slightly cooler cream to pair with blue. */
+  --cream:       #F3F6FF;
+  --paper:       #FFFFFF;
+  --paper-2:     #E9EEFC;
+
+  /* Ink shifted toward Tokamak's navy to harmonise with the blue primary. */
+  --ink:         #0E1740;
+  --ink-soft:    #3B4677;
+  --ink-faint:   #8A94BF;
+
+  /* Tokamak brand blue (primary) */
+  --tk-blue:     #1F6FEB;   /* vivid Tokamak Network blue */
+  --tk-blue-deep:#0B52C8;
+  --tk-blue-ink: #0A1B45;   /* for text on blue surfaces, if needed */
+
+  /* Pastel family — every game picks one as its signature */
+  --pink:        #FFB3D9;
+  --pink-deep:   #FF7AB8;
+  --mint:        #B5EAD7;
+  --mint-deep:   #5FCFA4;
+  --butter:      #FFE29A;
+  --butter-deep: #FFC94D;
+  --sky:         #B5DFF5;
+  --sky-deep:    #5FB8E6;
+  --lavender:    #D7B5F5;
+  --lavender-deep:#A67DE8;
+  --coral:       #FFB5A7;
+  --coral-deep:  #FF8471;
+  --grass:       #C8E6A0;
+  --grass-deep:  #8EBD4D;
+
+  /* Defaults for card shadow / stroke */
+  --stroke: 3px;
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --shadow-offset-x: 6px;
+  --shadow-offset-y: 6px;
+
+  /* Game accents (overridden per-page) */
+  --accent:      var(--tk-blue);
+  --accent-deep: var(--tk-blue-deep);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: "Nunito", "Pretendard", -apple-system, system-ui, sans-serif;
+  font-weight: 600;
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+body {
+  /* Soft Tokamak-blue tinted halos behind a sparkled grid of doodle marks. */
+  background-image:
+    radial-gradient(circle at 10% 14%, rgba(31,111,235,0.18) 0, transparent 26%),
+    radial-gradient(circle at 92% 18%, rgba(181,234,215,0.32) 0, transparent 22%),
+    radial-gradient(circle at 12% 86%, rgba(181,223,245,0.38) 0, transparent 24%),
+    radial-gradient(circle at 86% 90%, rgba(31,111,235,0.14) 0, transparent 26%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><g fill='none' stroke='%230E1740' stroke-width='1.8' stroke-linecap='round' opacity='0.07'><path d='M20 30 l4 -4 M22 26 l0 6 M20 30 l6 0'/><path d='M130 50 q4 -6 8 0 q-4 6 -8 0'/><path d='M40 120 l3 0 l-1 -3 l-2 3 z' fill='%230E1740'/><path d='M110 130 c0 -5 8 -5 8 0 c0 5 -8 5 -8 0'/><path d='M80 80 l3 -3 M80 80 l-3 3 M80 80 l3 3 M80 80 l-3 -3'/></g></svg>");
+  background-attachment: fixed;
+  padding: 28px 20px 96px;
+}
+
+/* ---------- Typography ---------- */
+.display {
+  font-family: "Fredoka", "Nunito", system-ui, sans-serif;
+  font-weight: 700; letter-spacing: -0.01em;
+}
+h1, h2, h3 { font-family: "Fredoka", "Nunito", system-ui, sans-serif; font-weight: 700; }
+code, .mono {
+  font-family: "JetBrains Mono", "Menlo", monospace;
+  font-weight: 500;
+  background: rgba(43,33,57,0.06);
+  padding: 2px 7px; border-radius: 6px;
+  color: var(--ink);
+}
+a { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--accent-deep); }
+a:hover { text-decoration-color: var(--ink); }
+button { font: inherit; cursor: pointer; }
+
+/* ---------- Top bar ---------- */
+.tokamak-topbar {
+  max-width: 1100px; margin: 0 auto 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.tokamak-brand {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: var(--ink);
+}
+.tokamak-brand .logo {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: #FFFFFF;
+  border: var(--stroke) solid var(--ink);
+  display: grid; place-items: center;
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: rotate(-4deg);
+  transition: transform 0.2s ease;
+  padding: 8px;
+}
+.tokamak-brand:hover .logo { transform: rotate(2deg) scale(1.05); }
+.tokamak-brand .logo-img {
+  width: 100%; height: 100%; object-fit: contain;
+  display: block;
+}
+.tokamak-brand .title {
+  font-family: "Fredoka", sans-serif; font-weight: 600;
+  font-size: 20px; letter-spacing: -0.01em;
+}
+.tokamak-brand .title b { font-weight: 700; }
+
+.tokamak-topbar-right { display: flex; gap: 12px; align-items: center; }
+
+.vrf-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--paper); border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600;
+  color: var(--ink-soft);
+}
+.vrf-pill .dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--ink-faint);
+  box-shadow: 0 0 0 3px rgba(154,145,171,0.25);
+}
+.vrf-pill.ok    .dot { background: var(--mint-deep);    box-shadow: 0 0 0 3px rgba(95,207,164,0.35); }
+.vrf-pill.stale .dot { background: var(--butter-deep);  box-shadow: 0 0 0 3px rgba(255,201,77,0.35); }
+.vrf-pill.err   .dot { background: var(--coral-deep);   box-shadow: 0 0 0 3px rgba(255,132,113,0.35); }
+
+/* KO / EN language toggle */
+.lang-toggle {
+  display: inline-flex; padding: 0; border: 2.5px solid var(--ink);
+  background: var(--paper); border-radius: 999px;
+  box-shadow: 3px 3px 0 var(--ink);
+  overflow: hidden; cursor: pointer;
+  font-family: "Fredoka", sans-serif; font-size: 14px; font-weight: 700;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.lang-toggle:hover  { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
+.lang-toggle:active { transform: translate(2px,2px);  box-shadow: 1px 1px 0 var(--ink); }
+.lang-toggle .lang-opt {
+  padding: 9px 14px; color: var(--ink-soft);
+  letter-spacing: 0.08em; pointer-events: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.lang-toggle .lang-opt + .lang-opt { border-left: 2.5px solid var(--ink); }
+.lang-toggle .lang-opt.active { background: var(--butter); color: var(--ink); }
+
+/* ---------- Buttons — chunky pill with offset shadow ---------- */
+.tokamak-btn {
+  appearance: none; border: var(--stroke) solid var(--ink);
+  padding: 12px 22px; border-radius: 999px;
+  background: var(--paper); color: var(--ink);
+  font-family: "Fredoka", sans-serif; font-weight: 600;
+  font-size: 15px; letter-spacing: 0.01em;
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.tokamak-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+.tokamak-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.tokamak-btn:disabled {
+  opacity: 0.55; cursor: not-allowed;
+  transform: none; box-shadow: 4px 4px 0 var(--ink);
+}
+.tokamak-btn.primary { background: var(--accent); }
+.tokamak-btn.primary:hover { background: var(--accent-deep); color: var(--paper); }
+.tokamak-btn.ghost   { background: transparent; }
+.tokamak-btn.small   { padding: 8px 14px; font-size: 13px; box-shadow: 3px 3px 0 var(--ink); }
+.tokamak-btn.small:hover  { box-shadow: 4px 4px 0 var(--ink); }
+.tokamak-btn.small:active { box-shadow: 1px 1px 0 var(--ink); }
+
+/* ---------- Hero ---------- */
+.tokamak-hero {
+  max-width: 1100px; margin: 12px auto 44px;
+  text-align: center; padding: 28px 16px 8px;
+  position: relative;
+}
+.tokamak-hero .eyebrow {
+  display: inline-block;
+  background: var(--mint); color: var(--ink);
+  border: 2px solid var(--ink);
+  padding: 6px 14px; border-radius: 999px;
+  font-family: "Fredoka", sans-serif; font-size: 13px;
+  box-shadow: 3px 3px 0 var(--ink);
+  margin-bottom: 18px;
+  transform: rotate(-2deg);
+}
+.tokamak-hero h1 {
+  font-size: clamp(38px, 6vw, 68px);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+.tokamak-hero h1 .chip {
+  display: inline-block;
+  padding: 0 14px; border-radius: 18px;
+  border: var(--stroke) solid var(--ink);
+  background: var(--butter);
+  transform: rotate(-2deg);
+  box-shadow: 5px 5px 0 var(--ink);
+  margin: 0 4px;
+}
+.tokamak-hero h1 .chip.b { background: var(--pink); transform: rotate(2deg); }
+.tokamak-hero h1 .chip.c { background: var(--sky);  transform: rotate(-1deg); }
+.tokamak-hero p {
+  margin: 20px auto 0; max-width: 620px;
+  color: var(--ink-soft); font-size: 17px; font-weight: 500;
+}
+
+/* ---------- Game grid (hub) ---------- */
+.tokamak-grid {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; gap: 26px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.tokamak-card {
+  position: relative; overflow: visible;
+  background: var(--paper); color: var(--ink);
+  border: var(--stroke) solid var(--ink);
+  border-radius: var(--radius-lg);
+  padding: 22px 22px 20px;
+  box-shadow: var(--shadow-offset-x) var(--shadow-offset-y) 0 var(--ink);
+  display: flex; flex-direction: column; gap: 14px;
+  min-height: 300px;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.tokamak-card:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 9px 9px 0 var(--ink);
+  text-decoration: none;
+}
+.tokamak-card .mascot-holder {
+  height: 120px; display: grid; place-items: center;
+  background: var(--accent);
+  border: var(--stroke) solid var(--ink);
+  border-radius: var(--radius-md);
+  margin-bottom: 4px;
+  position: relative; overflow: hidden;
+}
+.tokamak-card .mascot-holder::before {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.55) 0 6px, transparent 7px),
+    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.45) 0 4px, transparent 5px),
+    radial-gradient(circle at 65% 25%, rgba(255,255,255,0.35) 0 3px, transparent 4px);
+}
+.tokamak-card .mascot-holder svg { position: relative; z-index: 1; }
+.tokamak-card h3 {
+  font-size: 24px; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.tokamak-card h3 .badge {
+  font-family: "Fredoka", sans-serif; font-size: 12px; font-weight: 500;
+  background: var(--ink); color: var(--paper);
+  padding: 4px 10px; border-radius: 999px;
+  letter-spacing: 0.03em; text-transform: uppercase;
+}
+.tokamak-card .desc {
+  color: var(--ink-soft); font-size: 14px; flex: 1; font-weight: 500;
+}
+.tokamak-card .go {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: "Fredoka", sans-serif; color: var(--ink);
+  font-weight: 600; font-size: 14px;
+}
+.tokamak-card .go svg { transition: transform 0.15s ease; }
+.tokamak-card:hover .go svg { transform: translateX(4px); }
+
+/* Per-card accent tinting */
+.tokamak-card.flip    { --accent: var(--butter); }
+.tokamak-card.dice    { --accent: var(--pink); }
+.tokamak-card.plinko  { --accent: var(--sky); }
+.tokamak-card.lottery { --accent: var(--lavender); }
+.tokamak-card.janken  { --accent: var(--tk-blue); }
+.tokamak-card.pongy   { --accent: var(--coral); }
+
+/* ---------- Game page shell ---------- */
+.tokamak-shell {
+  max-width: 760px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 24px;
+}
+.tokamak-shell-head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 6px 2px;
+}
+.tokamak-shell-head .mascot {
+  width: 76px; height: 76px; border-radius: 22px;
+  background: var(--accent);
+  border: var(--stroke) solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  display: grid; place-items: center;
+  flex-shrink: 0;
+  transform: rotate(-4deg);
+}
+.tokamak-shell-head h2 { font-size: 34px; letter-spacing: -0.02em; }
+.tokamak-shell-head .lead { color: var(--ink-soft); font-size: 15px; font-weight: 500; margin-top: 4px; }
+.tokamak-shell-head .lead code { font-size: 12px; }
+
+.tokamak-panel {
+  background: var(--paper); color: var(--ink);
+  border: var(--stroke) solid var(--ink);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow-offset-x) var(--shadow-offset-y) 0 var(--ink);
+}
+.tokamak-panel.paper-2 { background: var(--paper-2); }
+.tokamak-panel.accent  { background: var(--accent); }
+
+/* Rows */
+.tokamak-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.tokamak-row.center  { justify-content: center; }
+.tokamak-row.between { justify-content: space-between; }
+
+/* Key-value */
+.kv {
+  font-family: "Fredoka", sans-serif; font-size: 14px;
+  color: var(--ink-soft); font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.kv b { color: var(--ink); font-weight: 700; }
+
+/* Hex / code blocks */
+.hex-block {
+  font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 500;
+  color: var(--ink); word-break: break-all; line-height: 1.6;
+  background: var(--paper-2); border: 2px dashed var(--ink-faint);
+  padding: 12px 14px; border-radius: var(--radius-sm);
+}
+
+/* History list */
+.tokamak-history {
+  margin-top: 6px; display: flex; flex-direction: column; gap: 8px;
+  max-height: 220px; overflow-y: auto;
+}
+.tokamak-history .item {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-radius: 999px;
+  background: var(--paper); border: 2px solid var(--ink);
+  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 500;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.tokamak-history .item.win  { background: var(--mint); }
+.tokamak-history .item.lose { background: var(--coral); }
+
+/* Result banner */
+.tokamak-result {
+  text-align: center; padding: 20px 18px;
+  border-radius: var(--radius-md);
+  border: var(--stroke) solid var(--ink);
+  background: var(--paper-2);
+  box-shadow: 4px 4px 0 var(--ink);
+  font-family: "Fredoka", sans-serif;
+  font-size: 22px; font-weight: 600;
+  min-height: 72px;
+  display: grid; place-items: center;
+  transition: background 0.2s ease;
+}
+.tokamak-result.win  { background: var(--mint); }
+.tokamak-result.lose { background: var(--coral); }
+.tokamak-result small {
+  display: block; font-size: 13px; color: var(--ink-soft); font-weight: 500; margin-top: 4px;
+}
+
+/* Footer */
+.tokamak-footer {
+  max-width: 1100px; margin: 60px auto 0;
+  text-align: center; color: var(--ink-soft);
+  font-size: 13px; font-weight: 500;
+  padding: 14px 20px; border-radius: var(--radius-md);
+  background: var(--paper); border: 2px dashed var(--ink-soft);
+}
+.tokamak-footer code { font-size: 12px; }
+
+/* Back link */
+.tokamak-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: "Fredoka", sans-serif; font-size: 14px; color: var(--ink-soft);
+  text-decoration: none; margin-bottom: 8px;
+}
+.tokamak-back:hover { color: var(--ink); text-decoration: none; }
+
+/* ---------- Animations ---------- */
+@keyframes tokamak-wobble {
+  0%,100% { transform: rotate(-4deg); }
+  50%     { transform: rotate(4deg); }
+}
+@keyframes tokamak-spin   { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+@keyframes tokamak-pop    { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tokamak-shake  { 0%,100% { transform: translateX(0) rotate(-2deg); } 25% { transform: translateX(-6px) rotate(2deg); } 75% { transform: translateX(6px) rotate(-2deg); } }
+@keyframes tokamak-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes tokamak-sparkle{ 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+
+.wobble   { animation: tokamak-wobble 0.9s ease-in-out infinite; }
+.bounce   { animation: tokamak-bounce 1.2s ease-in-out infinite; }
+.sparkle  { animation: tokamak-sparkle 1.4s ease-in-out infinite; }
+.rolling  { animation: tokamak-shake 0.22s ease-in-out infinite; }
+.popping  { animation: tokamak-pop 0.45s ease-out; }
+
+/* Mobile */
+@media (max-width: 640px) {
+  .tokamak-shell-head h2 { font-size: 28px; }
+  .tokamak-panel { padding: 20px; }
+  :root { --shadow-offset-x: 4px; --shadow-offset-y: 4px; }
+}

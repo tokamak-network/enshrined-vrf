@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="plinko.title">Plinko · Tokamak Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokamak.css">
+<style>
+  :root { --accent: var(--sky); --accent-deep: var(--sky-deep); }
+  .stage {
+    position: relative; margin: 4px auto 0;
+    width: 100%; max-width: 540px; aspect-ratio: 5 / 6;
+    background: linear-gradient(180deg, #E8F4FC 0%, #FFFDF5 85%);
+    border: 3px solid var(--ink);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .peg {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--ink); transform: translate(-50%, -50%);
+    box-shadow: 1px 1px 0 rgba(43,33,57,0.3);
+  }
+  .ball {
+    position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #FFB3D9 60%, #FF7AB8);
+    border: 2px solid var(--ink);
+    transform: translate(-50%, -50%);
+    transition: left 0.25s linear, top 0.25s linear;
+    z-index: 2;
+  }
+  .slots {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; height: 58px;
+    border-top: 3px solid var(--ink);
+  }
+  .slot {
+    flex: 1; display: grid; place-items: center; padding: 4px 2px;
+    font-family: "Fredoka", sans-serif; font-size: 12px;
+    color: var(--ink-soft); border-left: 2px solid var(--ink);
+    background: var(--paper);
+    text-align: center;
+  }
+  .slot:first-child { border-left: 0; }
+  .slot b { color: var(--ink); font-size: 14px; display: block; }
+  .slot.hit {
+    background: var(--butter);
+    animation: tokamak-pop 0.4s ease-out;
+  }
+  .slot.hit b { color: var(--ink); }
+
+  .stat-chips { display: flex; gap: 12px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+  .stat-chip {
+    background: var(--paper-2); border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    padding: 8px 14px; border-radius: 999px;
+    font-family: "Fredoka", sans-serif; font-size: 13px;
+  }
+  .path-display { font-family: "JetBrains Mono", monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="tokamak-shell">
+    <a class="tokamak-back" href="../games/index.html" data-i18n="common.back.games">← 게임 목록으로</a>
+
+    <div class="tokamak-shell-head">
+      <div class="mascot" id="mascot"></div>
+      <div>
+        <h2>Plinko</h2>
+        <p class="lead" data-i18n="plinko.lead">VRF 값의 하위 12비트가 핀마다 좌/우를 결정합니다. 최종 슬롯 = 1-bit 개수 (이항분포).</p>
+      </div>
+    </div>
+
+    <div class="tokamak-panel">
+      <div class="stage" id="stage"></div>
+      <div class="tokamak-row center" style="margin-top:18px">
+        <button class="tokamak-btn primary" id="drop">☁️ DROP</button>
+        <button class="tokamak-btn ghost" id="dropx5">× 5</button>
+      </div>
+      <div class="stat-chips">
+        <span class="stat-chip">drops <b id="stat-n">0</b></span>
+        <span class="stat-chip">last path <b class="path-display" id="stat-path">—</b></span>
+      </div>
+    </div>
+
+    <div class="tokamak-panel paper-2">
+      <div class="kv" data-i18n="common.raw" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex-block" id="rand">—</div>
+      <div class="tokamak-history" id="history" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog } from 'https://esm.sh/viem@2.21.0';
+import { mountTokamakTopbar } from '../shared/topbar.js';
+import { applyI18n } from '../shared/lang.js';
+import { pub, wallet, account, connect } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+import { cloudMascot } from '../shared/mascots.js';
+
+mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../games/index.html' });
+document.getElementById('mascot').innerHTML = cloudMascot({ size: 64 });
+applyI18n();
+
+const ABI = parseAbi([
+  'function drop() returns (uint16, uint8)',
+  'event Dropped(address indexed player, uint16 path, uint8 slot, uint256 randomness)',
+]);
+
+const ROWS = 12;
+const SLOTS = ROWS + 1;
+
+const stage = document.getElementById('stage');
+const $ = (id) => document.getElementById(id);
+const randEl = $('rand'), histEl = $('history');
+const sN = $('stat-n'), sPath = $('stat-path');
+let drops = 0;
+
+function buildBoard() {
+  stage.innerHTML = '';
+  for (let row = 0; row < ROWS; row++) {
+    const pegCount = row + 2;
+    const yPct = 6 + (row / ROWS) * 78;
+    for (let i = 0; i < pegCount; i++) {
+      const p = document.createElement('div');
+      p.className = 'peg';
+      const xPct = 50 + (i - (pegCount - 1) / 2) * (80 / ROWS);
+      p.style.left = xPct + '%'; p.style.top = yPct + '%';
+      stage.appendChild(p);
+    }
+  }
+  const slots = document.createElement('div');
+  slots.className = 'slots';
+  for (let i = 0; i < SLOTS; i++) {
+    const s = document.createElement('div');
+    s.className = 'slot';
+    const prob = binomProb(ROWS, i);
+    s.innerHTML = `<div><b>${i}</b>${(prob * 100).toFixed(1)}%</div>`;
+    slots.appendChild(s);
+  }
+  stage.appendChild(slots);
+}
+buildBoard();
+
+function binomProb(n, k) {
+  let c = 1;
+  for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1);
+  return c / Math.pow(2, n);
+}
+
+function slotToX(k) {
+  return 50 + (2 * k - ROWS) * (80 / ROWS) / 2;
+}
+
+async function animateBall(path, slot) {
+  const ball = document.createElement('div');
+  ball.className = 'ball';
+  ball.style.left = '50%'; ball.style.top = '2%';
+  stage.appendChild(ball);
+
+  let rights = 0;
+  for (let row = 0; row < ROWS; row++) {
+    const bit = (path >> row) & 1;
+    if (bit) rights++;
+    const yPct = 6 + ((row + 1) / ROWS) * 78;
+    const xPct = 50 + (2 * rights - (row + 1)) * (80 / ROWS) / 2;
+    ball.style.left = xPct + '%';
+    ball.style.top  = yPct + '%';
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  ball.style.left = slotToX(slot) + '%';
+  ball.style.top  = '92%';
+  await new Promise((r) => setTimeout(r, 220));
+
+  const slotEl = stage.querySelectorAll('.slot')[slot];
+  if (slotEl) { slotEl.classList.add('hit'); setTimeout(() => slotEl.classList.remove('hit'), 2200); }
+  setTimeout(() => ball.remove(), 2500);
+}
+
+async function dropOnce() {
+  if (!account()) await connect();
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.plinko, abi: ABI, functionName: 'drop',
+    });
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.plinko.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Dropped') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    const path = Number(args.path);
+    const slot = Number(args.slot);
+    drops++;
+    sN.textContent = drops;
+    sPath.textContent = path.toString(2).padStart(12, '0');
+    randEl.textContent = '0x' + args.randomness.toString(16).padStart(64, '0');
+
+    const isEdge = slot === 0 || slot === SLOTS - 1;
+    const item = document.createElement('div');
+    item.className = 'item ' + (isEdge ? 'win' : '');
+    item.innerHTML = `<span>slot ${slot} · ${path.toString(2).padStart(12, '0')}</span><span>${hash.slice(0,10)}…</span>`;
+    histEl.prepend(item);
+    while (histEl.children.length > 12) histEl.lastChild.remove();
+
+    await animateBall(path, slot);
+  } catch (err) { console.error(err); }
+}
+
+$('drop').addEventListener('click', dropOnce);
+$('dropx5').addEventListener('click', async () => {
+  for (let i = 0; i < 5; i++) { await dropOnce(); await new Promise((r) => setTimeout(r, 300)); }
+});
+</script>
+</body>
+</html>

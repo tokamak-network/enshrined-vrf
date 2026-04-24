@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="dice.title">Dice Roll · Tokamak Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokamak.css">
+<style>
+  :root { --accent: var(--pink); --accent-deep: var(--pink-deep); }
+  .dice-wrap { display: flex; gap: 28px; justify-content: center; padding: 18px 0 8px; }
+  .die {
+    width: 130px; height: 130px; border-radius: 22px;
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    box-shadow: 5px 5px 0 var(--ink);
+    display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    padding: 16px; gap: 8px;
+    transform: rotate(-3deg);
+  }
+  .die:nth-child(2) { transform: rotate(3deg); background: var(--butter); }
+  .die.rolling { animation: tokamak-shake 0.22s ease-in-out infinite; }
+  .pip    { background: var(--ink); border-radius: 50%; }
+  .pip.off { background: transparent; }
+  .total  { text-align: center; font-size: 30px; font-weight: 700; margin-top: 10px; color: var(--ink); font-family: "Fredoka", sans-serif; }
+  .total small { font-size: 14px; color: var(--ink-soft); font-weight: 500; margin-left: 8px; }
+  .stat-chips { display: flex; gap: 12px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+  .stat-chip {
+    background: var(--paper-2); border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    padding: 8px 14px; border-radius: 999px;
+    font-family: "Fredoka", sans-serif; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="tokamak-shell">
+    <a class="tokamak-back" href="../games/index.html" data-i18n="common.back.games">← 게임 목록으로</a>
+
+    <div class="tokamak-shell-head">
+      <div class="mascot" id="mascot"></div>
+      <div>
+        <h2>Dice Roll</h2>
+        <p class="lead" data-i18n-html="dice.lead">두 주사위 굴리기. 한 번의 <code>getRandomness()</code> 호출에서 <code>keccak(r, 0)</code>과 <code>keccak(r, 1)</code>로 두 값을 뽑습니다.</p>
+      </div>
+    </div>
+
+    <div class="tokamak-panel">
+      <div class="dice-wrap">
+        <div class="die" id="die1"></div>
+        <div class="die" id="die2"></div>
+      </div>
+      <div class="total" id="total"></div>
+      <div class="tokamak-row center" style="margin-top:18px">
+        <button class="tokamak-btn primary" id="roll">🎲 ROLL</button>
+        <button class="tokamak-btn ghost" id="rollx10">× 10</button>
+      </div>
+      <div class="stat-chips">
+        <span class="stat-chip">rolls <b id="stat-n">0</b></span>
+        <span class="stat-chip">avg sum <b id="stat-avg">—</b></span>
+        <span class="stat-chip">sevens <b id="stat-seven">0</b></span>
+      </div>
+    </div>
+
+    <div class="tokamak-panel paper-2">
+      <div class="kv" data-i18n="common.raw" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex-block" id="rand">—</div>
+      <div class="tokamak-history" id="history" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog } from 'https://esm.sh/viem@2.21.0';
+import { mountTokamakTopbar } from '../shared/topbar.js';
+import { t, applyI18n } from '../shared/lang.js';
+import { pub, wallet, account, connect } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+import { catMascot } from '../shared/mascots.js';
+
+mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../games/index.html' });
+document.getElementById('mascot').innerHTML = catMascot({ size: 64 });
+applyI18n();
+
+const ABI = parseAbi([
+  'function roll() returns (uint8, uint8, uint8)',
+  'event Rolled(address indexed player, uint8 d1, uint8 d2, uint8 total, uint256 randomness)',
+]);
+
+const $ = (id) => document.getElementById(id);
+const die1 = $('die1'), die2 = $('die2'), total = $('total'), rand = $('rand'), hist = $('history');
+const sN = $('stat-n'), sAvg = $('stat-avg'), sSev = $('stat-seven');
+let rolls = 0, sum = 0, sevens = 0;
+
+const FACES = {
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 2, 3, 5, 6, 8],
+};
+
+function renderDie(el, face) {
+  el.innerHTML = '';
+  const on = new Set(FACES[face] || []);
+  for (let i = 0; i < 9; i++) {
+    const p = document.createElement('div');
+    p.className = 'pip' + (on.has(i) ? '' : ' off');
+    el.appendChild(p);
+  }
+}
+renderDie(die1, 0); renderDie(die2, 0);
+
+let last = { kind: 'ready' };
+function paintTotal() {
+  if (last.kind === 'ready')   total.textContent = t('dice.ready');
+  if (last.kind === 'signing') total.textContent = t('dice.signing');
+  if (last.kind === 'waiting') total.textContent = t('dice.waiting');
+  if (last.kind === 'failed')  total.textContent = t('dice.failed');
+  if (last.kind === 'result') {
+    total.innerHTML = `${last.d1} + ${last.d2} = <b>${last.sum}</b>`
+      + (last.sum === 7 ? `<small>${t('dice.lucky')}</small>` : '');
+  }
+}
+paintTotal();
+document.addEventListener('tokamak:langchange', paintTotal);
+
+async function rollOnce() {
+  if (!account()) await connect();
+  die1.classList.add('rolling'); die2.classList.add('rolling');
+  last = { kind: 'signing' }; paintTotal();
+
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.dice, abi: ABI, functionName: 'roll',
+    });
+    last = { kind: 'waiting' }; paintTotal();
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.dice.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Rolled') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    apply(args, hash);
+  } catch (err) {
+    console.error(err);
+    last = { kind: 'failed' }; paintTotal();
+  } finally {
+    die1.classList.remove('rolling'); die2.classList.remove('rolling');
+  }
+}
+
+function apply({ d1, d2, total: rollTotal, randomness }, hash) {
+  renderDie(die1, Number(d1));
+  renderDie(die2, Number(d2));
+  const sumN = Number(rollTotal);
+  last = { kind: 'result', d1: Number(d1), d2: Number(d2), sum: sumN };
+  paintTotal();
+  rand.textContent = '0x' + randomness.toString(16).padStart(64, '0');
+  rolls++; sum += sumN;
+  if (sumN === 7) sevens++;
+  sN.textContent = rolls; sAvg.textContent = (sum / rolls).toFixed(2); sSev.textContent = sevens;
+
+  const isSpecial = sumN === 7 || sumN === 11;
+  const item = document.createElement('div');
+  item.className = 'item ' + (isSpecial ? 'win' : '');
+  item.innerHTML = `<span>${d1}·${d2} = ${sumN}</span><span>${hash.slice(0,10)}…</span>`;
+  hist.prepend(item);
+  while (hist.children.length > 12) hist.lastChild.remove();
+}
+
+$('roll').addEventListener('click', rollOnce);
+$('rollx10').addEventListener('click', async () => {
+  for (let i = 0; i < 10; i++) await rollOnce();
+});
+</script>
+</body>
+</html>

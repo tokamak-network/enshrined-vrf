@@ -1,0 +1,1788 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="janken.title">Jankenman · Tokamak Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokamak.css?v=7">
+<style>
+  :root { --accent: var(--tk-blue); --accent-deep: var(--tk-blue-deep); }
+
+  /* — Page shell: widen for dashboard feel — */
+  .dfi-shell {
+    max-width: 1120px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .dfi-head {
+    display: flex; align-items: center; gap: 14px;
+    flex-wrap: wrap;
+  }
+  .dfi-head .mascot {
+    width: 60px; height: 60px; border-radius: 16px;
+    background: var(--tk-blue);
+    border: 2.5px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .dfi-head h2 {
+    font-family: "Fredoka", sans-serif;
+    font-size: 28px; letter-spacing: -0.02em;
+    margin-right: auto;
+  }
+  .dfi-head .contract-pill {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    background: var(--paper); border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    padding: 6px 10px; border-radius: 999px;
+    color: var(--ink-soft);
+  }
+  .dfi-head .contract-pill b { color: var(--ink); font-weight: 600; margin-right: 6px; }
+
+  /* — KPI strip — */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+  }
+  .kpi {
+    background: var(--paper); border: 3px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+    border-radius: 16px; padding: 14px 18px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .kpi .k {
+    font-family: "Fredoka", sans-serif; font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .kpi .v {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 22px; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .kpi .v .u { font-size: 13px; color: var(--ink-soft); margin-left: 4px; font-weight: 500; }
+  .kpi.blue { background: var(--tk-blue); color: #fff; }
+  .kpi.blue .k { color: rgba(255,255,255,0.75); }
+  .kpi.blue .v { color: #fff; }
+  .kpi.blue .v .u { color: rgba(255,255,255,0.75); }
+
+  /* — Tabs — */
+  .dfi-tabs {
+    display: inline-flex; padding: 4px;
+    border: 3px solid var(--ink); border-radius: 999px;
+    background: var(--paper); box-shadow: 3px 3px 0 var(--ink);
+    gap: 4px;
+    align-self: flex-start;
+  }
+  .dfi-tab {
+    appearance: none; border: 0;
+    padding: 9px 20px; border-radius: 999px;
+    font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 14px;
+    color: var(--ink-soft); background: transparent; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .dfi-tab.active { background: var(--ink); color: #fff; }
+  .dfi-tab:hover:not(.active) { color: var(--ink); }
+
+  /* — Split grid (play tab) — */
+  .play-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 820px) {
+    .play-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--paper); border: 3px solid var(--ink);
+    border-radius: 20px; padding: 22px;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .panel.dim  { background: var(--paper-2); }
+  .panel .h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .panel .h h3 { font-family: "Fredoka", sans-serif; font-size: 16px; font-weight: 700; }
+  .panel .h .tag {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  /* ===================  ARCADE CABINET  =================== */
+  .arcade-cabinet {
+    background: linear-gradient(180deg, #1A2352 0%, #0E1740 100%);
+    border: 3px solid #000;
+    border-radius: 22px;
+    padding: 8px;
+    box-shadow:
+      5px 5px 0 #000,
+      inset 0 0 0 2px rgba(111,168,255,0.15);
+    position: relative;
+  }
+  /* Marquee — bright lit banner at the top of the cabinet */
+  .cabinet-marquee {
+    background: linear-gradient(180deg, var(--tk-blue) 0%, var(--tk-blue-deep) 100%);
+    border: 2px solid #000;
+    border-radius: 12px 12px 8px 8px;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    position: relative;
+  }
+  .cabinet-marquee .mt {
+    font-family: "Fredoka", sans-serif; font-weight: 700;
+    letter-spacing: 0.32em; font-size: 15px;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.6), 0 0 18px rgba(111,168,255,0.6);
+  }
+  .cabinet-marquee .ml {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #FFE29A;
+    box-shadow: 0 0 10px #FFE29A, 0 0 4px #fff;
+    animation: marquee-blink 1.3s infinite;
+  }
+  .cabinet-marquee .ml:nth-child(1) { animation-delay: 0.00s; }
+  .cabinet-marquee .ml:nth-child(2) { animation-delay: 0.15s; }
+  .cabinet-marquee .ml:nth-child(3) { animation-delay: 0.30s; }
+  .cabinet-marquee .ml:nth-child(5) { animation-delay: 0.45s; }
+  .cabinet-marquee .ml:nth-child(6) { animation-delay: 0.60s; }
+  .cabinet-marquee .ml:nth-child(7) { animation-delay: 0.75s; }
+  @keyframes marquee-blink {
+    0%, 100% { opacity: 0.35; transform: scale(0.8); }
+    50%      { opacity: 1;    transform: scale(1.15); }
+  }
+
+  /* CRT-style screen */
+  .cabinet-screen {
+    margin: 8px 4px 4px;
+    background:
+      radial-gradient(ellipse at center, #0D1A40 0%, #050B22 100%);
+    border: 2px solid #000;
+    border-radius: 10px;
+    padding: 20px 18px 16px;
+    min-height: 300px;
+    position: relative;
+    overflow: hidden;
+  }
+  /* scanlines */
+  .cabinet-screen::before {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 3px);
+    pointer-events: none; z-index: 2;
+  }
+  /* CRT vignette */
+  .cabinet-screen::after {
+    content: ""; position: absolute; inset: 0;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.6);
+    border-radius: 10px;
+    pointer-events: none; z-index: 2;
+  }
+
+  /* ─── Concentric stage: outer roulette ring → green hub ring → LED display ─── */
+  .jk-stage {
+    position: relative; z-index: 1;
+    width: min(320px, 78vw); aspect-ratio: 1;
+    margin: 0 auto;
+  }
+  .jk-pointer {
+    position: absolute; top: -2px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 22px solid #FFE29A;
+    filter: drop-shadow(0 0 10px rgba(255,226,154,0.9));
+    z-index: 10;
+  }
+
+  /* outer ring — the actual roulette wheel */
+  .jk-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 4px solid #000;
+    box-shadow:
+      0 0 0 3px rgba(0,0,0,0.2),
+      0 0 26px rgba(31,111,235,0.45),
+      inset 0 0 20px rgba(0,0,0,0.25);
+    background: conic-gradient(from -18deg,
+      #FFD3DF  0   36deg,
+      #FFC0D0  36  72deg,
+      #FFD3DF  72  108deg,
+      #FFE29A  108 144deg,
+      #FFD3DF  144 180deg,
+      #FFC0D0  180 216deg,
+      #D7B5F5  216 252deg,
+      #FFD3DF  252 288deg,
+      #FFC0D0  288 324deg,
+      #FF8A7E  324 360deg);
+    transition: transform 3.8s cubic-bezier(0.18, 0.9, 0.24, 1);
+  }
+  .jk-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  /* middle ring — green accent */
+  .jk-hub-ring {
+    position: absolute; inset: 28%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #CFF0DB 0%, #B5EAD7 60%, #8FD6B9 100%);
+    border: 3px solid #000;
+    box-shadow: 0 0 16px rgba(143,214,185,0.35), inset 0 0 14px rgba(0,0,0,0.15);
+    z-index: 2;
+  }
+
+  /* inner LED display — where the hand cycles / stops */
+  .jk-display {
+    position: absolute; inset: 37%;
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at 50% 50%, #3A0C0C 0%, #150303 85%);
+    border: 3px solid #000;
+    box-shadow:
+      inset 0 0 24px rgba(255,40,40,0.35),
+      0 0 22px rgba(255,40,40,0.4);
+    display: grid; place-items: center;
+    z-index: 3;
+    overflow: hidden;
+  }
+  .jk-display::before {
+    /* LED pixel grid overlay */
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg,  transparent 0 2px, rgba(255,0,0,0.12) 2px 3px),
+      repeating-linear-gradient(90deg, transparent 0 2px, rgba(255,0,0,0.12) 2px 3px);
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+  .jk-display-emoji {
+    position: relative; z-index: 1;
+    font-size: clamp(44px, 9.5vw, 64px); line-height: 1;
+    filter:
+      drop-shadow(0 0 6px #ff2a2a)
+      drop-shadow(0 0 12px #ff4040)
+      saturate(1.4);
+    transition: transform 0.08s ease;
+  }
+  .jk-display.cycling .jk-display-emoji { animation: display-flicker 0.12s infinite; }
+  @keyframes display-flicker {
+    0%,100% { opacity: 1; }
+    50%     { opacity: 0.82; }
+  }
+  .jk-display.result-win  { box-shadow: inset 0 0 24px rgba(127,227,173,0.45), 0 0 22px rgba(127,227,173,0.55); }
+  .jk-display.result-lose { box-shadow: inset 0 0 24px rgba(255,138,138,0.45), 0 0 22px rgba(255,138,138,0.55); }
+  .jk-display.result-draw { box-shadow: inset 0 0 24px rgba(255,226,154,0.45), 0 0 22px rgba(255,226,154,0.55); }
+
+  /* Status LED bar */
+  .status-line {
+    position: relative; z-index: 3;
+    margin-top: 14px;
+    background: #000;
+    border: 1px solid rgba(181,234,215,0.3);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; font-weight: 600;
+    color: #7FE3AD;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px currentColor;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    min-height: 38px;
+    text-align: center;
+  }
+  .status-line .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 10px currentColor;
+    animation: dot-blink 1s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes dot-blink { 50% { opacity: 0.25; } }
+  .status-line b { color: #fff; font-weight: 700; text-shadow: 0 0 10px currentColor; }
+  .status-line.win  { color: #7FE3AD; border-color: rgba(127,227,173,0.4); }
+  .status-line.lose { color: #FF8A8A; border-color: rgba(255,138,138,0.4); }
+  .status-line.draw { color: #FFE29A; border-color: rgba(255,226,154,0.4); }
+
+  /* Physical arcade buttons at the bottom of the cabinet */
+  .cabinet-controls {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 12px;
+    margin: 4px;
+    background: linear-gradient(180deg, #3B4680 0%, #2B3558 100%);
+    border-radius: 10px;
+    border: 2px solid #000;
+  }
+  .arcade-btn {
+    appearance: none; cursor: pointer;
+    height: 92px; border-radius: 14px;
+    border: 3px solid #000;
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+    font-family: "Fredoka", sans-serif;
+    font-weight: 700; letter-spacing: 0.14em;
+    box-shadow:
+      0 6px 0 rgba(0,0,0,0.6),
+      inset 0 6px 12px rgba(255,255,255,0.25),
+      inset 0 -6px 10px rgba(0,0,0,0.18);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+    color: var(--ink);
+  }
+  .arcade-btn.rock  { background: linear-gradient(180deg, #FFA494 0%, #FF7B6A 100%); }
+  .arcade-btn.paper { background: linear-gradient(180deg, #FFE29A 0%, #FFCB4D 100%); }
+  .arcade-btn.sci   { background: linear-gradient(180deg, #9DD3F5 0%, #5FB8E6 100%); }
+  .arcade-btn:hover { filter: brightness(1.06); }
+  .arcade-btn:active,
+  .arcade-btn.pressed {
+    transform: translateY(5px);
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.6),
+      inset 0 6px 12px rgba(255,255,255,0.25),
+      inset 0 -4px 10px rgba(0,0,0,0.18);
+  }
+  .arcade-btn.selected {
+    outline: 3px solid #FFE29A;
+    outline-offset: 3px;
+    box-shadow:
+      0 6px 0 rgba(0,0,0,0.6),
+      inset 0 6px 12px rgba(255,255,255,0.25),
+      inset 0 -6px 10px rgba(0,0,0,0.18),
+      0 0 18px rgba(255,226,154,0.8);
+  }
+  .arcade-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .arcade-btn .cap {
+    font-size: 32px; line-height: 1;
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.15));
+  }
+  .arcade-btn .tab { font-size: 11px; }
+
+  /* — Bet slip (right column) — */
+  .slip-body { display: flex; flex-direction: column; gap: 14px; }
+  .input-row {
+    display: flex; gap: 8px; align-items: center;
+    background: var(--paper-2); border: 3px solid var(--ink);
+    border-radius: 14px; padding: 10px 12px;
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  .input-row input[type="number"] {
+    appearance: none; border: 0; background: transparent; outline: none;
+    flex: 1; min-width: 0;
+    font-family: "JetBrains Mono", monospace; font-size: 22px; font-weight: 600;
+    color: var(--ink);
+  }
+  .input-row .unit {
+    font-family: "Fredoka", sans-serif; font-weight: 600;
+    color: var(--ink-soft); font-size: 14px;
+  }
+  .preset-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset {
+    font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 500;
+    padding: 6px 10px; border-radius: 999px;
+    border: 2px solid var(--ink); background: var(--paper);
+    box-shadow: 2px 2px 0 var(--ink); cursor: pointer;
+    color: var(--ink);
+  }
+  .preset:hover { background: var(--butter); }
+
+  .payout-table {
+    font-family: "JetBrains Mono", monospace; font-size: 12px;
+    border: 2px dashed var(--ink-faint); border-radius: 12px;
+    padding: 10px 12px; background: rgba(255,255,255,0.5);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .payout-table .hdr {
+    display: flex; justify-content: space-between;
+    color: var(--ink-soft); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700;
+    padding-bottom: 4px; border-bottom: 1px solid var(--ink-faint);
+  }
+  .payout-table .row { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; }
+  .payout-table .row .p { color: var(--ink-soft); }
+  .payout-table .row .m { color: var(--ink); font-weight: 600; }
+  .payout-table .row .amt { color: var(--tk-blue-deep); font-weight: 600; }
+  .payout-table .ev {
+    margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--ink-faint);
+    display: flex; justify-content: space-between;
+    color: var(--ink-soft); font-size: 11px;
+  }
+  .payout-table .ev .val.neg { color: #C84A4A; font-weight: 600; }
+
+  .big-play-btn {
+    appearance: none; cursor: pointer;
+    width: 100%; padding: 16px 18px;
+    border-radius: 14px; border: 3px solid var(--ink);
+    background: var(--tk-blue); color: #fff;
+    font-family: "Fredoka", sans-serif; font-weight: 700; font-size: 18px;
+    box-shadow: 5px 5px 0 var(--ink);
+    transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .big-play-btn:hover { background: var(--tk-blue-deep); transform: translate(-1px,-1px); box-shadow: 6px 6px 0 var(--ink); }
+  .big-play-btn:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); }
+  .big-play-btn:disabled { background: var(--ink-faint); cursor: not-allowed; transform: none; box-shadow: 5px 5px 0 var(--ink); }
+
+  /* — cabinet panel gets no page-card padding (it brings its own frame) — */
+  .panel.cabinet-wrap {
+    background: transparent; border: 0; box-shadow: none; padding: 0;
+  }
+
+  /* — Multiplier distribution chart — */
+  .dist-list { display: flex; flex-direction: column; gap: 10px; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+  .dist-row { display: grid; grid-template-columns: 46px 1fr 54px; gap: 10px; align-items: center; }
+  .dist-row .m { font-weight: 700; color: var(--ink); }
+  .dist-row .bar {
+    height: 14px; border: 2px solid var(--ink); border-radius: 6px;
+    background: var(--paper-2); position: relative; overflow: hidden;
+  }
+  .dist-row .bar span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--tk-blue), var(--tk-blue-deep));
+  }
+  .dist-row.m1  .bar span { background: var(--sky-deep); }
+  .dist-row.m2  .bar span { background: var(--mint-deep); }
+  .dist-row.m4  .bar span { background: var(--butter-deep); }
+  .dist-row.m7  .bar span { background: var(--lavender-deep); }
+  .dist-row.m20 .bar span { background: var(--coral-deep); }
+  .dist-row .pct { text-align: right; color: var(--ink-soft); }
+
+  /* — Recent rounds table — */
+  .rounds-table {
+    width: 100%; font-family: "JetBrains Mono", monospace; font-size: 12px;
+    border-collapse: separate; border-spacing: 0 6px;
+  }
+  .rounds-table thead th {
+    text-align: left; font-weight: 700; color: var(--ink-soft);
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0 10px 4px;
+    font-family: "Fredoka", sans-serif;
+  }
+  .rounds-table tbody td {
+    background: var(--paper); border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
+    padding: 10px;
+  }
+  .rounds-table tbody td:first-child { border-left: 2px solid var(--ink); border-radius: 10px 0 0 10px; }
+  .rounds-table tbody td:last-child  { border-right: 2px solid var(--ink); border-radius: 0 10px 10px 0; }
+  .rounds-table .outcome {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-weight: 700; font-family: "Fredoka", sans-serif; font-size: 11px;
+  }
+  .rounds-table .outcome.win  { background: var(--mint);   color: var(--ink); }
+  .rounds-table .outcome.draw { background: var(--butter); color: var(--ink); }
+  .rounds-table .outcome.lose { background: var(--coral);  color: var(--ink); }
+  .rounds-table .hash { color: var(--tk-blue-deep); }
+  .rounds-table .empty td {
+    text-align: center; color: var(--ink-faint);
+    background: transparent; border: 2px dashed var(--ink-faint);
+    border-radius: 10px; padding: 24px;
+  }
+
+  /* — Liquidity tab — */
+  .liq-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 820px) {
+    .liq-grid { grid-template-columns: 1fr; }
+  }
+  .position-card {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px; margin-bottom: 14px;
+  }
+  .pos-chip {
+    border: 2px solid var(--ink); border-radius: 12px;
+    background: var(--paper-2); padding: 10px 14px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .pos-chip .k { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); font-family: "Fredoka", sans-serif; font-weight: 700; }
+  .pos-chip .v { font-family: "JetBrains Mono", monospace; font-size: 16px; font-weight: 600; color: var(--ink); }
+
+  .lp-form { display: flex; flex-direction: column; gap: 10px; }
+  .lp-form .row { display: flex; gap: 8px; align-items: center; }
+  .lp-hint {
+    font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-soft);
+    padding: 2px 0;
+  }
+
+  .pool-bar {
+    height: 24px; border: 2.5px solid var(--ink); border-radius: 999px;
+    background: var(--paper); overflow: hidden; display: flex;
+  }
+  .pool-bar .mine  { background: var(--tk-blue); }
+  .pool-bar .rest  { background: var(--paper-2); }
+
+  /* — DeFi note — */
+  .defi-note {
+    font-family: "Nunito", sans-serif; font-size: 13px; color: var(--ink-soft);
+    line-height: 1.6; padding: 12px 14px;
+    border-left: 3px solid var(--tk-blue); background: rgba(31,111,235,0.06);
+    border-radius: 0 10px 10px 0;
+  }
+  .defi-note b { color: var(--ink); }
+
+  /* — hidden tab content — */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .hex-block {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    color: var(--ink-soft); word-break: break-all; line-height: 1.55;
+    background: var(--paper-2); border: 2px dashed var(--ink-faint);
+    padding: 8px 12px; border-radius: 10px;
+  }
+
+  /* ─── VRF counter emphasis (replaces "share price" slot in KPI) ─── */
+  .kpi.vrf {
+    background: #0E1740; color: #7FE3AD;
+    position: relative; overflow: hidden;
+  }
+  .kpi.vrf::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(127,227,173,0.18), transparent 60%);
+  }
+  .kpi.vrf > * { position: relative; }
+  .kpi.vrf .k { color: rgba(127,227,173,0.85); }
+  .kpi.vrf .v { color: #E8FFF3; text-shadow: 0 0 10px rgba(127,227,173,0.5); }
+  .kpi.vrf .v .u { color: rgba(127,227,173,0.7); }
+  .kpi.vrf .pulse-dot {
+    position: absolute; top: 14px; right: 14px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #7FE3AD; box-shadow: 0 0 10px #7FE3AD;
+    animation: vrf-pulse 1.2s infinite;
+  }
+  @keyframes vrf-pulse {
+    0%,100% { opacity: 0.35; transform: scale(0.8); }
+    50%     { opacity: 1;    transform: scale(1.2); }
+  }
+
+  /* ─── Session strip ─── */
+  .session-strip {
+    border: 3px solid var(--ink); border-radius: 16px;
+    background: var(--paper);
+    box-shadow: 4px 4px 0 var(--ink);
+    padding: 14px 18px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .session-strip .status-badge {
+    font-family: "Fredoka", sans-serif; font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 5px 11px; border-radius: 999px;
+    border: 2px solid var(--ink);
+    background: var(--butter); color: var(--ink);
+    flex-shrink: 0;
+  }
+  .session-strip .status-badge.idle   { background: var(--butter); }
+  .session-strip .status-badge.active { background: var(--mint); }
+  .session-strip .status-badge.expired{ background: var(--coral); }
+
+  .session-chips {
+    display: flex; gap: 10px; flex-wrap: wrap; flex: 1;
+    font-family: "JetBrains Mono", monospace; font-size: 12px;
+  }
+  .session-chip {
+    background: var(--paper-2); border: 2px solid var(--ink);
+    border-radius: 10px; padding: 6px 10px;
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 110px;
+  }
+  .session-chip .k {
+    font-family: "Fredoka", sans-serif; font-size: 9px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700;
+  }
+  .session-chip .v { font-weight: 600; color: var(--ink); font-size: 13px; }
+  .session-chip.hl { background: var(--tk-blue); color: #fff; border-color: #000; }
+  .session-chip.hl .k { color: rgba(255,255,255,0.7); }
+  .session-chip.hl .v { color: #fff; }
+
+  .session-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .s-btn {
+    font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 8px 14px; border-radius: 10px;
+    border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink);
+    background: var(--paper); color: var(--ink); cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+  }
+  .s-btn:hover  { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink); }
+  .s-btn:active { transform: translate(1px,1px);  box-shadow: 1px 1px 0 var(--ink); }
+  .s-btn.primary { background: var(--tk-blue); color: #fff; }
+  .s-btn.primary:hover { background: var(--tk-blue-deep); }
+  .s-btn.warn    { background: var(--coral); }
+
+  /* Start-session modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(10,18,48,0.6);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: var(--paper);
+    border: 3px solid var(--ink); border-radius: 22px;
+    box-shadow: 6px 6px 0 var(--ink);
+    width: 100%; max-width: 440px;
+    padding: 24px;
+  }
+  .modal h3 {
+    font-family: "Fredoka", sans-serif; font-size: 20px; font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .modal .sub {
+    font-size: 13px; color: var(--ink-soft); margin-bottom: 18px;
+    line-height: 1.55;
+  }
+  .modal .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .modal .field label {
+    font-family: "Fredoka", sans-serif; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700;
+  }
+  .modal .hint {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+  /* VRF hash cell in rounds table */
+  .rounds-table .vrf-hash {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    color: #16875F; /* matches VRF green */
+  }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="dfi-shell">
+    <a class="tokamak-back" href="../games/index.html" data-i18n="common.back.games">← 게임 목록으로</a>
+
+    <div class="dfi-head">
+      <div class="mascot" id="mascot"></div>
+      <h2>Jankenman</h2>
+      <span class="contract-pill"><b>contract</b> <span id="contract-addr">0x…</span></span>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <span class="k" data-i18n="janken.kpi.tvl">TVL (pool)</span>
+        <span class="v"><span id="kpi-tvl">—</span><span class="u">ETH</span></span>
+      </div>
+      <div class="kpi vrf">
+        <span class="pulse-dot"></span>
+        <span class="k" data-i18n="janken.kpi.vrf">Enshrined VRF · commit</span>
+        <span class="v">#<span id="kpi-vrf">—</span></span>
+      </div>
+      <div class="kpi blue">
+        <span class="k" data-i18n="janken.kpi.houseEdge">house edge</span>
+        <span class="v">7.00<span class="u">%</span></span>
+      </div>
+      <div class="kpi">
+        <span class="k" data-i18n="janken.kpi.sharePrice">share price</span>
+        <span class="v"><span id="kpi-price">1.0000</span><span class="u">Ξ / share</span></span>
+      </div>
+    </div>
+
+    <!-- Session strip — AA-style session key status + actions -->
+    <div class="session-strip" id="session-strip">
+      <span class="status-badge idle" id="session-badge" data-i18n="janken.session.idle">NO SESSION</span>
+      <div class="session-chips" id="session-chips">
+        <div class="session-chip hl">
+          <span class="k" data-i18n="janken.session.credits">in-game credits</span>
+          <span class="v"><span id="session-credits">0</span> ETH</span>
+        </div>
+        <div class="session-chip">
+          <span class="k" data-i18n="janken.session.key">session key</span>
+          <span class="v" id="session-key">—</span>
+        </div>
+        <div class="session-chip">
+          <span class="k" data-i18n="janken.session.expires">expires in</span>
+          <span class="v" id="session-expires">—</span>
+        </div>
+        <div class="session-chip">
+          <span class="k" data-i18n="janken.session.gas">key gas</span>
+          <span class="v"><span id="session-gas">—</span> ETH</span>
+        </div>
+      </div>
+      <div class="session-actions" id="session-actions">
+        <button class="s-btn primary" id="start-session-btn" data-i18n="janken.session.start">Start session</button>
+        <button class="s-btn"       id="topup-btn" style="display:none" data-i18n="janken.session.topup">Top up</button>
+        <button class="s-btn warn"  id="end-session-btn" style="display:none" data-i18n="janken.session.end">End &amp; withdraw</button>
+      </div>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="dfi-tabs" role="tablist">
+      <button class="dfi-tab active" data-tab="play"      data-i18n="janken.tab.play">Play</button>
+      <button class="dfi-tab"        data-tab="liquidity" data-i18n="janken.tab.liquidity">Liquidity</button>
+    </div>
+
+    <!-- ======== PLAY TAB ======== -->
+    <div class="tab-panel active" data-panel="play">
+      <div class="play-grid">
+        <!-- LEFT: arcade cabinet -->
+        <div class="panel cabinet-wrap">
+          <div class="arcade-cabinet">
+
+            <div class="cabinet-marquee">
+              <span class="ml"></span><span class="ml"></span><span class="ml"></span>
+              <span class="mt">JANKENMAN</span>
+              <span class="ml"></span><span class="ml"></span><span class="ml"></span>
+            </div>
+
+            <div class="cabinet-screen">
+              <!-- Concentric stage — outer roulette ring + green hub + LED display -->
+              <div class="jk-stage">
+                <div class="jk-pointer"></div>
+                <div class="jk-ring" id="wheel">
+                  <svg viewBox="0 0 200 200" id="wheel-labels"></svg>
+                </div>
+                <div class="jk-hub-ring"></div>
+                <div class="jk-display cycling" id="display">
+                  <span class="jk-display-emoji" id="display-emoji">✊</span>
+                </div>
+              </div>
+
+              <!-- Status LED bar -->
+              <div class="status-line" id="result">
+                <span class="status-dot"></span>
+                <span class="status-text" data-i18n="janken.ready">✊ ✋ ✌️ ready — choose your hand</span>
+              </div>
+            </div>
+
+            <div class="cabinet-controls">
+              <button class="arcade-btn rock" data-hand="0">
+                <span class="cap">✊</span><span class="tab" data-i18n="janken.rock">ROCK</span>
+              </button>
+              <button class="arcade-btn paper" data-hand="1">
+                <span class="cap">✋</span><span class="tab" data-i18n="janken.paper">PAPER</span>
+              </button>
+              <button class="arcade-btn sci" data-hand="2">
+                <span class="cap">✌️</span><span class="tab" data-i18n="janken.scissors">SCISSORS</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- RIGHT: bet slip -->
+        <div class="panel dim">
+          <div class="h">
+            <h3 data-i18n="janken.slip">Bet slip</h3>
+            <span class="tag" data-i18n="janken.slip.tag">native ETH</span>
+          </div>
+
+          <div class="slip-body">
+            <div class="input-row">
+              <input id="bet" type="number" min="0.001" step="0.001" value="0.01">
+              <span class="unit">ETH</span>
+            </div>
+            <div class="preset-row">
+              <button class="preset" data-preset="0.001">0.001</button>
+              <button class="preset" data-preset="0.01">0.01</button>
+              <button class="preset" data-preset="0.05">0.05</button>
+              <button class="preset" data-preset="0.1">0.1</button>
+              <button class="preset" data-preset="0.5">0.5</button>
+            </div>
+
+            <div class="payout-table" id="payout-table">
+              <div class="hdr"><span data-i18n="janken.slip.payout">if you win</span><span data-i18n="janken.slip.odds">odds</span></div>
+              <!-- rows injected by JS -->
+            </div>
+
+            <button class="big-play-btn" id="play-btn" disabled>
+              <span data-i18n="janken.playBtn">Play</span>
+              <span>→</span>
+            </button>
+
+            <div class="defi-note" data-i18n-html="janken.defiShort">
+              <b>구조:</b> 베팅 → 컨트랙트 → LP 풀. Lose는 풀로, Win은 풀에서 배율만큼 지급. 단일 VRF 호출로 결정.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Multiplier distribution -->
+      <div class="panel" style="margin-top: 18px">
+        <div class="h">
+          <h3 data-i18n="janken.dist">Multiplier distribution (on win)</h3>
+          <span class="tag">E[M|win] = 1.79 · EV = -7%</span>
+        </div>
+        <div class="dist-list">
+          <div class="dist-row m1"><span class="m">1×</span><div class="bar"><span style="width: 100%"></span></div><span class="pct">70%</span></div>
+          <div class="dist-row m2"><span class="m">2×</span><div class="bar"><span style="width: 25.7%"></span></div><span class="pct">18%</span></div>
+          <div class="dist-row m4"><span class="m">4×</span><div class="bar"><span style="width: 11.4%"></span></div><span class="pct">8%</span></div>
+          <div class="dist-row m7"><span class="m">7×</span><div class="bar"><span style="width: 4.3%"></span></div><span class="pct">3%</span></div>
+          <div class="dist-row m20"><span class="m">20×</span><div class="bar"><span style="width: 1.4%"></span></div><span class="pct">1%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== LIQUIDITY TAB ======== -->
+    <div class="tab-panel" data-panel="liquidity">
+      <div class="liq-grid">
+        <!-- LEFT: position + pool breakdown -->
+        <div class="panel">
+          <div class="h">
+            <h3 data-i18n="janken.yourPos">Your position</h3>
+            <span class="tag" id="pool-share-tag">— %</span>
+          </div>
+          <div class="position-card">
+            <div class="pos-chip">
+              <span class="k" data-i18n="janken.myShares">my shares</span>
+              <span class="v" id="pos-shares">—</span>
+            </div>
+            <div class="pos-chip">
+              <span class="k" data-i18n="janken.myClaim">my claim</span>
+              <span class="v"><span id="pos-claim">—</span> <span style="font-size: 11px; color: var(--ink-soft);">ETH</span></span>
+            </div>
+            <div class="pos-chip">
+              <span class="k" data-i18n="janken.poolShare">pool share</span>
+              <span class="v" id="pos-pct">—</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px">
+            <div style="display: flex; justify-content: space-between; font-family: 'Fredoka', sans-serif; font-size: 11px; color: var(--ink-soft); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px">
+              <span data-i18n="janken.poolBreakdown">pool breakdown</span>
+              <span><span id="pool-total">—</span> ETH TVL</span>
+            </div>
+            <div class="pool-bar">
+              <div class="mine" id="pool-bar-mine" style="width: 0%"></div>
+              <div class="rest" id="pool-bar-rest" style="width: 100%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); margin-top: 6px">
+              <span>you <span id="pool-you">0</span> ETH</span>
+              <span>others <span id="pool-others">0</span> ETH</span>
+            </div>
+          </div>
+
+          <div class="defi-note" style="margin-top: 14px" data-i18n-html="janken.defiNote">
+            <b>LP 수익 구조:</b> 플레이어의 장기 EV가 -7%이므로, 그 반대편에 있는 유동성 풀은 장기적으로 +7% 기대수익을 얻습니다.
+            단기적으로는 20× 당첨 등으로 변동성이 큽니다. 방어를 위해 단일 라운드 최대 payout은 풀의 10%로 제한.
+          </div>
+        </div>
+
+        <!-- RIGHT: deposit + withdraw -->
+        <div class="panel dim">
+          <div class="h">
+            <h3 data-i18n="janken.manage">Manage liquidity</h3>
+            <span class="tag" data-i18n="janken.manage.tag">shares = amount × totalShares / TVL</span>
+          </div>
+
+          <div class="lp-form">
+            <div>
+              <div class="lp-hint" data-i18n="janken.depositLabel">Deposit ETH → mint LP shares</div>
+              <div class="input-row">
+                <input id="lp-amount" type="number" min="0.001" step="0.001" value="0.5">
+                <span class="unit">ETH</span>
+              </div>
+              <div class="lp-hint" id="deposit-preview">≈ — shares</div>
+              <button class="big-play-btn" id="lp-deposit" style="background: var(--mint-deep); color: var(--ink); margin-top: 6px">
+                <span data-i18n="janken.lpDeposit">Deposit</span>
+              </button>
+            </div>
+
+            <hr style="border: 0; border-top: 2px dashed var(--ink-faint); margin: 6px 0">
+
+            <div>
+              <div class="lp-hint" data-i18n="janken.withdrawLabel">Burn shares → receive ETH</div>
+              <div class="input-row">
+                <input id="lp-withdraw-shares" type="number" min="0" step="1" value="0" placeholder="shares">
+                <button class="preset" id="lp-max" data-i18n="janken.max">max</button>
+              </div>
+              <div class="lp-hint" id="withdraw-preview">≈ — ETH</div>
+              <button class="big-play-btn" id="lp-withdraw" style="background: var(--coral-deep); color: var(--ink); margin-top: 6px">
+                <span data-i18n="janken.lpWithdraw">Withdraw</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent rounds (shown on both tabs) -->
+    <div class="panel">
+      <div class="h">
+        <h3 data-i18n="janken.recent">Recent rounds</h3>
+        <span class="tag" id="round-count">0</span>
+      </div>
+      <table class="rounds-table">
+        <thead>
+          <tr>
+            <th data-i18n="janken.col.outcome">outcome</th>
+            <th data-i18n="janken.col.hand">hand</th>
+            <th data-i18n="janken.col.bet">bet</th>
+            <th data-i18n="janken.col.payout">payout</th>
+            <th data-i18n="janken.col.tx">tx</th>
+          </tr>
+        </thead>
+        <tbody id="rounds-body">
+          <tr class="empty"><td colspan="5" data-i18n="janken.noRounds">No rounds yet — play one to see it here.</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 12px">
+        <div style="font-family: 'Fredoka', sans-serif; font-size: 10px; color: var(--ink-soft); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px" data-i18n="common.raw">latest VRF randomness (raw)</div>
+        <div class="hex-block" id="rand">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start-session modal -->
+  <div class="modal-backdrop" id="session-modal">
+    <div class="modal">
+      <h3 data-i18n="janken.modal.title">Start an arcade session</h3>
+      <p class="sub" data-i18n="janken.modal.sub">
+        Sign once to deposit ETH as in-game credits, authorise a browser-held
+        session key, and fund it with a tiny amount of gas. After this tx,
+        every round settles <b>with zero wallet popups</b> until the session
+        expires or you withdraw.
+      </p>
+
+      <div class="field">
+        <label data-i18n="janken.modal.deposit">Deposit (credits)</label>
+        <div class="input-row">
+          <input id="modal-deposit" type="number" min="0.001" step="0.01" value="0.5">
+          <span class="unit">ETH</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="janken.modal.gas">Session gas fund</label>
+        <div class="input-row">
+          <input id="modal-gas" type="number" min="0.005" step="0.005" value="0.02">
+          <span class="unit">ETH</span>
+        </div>
+        <span class="hint" data-i18n="janken.modal.gasHint">Covers ~30+ playFor() txs at 2 gwei. Start ≥ 0.005 ETH; surplus isn't refunded on session end.</span>
+      </div>
+
+      <div class="field">
+        <label data-i18n="janken.modal.duration">Valid for</label>
+        <div class="input-row">
+          <input id="modal-hours" type="number" min="1" max="24" step="1" value="2">
+          <span class="unit">hours</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="janken.modal.key">Session key address</label>
+        <span class="hint" id="modal-key-addr" style="font-size: 12px; color: var(--ink);">—</span>
+      </div>
+
+      <div class="actions">
+        <button class="s-btn" id="modal-cancel" data-i18n="janken.modal.cancel">Cancel</button>
+        <button class="s-btn primary" id="modal-start" data-i18n="janken.modal.confirm">Sign &amp; start</button>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+import {
+  parseAbi, decodeEventLog, parseEther, formatEther,
+  createWalletClient, http, getAddress,
+} from 'https://esm.sh/viem@2.21.0';
+import { generatePrivateKey, privateKeyToAccount } from 'https://esm.sh/viem@2.21.0/accounts';
+import { mountTokamakTopbar } from '../shared/topbar.js';
+import { t, applyI18n } from '../shared/lang.js';
+import { pub, wallet, account, connect, anvil } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+import { jankenMascot } from '../shared/mascots.js';
+
+mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../games/index.html' });
+document.getElementById('mascot').innerHTML = jankenMascot({ size: 44 });
+document.getElementById('contract-addr').textContent =
+  CONFIG.jankenman ? `${CONFIG.jankenman.slice(0, 6)}…${CONFIG.jankenman.slice(-4)}` : 'not deployed';
+applyI18n();
+
+// ─── Environment healthcheck — fail loudly if devnet isn't ready ───
+async function healthcheck() {
+  if (!CONFIG.jankenman) {
+    return { ok: false, reason: 'CONFIG.jankenman is empty — run ./scripts/arcade.sh' };
+  }
+  let chainId, code;
+  try {
+    chainId = await pub.getChainId();
+  } catch (err) {
+    return { ok: false, reason: `RPC unreachable at ${CONFIG.rpc} — is scripts/arcade.sh running?` };
+  }
+  if (chainId !== CONFIG.chainId) {
+    return { ok: false, reason: `RPC chainId=${chainId}, expected ${CONFIG.chainId}. Restart scripts/arcade.sh or update config.` };
+  }
+  try {
+    code = await pub.getBytecode({ address: CONFIG.jankenman });
+  } catch (err) {
+    return { ok: false, reason: `Could not fetch code at ${CONFIG.jankenman}` };
+  }
+  if (!code || code === '0x') {
+    return { ok: false, reason: `No contract at ${CONFIG.jankenman} — redeploy via ./scripts/arcade.sh` };
+  }
+  return { ok: true, chainId, codeSize: code.length };
+}
+
+(async () => {
+  const h = await healthcheck();
+  console.log('[janken] healthcheck', h);
+  if (!h.ok) {
+    setStatus('lose', 'SETUP: ' + h.reason.toUpperCase());
+    stopCycling();
+    playBtn.disabled = true;
+    document.querySelectorAll('.arcade-btn').forEach((b) => b.disabled = true);
+    const sb = document.getElementById('start-session-btn');
+    if (sb) sb.disabled = true;
+  }
+})();
+
+const ABI = parseAbi([
+  // Play paths
+  'function play(uint8 hand, uint256 bet) returns (uint8, uint8, uint8, uint256, uint256)',
+  'function playFor(address owner, uint8 hand, uint256 bet) returns (uint8, uint8, uint8, uint256, uint256)',
+  // Player credits
+  'function credits(address) view returns (uint256)',
+  'function deposit() payable',
+  'function withdraw()',
+  // Session keys (AA-style)
+  'function startSession(address key, uint64 validUntil, uint256 gasFund) payable',
+  'function setSessionKey(address key, uint64 validUntil)',
+  'function revokeSession(address key)',
+  'function sessionKey(address owner, address key) view returns (uint64)',
+  // LP
+  'function depositLP() payable',
+  'function withdrawLP(uint256 shares)',
+  'function lpAssets() view returns (uint256)',
+  'function totalShares() view returns (uint256)',
+  'function sharesOf(address) view returns (uint256)',
+  // Events
+  'event LPDeposited(address indexed lp, uint256 amount, uint256 sharesMinted, uint256 totalShares, uint256 lpAssets)',
+  'event LPWithdrawn(address indexed lp, uint256 sharesBurned, uint256 amount, uint256 totalShares, uint256 lpAssets)',
+  'event Deposited(address indexed player, uint256 amount, uint256 credits)',
+  'event Withdrawn(address indexed player, uint256 amount)',
+  'event SessionStarted(address indexed owner, address indexed key, uint64 validUntil, uint256 deposit, uint256 gasFund)',
+  'event SessionRevoked(address indexed owner, address indexed key)',
+  'event Played(address indexed player, address viaKey, uint8 playerHand, uint8 houseHand, uint8 outcome, uint8 multiplier, uint256 bet, uint256 payout, uint256 randomness)',
+]);
+
+const VRF_ABI = parseAbi([
+  'function commitNonce() view returns (uint256)',
+]);
+
+// ─── Session key: lives in localStorage, represents an ephemeral EOA
+//     generated in this browser to sign playFor() without MetaMask popups.
+const LS_KEY = 'janken:sessionPk';
+function loadOrCreateSessionKey() {
+  let pk = null;
+  try { pk = localStorage.getItem(LS_KEY); } catch {}
+  if (!pk || !/^0x[0-9a-fA-F]{64}$/.test(pk)) {
+    pk = generatePrivateKey();
+    try { localStorage.setItem(LS_KEY, pk); } catch {}
+  }
+  return pk;
+}
+const sessionPk      = loadOrCreateSessionKey();
+const sessionAccount = privateKeyToAccount(sessionPk);
+const sessionClient  = createWalletClient({
+  account:   sessionAccount,   // LocalAccount (PrivateKeyAccount) → signs in-browser
+  chain:     anvil,
+  transport: http(CONFIG.rpc), // plain fetch to the RPC; never touches window.ethereum
+});
+
+// Fixed fees for our Anvil devnet (base-fee=0 disables viem's auto-estimation
+// on some viem versions). Passing these explicitly makes every session-key tx
+// reproducible and avoids the "undefined × gas" class of failures.
+const TX_FEES = {
+  maxFeePerGas:         2_000_000_000n,  // 2 gwei
+  maxPriorityFeePerGas:   500_000_000n,  // 0.5 gwei
+  gas:                       500_000n,   // plenty for playFor()
+};
+
+window.__janken = { sessionClient, sessionAccount, address: sessionAccount.address };
+console.log('[janken] session key ready', {
+  address: sessionAccount.address,
+  accountType: sessionAccount.type,
+  accountSource: sessionAccount.source,
+  transport: sessionClient.transport.type,
+  chainId: anvil.id,
+  rpc: CONFIG.rpc,
+});
+
+// Multiplier weights — mirror the on-chain table for preview math.
+const MULTS = [
+  { m: 1,  p: 70 },
+  { m: 2,  p: 18 },
+  { m: 4,  p:  8 },
+  { m: 7,  p:  3 },
+  { m: 20, p:  1 },
+];
+const HANDS = ['✊', '✋', '✌️'];
+const HAND_NAMES = ['Rock', 'Paper', 'Scissors'];
+
+const $ = (id) => document.getElementById(id);
+const displayEl      = $('display');
+const displayEmoji   = $('display-emoji');
+const wheelEl        = $('wheel');
+const resultEl       = $('result');
+const statusText     = resultEl.querySelector('.status-text');
+const randEl         = $('rand');
+const betInput       = $('bet'), playBtn = $('play-btn');
+const roundsBody     = $('rounds-body'), roundCountEl = $('round-count');
+const payoutTable    = $('payout-table');
+
+let selectedHand = null;
+let lastResult = null;
+let roundCount = 0;
+
+// ── Center LED display — cycles through hands like a real Janken cabinet ──
+let cycleTimer = null;
+let cycleIdx   = 0;
+function startCycling(interval = 140) {
+  stopCycling();
+  displayEl.classList.add('cycling');
+  cycleTimer = setInterval(() => {
+    cycleIdx = (cycleIdx + 1) % 3;
+    displayEmoji.textContent = HANDS[cycleIdx];
+  }, interval);
+}
+function stopCycling() {
+  if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; }
+  displayEl.classList.remove('cycling');
+}
+function lockDisplay(emoji, resultKind /* 'win'|'lose'|'draw'|null */) {
+  stopCycling();
+  displayEmoji.textContent = emoji;
+  displayEl.classList.remove('result-win', 'result-lose', 'result-draw');
+  if (resultKind) displayEl.classList.add(`result-${resultKind}`);
+}
+
+function setStatus(kind, htmlOrText, isHtml = false) {
+  resultEl.classList.remove('win', 'lose', 'draw');
+  if (kind) resultEl.classList.add(kind);
+  if (isHtml) statusText.innerHTML = htmlOrText;
+  else statusText.textContent = htmlOrText;
+}
+
+// ── Tabs ──────────────────────────────────────────
+document.querySelectorAll('.dfi-tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.dfi-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelector(`.tab-panel[data-panel="${tab.dataset.tab}"]`).classList.add('active');
+  });
+});
+
+// ── Hand picker (arcade buttons) ───────────────────
+function paintHands() {
+  document.querySelectorAll('.arcade-btn').forEach((b) => {
+    b.classList.toggle('selected', Number(b.dataset.hand) === selectedHand);
+  });
+  playBtn.disabled = (selectedHand === null);
+}
+document.querySelectorAll('.arcade-btn').forEach((b) => {
+  b.addEventListener('click', () => {
+    selectedHand = Number(b.dataset.hand);
+    paintHands();
+    b.classList.add('pressed');
+    setTimeout(() => b.classList.remove('pressed'), 140);
+  });
+});
+document.querySelectorAll('.preset').forEach((p) => {
+  if (!p.dataset.preset) return;
+  p.addEventListener('click', () => { betInput.value = p.dataset.preset; repaintPayoutTable(); });
+});
+
+// ── Payout preview ────────────────────────────────
+function repaintPayoutTable() {
+  const betN = Number(betInput.value || 0);
+  const fmt = (x) => x >= 100 ? x.toFixed(1) : x >= 10 ? x.toFixed(2) : x.toFixed(4);
+  const rows = MULTS.map(({ m, p }) => `
+    <div class="row">
+      <span class="m">${m}×</span>
+      <span class="amt">${fmt(betN * m)} ETH</span>
+      <span class="p">${p}%</span>
+    </div>
+  `).join('');
+  // Overall player EV per bet: EV = (E[M|win] - 2) / 3, times bet = bet * (-0.07)
+  const ev = -0.07 * betN;
+  payoutTable.innerHTML = `
+    <div class="hdr"><span>${t('janken.slip.payout')}</span><span>${t('janken.slip.odds')}</span></div>
+    ${rows}
+    <div class="ev"><span>${t('janken.slip.ev')}</span><span class="val ${ev < 0 ? 'neg' : ''}">${fmt(ev)} ETH</span></div>
+  `;
+}
+betInput.addEventListener('input', repaintPayoutTable);
+document.addEventListener('tokamak:langchange', repaintPayoutTable);
+repaintPayoutTable();
+
+// ── Wheel (circular roulette) ─────────────────────
+// 10 segments at 36° each. Keep the low multipliers dominant so the wheel
+// "looks" weighted even though final payout always comes from the chain.
+const WHEEL_SEGMENTS = [
+  { m: 1, color: 'sky' },    // 0 · top
+  { m: 2, color: 'mint' },   // 1
+  { m: 1, color: 'sky' },    // 2
+  { m: 4, color: 'butter' }, // 3
+  { m: 1, color: 'sky' },    // 4
+  { m: 2, color: 'mint' },   // 5
+  { m: 7, color: 'lavender' },// 6
+  { m: 1, color: 'sky' },    // 7
+  { m: 2, color: 'mint' },   // 8
+  { m: 20, color: 'coral' }, // 9
+];
+
+function buildWheelLabels() {
+  const svg = document.getElementById('wheel-labels');
+  svg.innerHTML = WHEEL_SEGMENTS.map((seg, i) => {
+    const angle = i * 36 + 18;  // centre of segment
+    return `<text x="100" y="28" text-anchor="middle" dominant-baseline="middle"
+              fill="#ffffff" font-weight="800" font-size="17"
+              font-family="Fredoka, sans-serif"
+              transform="rotate(${angle} 100 100)"
+              style="paint-order: stroke; stroke: rgba(0,0,0,0.35); stroke-width: 1px;">${seg.m}×</text>`;
+  }).join('');
+}
+buildWheelLabels();
+
+let wheelAccumRotation = 0; // remember absolute rotation so every spin always
+                            // moves forward — prevents mid-animation snap-back.
+async function spinWheel(winningMult) {
+  // Outer ring is always visible now; just rotate it.
+  // Pick a matching segment at random (multiple 1× segments exist).
+  const matches = WHEEL_SEGMENTS
+    .map((s, i) => (s.m === winningMult ? i : -1))
+    .filter((i) => i >= 0);
+  const segIdx = matches[Math.floor(Math.random() * matches.length)];
+
+  // Final angle of segment centre under pointer = -(segIdx * 36 + 18)
+  // Add ~5 full rotations, advancing monotonically from previous spin.
+  const finalAngle = -(segIdx * 36 + 18);
+  const base = Math.ceil(wheelAccumRotation / 360) * 360;
+  const target = base + 360 * 5 + finalAngle;
+  wheelAccumRotation = target;
+
+  wheelEl.style.transition = 'transform 3.6s cubic-bezier(0.18, 0.9, 0.24, 1)';
+  wheelEl.style.transform  = `rotate(${target}deg)`;
+  await new Promise((r) => setTimeout(r, 3700));
+}
+
+// ── Result painting (status LED + central display) ───
+function paintResult() {
+  if (!lastResult) {
+    // Idle — LED cycles through the three hands.
+    startCycling();
+    setStatus(null, t('janken.ready'));
+    return;
+  }
+  const { outcome, mult, bet, payout, pHand, hHand } = lastResult;
+  // The center LED lands on the HOUSE hand — the player's choice is already
+  // visible via the highlighted button.
+  const resultKind = outcome === 2 ? 'win' : outcome === 1 ? 'draw' : 'lose';
+  lockDisplay(HANDS[hHand], resultKind);
+
+  if (outcome === 1) {
+    setStatus('draw', `🤝 DRAW · <b>${formatEther(bet)} ETH</b> REFUNDED`, true);
+  } else if (outcome === 0) {
+    setStatus('lose', `💧 LOSS · <b>−${formatEther(bet)} ETH</b> → POOL`, true);
+  } else {
+    setStatus('win',  `🎉 WIN <b>${mult}×</b> · <b>+${formatEther(payout)} ETH</b>`, true);
+  }
+}
+paintResult();
+document.addEventListener('tokamak:langchange', paintResult);
+
+function setBusy(busy) {
+  playBtn.disabled = busy || selectedHand === null;
+  document.querySelectorAll('.arcade-btn').forEach((b) => b.disabled = busy);
+}
+
+// ── Play — ALWAYS routed through the session key, never via MetaMask ─
+//
+//  Design rule: this function must not call `wallet()`, `connect()`, or any
+//  code path that could open the injected wallet. If the session isn't
+//  usable, we surface a clear status and bail — the user can then interact
+//  with the top Session strip to fix it (that's where owner txs live).
+async function play() {
+  if (selectedHand === null) return;
+  let betWei;
+  try { betWei = parseEther(String(betInput.value || '0')); }
+  catch { alert('Invalid bet amount'); return; }
+  if (betWei === 0n) return;
+
+  const me = account();
+  if (!me) {
+    setStatus('lose', 'CONNECT WALLET FIRST (top right)');
+    return;
+  }
+
+  // ——— PREFLIGHT: read authoritative state on-chain. No cached UI state.
+  let liveValidUntil = 0n, liveCredits = 0n, liveGas = 0n;
+  try {
+    [liveValidUntil, liveCredits, liveGas] = await Promise.all([
+      pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'sessionKey',
+                         args: [me, sessionAccount.address] }),
+      pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'credits', args: [me] }),
+      pub.getBalance({ address: sessionAccount.address }),
+    ]);
+  } catch (err) {
+    console.error('[preflight]', err);
+    setStatus('lose', 'RPC unreachable — is scripts/arcade.sh running?');
+    return;
+  }
+  const nowSec = BigInt(Math.floor(Date.now() / 1000));
+
+  // Any of these failing is a user-facing status message ONLY — never an
+  // auto-popup. User has to use the Session strip to fix.
+  if (liveValidUntil <= nowSec) {
+    console.warn('[play] no active session on-chain', {
+      liveValidUntil: liveValidUntil.toString(), now: nowSec.toString(),
+      owner: me, key: sessionAccount.address,
+    });
+    setStatus('lose', 'NO ACTIVE SESSION — use "Start session" above');
+    return;
+  }
+  if (liveCredits < betWei) {
+    setStatus('lose', `LOW CREDITS · have ${formatEther(liveCredits)} · need ${formatEther(betWei)}`);
+    return;
+  }
+  if (liveGas === 0n) {
+    setStatus('lose', 'SESSION KEY OUT OF GAS · end session & restart');
+    return;
+  }
+
+  setBusy(true);
+  // LED display speeds up while the tx is in flight — classic "drum roll".
+  lockDisplay(HANDS[0], null);  // clear any prior result glow
+  startCycling(80);
+  setStatus(null, t('janken.playing'));
+
+  try {
+    console.log('[play] sessionKey signing locally', {
+      owner: me,
+      key: sessionAccount.address,
+      signer: sessionClient.account?.address,   // should == sessionAccount.address
+      transportType: sessionClient.transport?.type, // should be 'http', NOT 'custom'/'fallback'
+      hand: selectedHand,
+      betWei: betWei.toString(),
+    });
+
+    // Simulate first to catch reverts before signing (cheaper, clearer errors).
+    await pub.simulateContract({
+      account: sessionAccount.address,
+      address: CONFIG.jankenman, abi: ABI, functionName: 'playFor',
+      args: [me, selectedHand, betWei],
+    });
+
+    // ZERO-POPUP PATH:
+    // createWalletClient({ account: privateKeyAccount, transport: http(...) })
+    // uses the local private key to sign and eth_sendRawTransaction to
+    // broadcast. MetaMask / window.ethereum is never touched.
+    const hash = await sessionClient.writeContract({
+      address: CONFIG.jankenman, abi: ABI, functionName: 'playFor',
+      args: [me, selectedHand, betWei],
+      ...TX_FEES,
+    });
+    console.log('[play] broadcast tx', hash);
+    setStatus(null, t('janken.waiting'));
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.jankenman.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Played') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no Played event');
+
+    lastResult = {
+      outcome: Number(args.outcome),
+      mult: Number(args.multiplier),
+      bet: args.bet,
+      payout: args.payout,
+      pHand: Number(args.playerHand),
+      hHand: Number(args.houseHand),
+    };
+    randEl.textContent = '0x' + args.randomness.toString(16).padStart(64, '0');
+
+    if (lastResult.outcome === 2) {
+      // Winner! Outer ring spins to reveal the multiplier. Keep the LED
+      // cycling during the spin — it freezes on the house hand at the end.
+      setStatus('win', `🎲 SPINNING FOR ${lastResult.mult}× …`);
+      await spinWheel(lastResult.mult);
+    }
+    paintResult();                       // locks LED on house hand + glow
+    pushHistoryRow(lastResult, hash);
+    await refreshPool();
+  } catch (err) {
+    console.error('[play]', err);
+    stopCycling();
+    // Prefer the most specific message available from viem.
+    const msg = err?.cause?.shortMessage
+             || err?.shortMessage
+             || err?.details
+             || err?.message
+             || 'failed';
+    setStatus('lose', msg.slice(0, 160));
+    window.__jankenLastError = err;
+  } finally {
+    setBusy(false);
+  }
+}
+playBtn.addEventListener('click', play);
+
+function pushHistoryRow(r, hash) {
+  if (roundCount === 0) roundsBody.innerHTML = '';
+  const cls = r.outcome === 2 ? 'win' : r.outcome === 1 ? 'draw' : 'lose';
+  const label = r.outcome === 2 ? `win ${r.mult}×` : r.outcome === 1 ? 'draw' : 'lose';
+  const payoutCell = r.outcome === 2 ? `+${formatEther(r.payout)}`
+                   : r.outcome === 1 ? '±0'
+                   : `−${formatEther(r.bet)}`;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><span class="outcome ${cls}">${label}</span></td>
+    <td>${HAND_NAMES[r.pHand]} <span style="color: var(--ink-faint)">vs</span> ${HAND_NAMES[r.hHand]}</td>
+    <td>${formatEther(r.bet)} ETH</td>
+    <td>${payoutCell} ETH</td>
+    <td><span class="hash">${hash.slice(0, 10)}…</span></td>
+  `;
+  roundsBody.prepend(tr);
+  while (roundsBody.children.length > 8) roundsBody.lastChild.remove();
+  roundCount++;
+  roundCountEl.textContent = roundCount;
+}
+
+// ── Liquidity pane ────────────────────────────────
+async function refreshPool() {
+  try {
+    const me = account();
+    const [pool, shares, myShares] = await Promise.all([
+      pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'lpAssets' }),
+      pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'totalShares' }),
+      me ? pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'sharesOf', args: [me] }) : Promise.resolve(0n),
+    ]);
+    const poolEth = Number(formatEther(pool));
+    const sharePrice = shares === 0n ? 1 : poolEth / Number(shares === 0n ? 1n : shares) * 1;
+    const myClaim = (shares === 0n || myShares === 0n) ? 0n : (myShares * pool) / shares;
+    const myClaimEth = Number(formatEther(myClaim));
+    const myPct = poolEth === 0 ? 0 : (myClaimEth / poolEth) * 100;
+
+    // KPIs
+    $('kpi-tvl').textContent    = poolEth.toFixed(4);
+    $('kpi-shares').textContent = shares.toString();
+    $('kpi-price').textContent  = (shares === 0n ? 1 : poolEth / Number(shares)).toFixed(6);
+
+    // Position card
+    $('pos-shares').textContent = myShares.toString();
+    $('pos-claim').textContent  = myClaimEth.toFixed(6);
+    $('pos-pct').textContent    = myPct.toFixed(2) + '%';
+    $('pool-share-tag').textContent = myPct.toFixed(2) + '%';
+
+    // Pool breakdown bar
+    $('pool-total').textContent = poolEth.toFixed(4);
+    $('pool-you').textContent    = myClaimEth.toFixed(4);
+    $('pool-others').textContent = Math.max(0, poolEth - myClaimEth).toFixed(4);
+    $('pool-bar-mine').style.width = `${Math.min(100, myPct)}%`;
+    $('pool-bar-rest').style.width = `${Math.max(0, 100 - myPct)}%`;
+
+    // Previews
+    updateLPPreviews(pool, shares, myShares);
+  } catch (err) {
+    console.error('[pool]', err);
+  }
+}
+
+function updateLPPreviews(pool, totalShares, myShares) {
+  // Deposit preview: shares_minted = amount * totalShares / pool  (or amount if empty)
+  const amt = Number($('lp-amount').value || 0);
+  let depPrev = '—';
+  if (amt > 0) {
+    if (totalShares === 0n || pool === 0n) depPrev = `≈ ${Math.floor(amt * 1e18)} shares (first deposit)`;
+    else depPrev = `≈ ${Math.floor(amt * Number(totalShares) / Number(formatEther(pool)))} shares`;
+  }
+  $('deposit-preview').textContent = depPrev;
+
+  // Withdraw preview
+  const wShares = BigInt($('lp-withdraw-shares').value || 0);
+  let wdPrev = '—';
+  if (wShares > 0n && totalShares > 0n) {
+    const amtWei = (wShares * pool) / totalShares;
+    wdPrev = `≈ ${Number(formatEther(amtWei)).toFixed(6)} ETH`;
+  }
+  $('withdraw-preview').textContent = wdPrev;
+}
+$('lp-amount').addEventListener('input', refreshPool);
+$('lp-withdraw-shares').addEventListener('input', refreshPool);
+$('lp-max').addEventListener('click', async () => {
+  const me = account();
+  if (!me) { await connect(); }
+  const myShares = await pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'sharesOf', args: [account()] });
+  $('lp-withdraw-shares').value = myShares.toString();
+  refreshPool();
+});
+
+async function lpDeposit() {
+  const v = $('lp-amount').value;
+  let amountWei;
+  try { amountWei = parseEther(String(v || '0')); }
+  catch { alert('Invalid amount'); return; }
+  if (amountWei === 0n) return;
+  if (!account()) await connect();
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.jankenman, abi: ABI, functionName: 'depositLP',
+      value: amountWei,
+    });
+    await pub.waitForTransactionReceipt({ hash });
+    await refreshPool();
+  } catch (err) { console.error(err); alert(err?.shortMessage || err?.message || 'failed'); }
+}
+async function lpWithdraw() {
+  const s = $('lp-withdraw-shares').value;
+  let sharesBig;
+  try { sharesBig = BigInt(s || '0'); }
+  catch { alert('Invalid shares'); return; }
+  if (sharesBig === 0n) return;
+  if (!account()) await connect();
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.jankenman, abi: ABI, functionName: 'withdrawLP',
+      args: [sharesBig],
+    });
+    await pub.waitForTransactionReceipt({ hash });
+    await refreshPool();
+  } catch (err) { console.error(err); alert(err?.shortMessage || err?.message || 'failed'); }
+}
+$('lp-deposit').addEventListener('click', lpDeposit);
+$('lp-withdraw').addEventListener('click', lpWithdraw);
+
+refreshPool();
+setInterval(refreshPool, 4000);
+
+// ═════════════════════════════════════════════════════════════════
+// Session-key lifecycle + VRF visibility
+// ═════════════════════════════════════════════════════════════════
+const sessionState = {
+  active: false,
+  validUntil: 0n,
+  credits: 0n,
+  gas: 0n,
+};
+
+function shortAddr(a) { return a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '—'; }
+function formatDuration(seconds) {
+  if (seconds <= 0) return 'expired';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+async function refreshSession() {
+  // Always show the session key address even before any onboarding.
+  $('session-key').textContent = shortAddr(sessionAccount.address);
+
+  const me = account();
+  if (!me) {
+    // No wallet yet → show an idle session card prompting Start session.
+    Object.assign(sessionState, { active: false, validUntil: 0n, credits: 0n, gas: 0n });
+    $('session-badge').textContent = t('janken.session.idle');
+    $('session-badge').className   = 'status-badge idle';
+    $('session-credits').textContent = '0';
+    $('session-expires').textContent = '—';
+    $('session-gas').textContent     = '—';
+    $('start-session-btn').style.display = '';
+    $('end-session-btn').style.display   = 'none';
+    $('topup-btn').style.display         = 'none';
+    return;
+  }
+
+  try {
+    const [validUntil, creditsBig, gasBalance] = await Promise.all([
+      pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'sessionKey',
+                         args: [me, sessionAccount.address] }),
+      pub.readContract({ address: CONFIG.jankenman, abi: ABI, functionName: 'credits', args: [me] }),
+      pub.getBalance({ address: sessionAccount.address }),
+    ]);
+    const nowSec = BigInt(Math.floor(Date.now() / 1000));
+    const isActive = validUntil > nowSec;
+    const remaining = isActive ? Number(validUntil - nowSec) : 0;
+
+    Object.assign(sessionState, {
+      active: isActive,
+      validUntil,
+      credits: creditsBig,
+      gas: gasBalance,
+    });
+
+    const badge = $('session-badge');
+    if (isActive) {
+      badge.textContent = t('janken.session.active');
+      badge.className   = 'status-badge active';
+    } else if (validUntil > 0n) {
+      badge.textContent = t('janken.session.expired');
+      badge.className   = 'status-badge expired';
+    } else {
+      badge.textContent = t('janken.session.idle');
+      badge.className   = 'status-badge idle';
+    }
+    $('session-credits').textContent = Number(formatEther(creditsBig)).toFixed(4);
+    $('session-expires').textContent = isActive ? formatDuration(remaining) : '—';
+    $('session-gas').textContent     = Number(formatEther(gasBalance)).toFixed(4);
+
+    // Show the right action buttons for the state.
+    $('start-session-btn').style.display = isActive ? 'none' : '';
+    $('topup-btn').style.display         = isActive ? ''   : 'none';
+    $('end-session-btn').style.display   = (creditsBig > 0n || isActive) ? '' : 'none';
+  } catch (err) {
+    console.warn('[session refresh]', err);
+  }
+}
+
+// ─── Start-session modal ──────────────────────────────────────────
+function openSessionModal() {
+  $('modal-key-addr').textContent = sessionAccount.address;
+  $('session-modal').classList.add('active');
+}
+function closeSessionModal() { $('session-modal').classList.remove('active'); }
+$('start-session-btn').addEventListener('click', async () => {
+  if (!account()) await connect();
+  openSessionModal();
+});
+$('modal-cancel').addEventListener('click', closeSessionModal);
+$('modal-start').addEventListener('click', async () => {
+  if (!account()) await connect();
+  let deposit, gasFund, hours;
+  try {
+    deposit = parseEther(String($('modal-deposit').value || '0'));
+    gasFund = parseEther(String($('modal-gas').value     || '0'));
+    hours   = Math.max(1, Math.min(24, Number($('modal-hours').value || 1)));
+  } catch { alert('Invalid amounts'); return; }
+  if (deposit + gasFund === 0n) return;
+  // Insist on enough gas that at least a few playFor() txs can execute
+  // (each ~300k gas × 2 gwei ≈ 0.0006 ETH).
+  const MIN_GAS_FUND = parseEther('0.005');
+  if (gasFund < MIN_GAS_FUND) {
+    alert('Session gas fund should be ≥ 0.005 ETH — bumping to minimum.');
+    gasFund = MIN_GAS_FUND;
+  }
+
+  const validUntil = BigInt(Math.floor(Date.now() / 1000) + hours * 3600);
+  const total = deposit + gasFund;
+
+  const btn = $('modal-start');
+  btn.disabled = true;
+  btn.textContent = t('janken.modal.signing');
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.jankenman, abi: ABI, functionName: 'startSession',
+      args: [sessionAccount.address, validUntil, gasFund],
+      value: total,
+    });
+    console.log('[startSession] tx', hash);
+    await pub.waitForTransactionReceipt({ hash });
+    closeSessionModal();
+    await refreshSession();
+    await refreshPool();
+    setStatus(null, t('janken.session.ready'));
+  } catch (err) {
+    console.error('[startSession]', err);
+    alert(err?.shortMessage || err?.message || 'failed');
+    window.__jankenLastError = err;
+  } finally {
+    btn.disabled = false;
+    applyI18n();
+  }
+});
+
+// Top up: deposit more credits (no new session needed).
+$('topup-btn').addEventListener('click', async () => {
+  const raw = prompt(t('janken.session.topupPrompt'), '0.1');
+  if (!raw) return;
+  let amt;
+  try { amt = parseEther(String(raw)); } catch { return; }
+  if (amt === 0n) return;
+  if (!account()) await connect();
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.jankenman, abi: ABI, functionName: 'deposit',
+      value: amt,
+    });
+    await pub.waitForTransactionReceipt({ hash });
+    await refreshSession();
+  } catch (err) { alert(err?.shortMessage || err?.message); }
+});
+
+// End: revoke + withdraw + sweep session-key gas back. Owner signs the first
+// two with MetaMask (exit is worth the popups); the final sweep is signed
+// locally by the session key itself so no leftover ETH is stranded.
+$('end-session-btn').addEventListener('click', async () => {
+  if (!confirm(t('janken.session.endConfirm'))) return;
+  if (!account()) await connect();
+  const owner = account();
+  try {
+    if (sessionState.active) {
+      const h1 = await wallet().writeContract({
+        account: owner, chain: null,
+        address: CONFIG.jankenman, abi: ABI, functionName: 'revokeSession',
+        args: [sessionAccount.address],
+      });
+      await pub.waitForTransactionReceipt({ hash: h1 });
+    }
+    if (sessionState.credits > 0n) {
+      const h2 = await wallet().writeContract({
+        account: owner, chain: null,
+        address: CONFIG.jankenman, abi: ABI, functionName: 'withdraw',
+      });
+      await pub.waitForTransactionReceipt({ hash: h2 });
+    }
+    // Sweep whatever gas is left on the session key EOA back to the owner.
+    const keyBal = await pub.getBalance({ address: sessionAccount.address });
+    const gasCost = TX_FEES.maxFeePerGas * 21_000n;
+    if (keyBal > gasCost) {
+      try {
+        const h3 = await sessionClient.sendTransaction({
+          to: owner,
+          value: keyBal - gasCost,
+          gas: 21_000n,
+          maxFeePerGas: TX_FEES.maxFeePerGas,
+          maxPriorityFeePerGas: TX_FEES.maxPriorityFeePerGas,
+        });
+        await pub.waitForTransactionReceipt({ hash: h3 });
+        console.log('[end] swept residual gas', h3);
+      } catch (e) { console.warn('[end] sweep skipped', e); }
+    }
+    await refreshSession();
+    await refreshPool();
+  } catch (err) {
+    console.error('[end]', err);
+    alert(err?.shortMessage || err?.message);
+  }
+});
+
+refreshSession();
+setInterval(refreshSession, 2500);
+
+// ─── VRF commit counter — live poll the predeploy ────────────────
+async function refreshVrf() {
+  try {
+    const n = await pub.readContract({
+      address: CONFIG.vrfAddress, abi: VRF_ABI, functionName: 'commitNonce',
+    });
+    $('kpi-vrf').textContent = n.toString();
+  } catch {}
+}
+refreshVrf();
+setInterval(refreshVrf, 1000);
+</script>
+</body>
+</html>

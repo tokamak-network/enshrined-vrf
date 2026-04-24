@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="flip.title">Coin Flip · Tokamak Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokamak.css">
+<style>
+  :root { --accent: var(--butter); --accent-deep: var(--butter-deep); }
+  .coin-stage { display: grid; place-items: center; padding: 10px 0 18px; }
+  .coin {
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #FFF0B0, #FFC94D 65%, #C99A1E);
+    border: 3px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+    display: grid; place-items: center;
+    font-family: "Fredoka", sans-serif;
+    font-size: 96px; font-weight: 700;
+    color: var(--ink);
+    transition: transform 0.15s ease;
+  }
+  .coin.flipping { animation: tokamak-spin 0.55s linear infinite; background: radial-gradient(circle at 35% 30%, #FFF0B0, #FFB5A7 65%, #FF8471); }
+  .stats-row { display: flex; gap: 14px; justify-content: center; margin-top: 6px; }
+  .stat-chip {
+    background: var(--paper-2); border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    padding: 8px 14px; border-radius: 999px;
+    font-family: "Fredoka", sans-serif; font-size: 13px;
+  }
+  .stat-chip b { font-weight: 700; }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <div class="tokamak-shell">
+    <a class="tokamak-back" href="../games/index.html" data-i18n="common.back.games">← 게임 목록으로</a>
+
+    <div class="tokamak-shell-head">
+      <div class="mascot" id="mascot"></div>
+      <div>
+        <h2>Coin Flip</h2>
+        <p class="lead" data-i18n-html="flip.lead">버튼을 누르면 <code>CoinFlip.flip()</code> 트랜잭션이 전송되고, VRF 결과가 이벤트로 돌아와 앞/뒤가 결정됩니다.</p>
+      </div>
+    </div>
+
+    <div class="tokamak-panel">
+      <div class="coin-stage"><div class="coin" id="coin">?</div></div>
+      <div class="tokamak-result" id="result"></div>
+      <div class="tokamak-row center" style="margin-top:18px">
+        <button class="tokamak-btn primary" id="flip">🌙 FLIP</button>
+        <button class="tokamak-btn ghost" id="flipx5">× 5</button>
+      </div>
+      <div class="stats-row" style="margin-top:18px">
+        <span class="stat-chip">heads <b id="stat-h">0</b></span>
+        <span class="stat-chip">tails <b id="stat-t">0</b></span>
+        <span class="stat-chip">total <b id="stat-n">0</b></span>
+      </div>
+    </div>
+
+    <div class="tokamak-panel paper-2">
+      <div class="kv" data-i18n="common.raw" style="margin-bottom:10px">최근 VRF randomness (raw)</div>
+      <div class="hex-block" id="rand">—</div>
+      <div class="tokamak-history" id="history" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+<script type="module">
+import { parseAbi, decodeEventLog } from 'https://esm.sh/viem@2.21.0';
+import { mountTokamakTopbar } from '../shared/topbar.js';
+import { t, applyI18n } from '../shared/lang.js';
+import { pub, wallet, account, connect } from '../shared/wallet.js';
+import { CONFIG } from '../shared/config.js';
+import { moonMascot } from '../shared/mascots.js';
+
+mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../games/index.html' });
+document.getElementById('mascot').innerHTML = moonMascot({ size: 64 });
+applyI18n();
+
+const ABI = parseAbi([
+  'function flip() returns (bool)',
+  'event Flipped(address indexed player, bool heads, uint256 randomness)',
+]);
+
+const $ = (id) => document.getElementById(id);
+const coin = $('coin'), result = $('result'), rand = $('rand'), hist = $('history');
+const sH = $('stat-h'), sT = $('stat-t'), sN = $('stat-n');
+let hCount = 0, tCount = 0;
+let last = { kind: 'ready' };
+function paintStats() { sH.textContent = hCount; sT.textContent = tCount; sN.textContent = hCount + tCount; }
+
+function paintResult() {
+  if (last.kind === 'ready')   { result.className = 'tokamak-result';                               result.textContent = t('flip.ready'); }
+  if (last.kind === 'signing') { result.className = 'tokamak-result';                               result.textContent = t('flip.signing'); }
+  if (last.kind === 'waiting') { result.className = 'tokamak-result';                               result.textContent = t('flip.waiting'); }
+  if (last.kind === 'failed')  { result.className = 'tokamak-result';                               result.textContent = t('flip.failed'); }
+  if (last.kind === 'result') {
+    result.className = 'tokamak-result ' + (last.heads ? 'win' : 'lose');
+    result.innerHTML = (last.heads ? t('flip.heads') : t('flip.tails'))
+      + `<small>randomness & 1 = ${last.heads ? 1 : 0}</small>`;
+  }
+}
+paintResult();
+document.addEventListener('tokamak:langchange', paintResult);
+
+async function flipOnce() {
+  if (!account()) await connect();
+  coin.classList.add('flipping'); coin.textContent = '⟳';
+  last = { kind: 'signing' }; paintResult();
+
+  try {
+    const hash = await wallet().writeContract({
+      account: account(), chain: null,
+      address: CONFIG.flip, abi: ABI, functionName: 'flip',
+    });
+    last = { kind: 'waiting' }; paintResult();
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+
+    let args;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONFIG.flip.toLowerCase()) continue;
+      try {
+        const dec = decodeEventLog({ abi: ABI, data: log.data, topics: log.topics });
+        if (dec.eventName === 'Flipped') { args = dec.args; break; }
+      } catch {}
+    }
+    if (!args) throw new Error('no event');
+    applyResult(args.heads, args.randomness, hash);
+  } catch (err) {
+    console.error(err);
+    last = { kind: 'failed' }; paintResult();
+    coin.textContent = '?';
+  } finally {
+    coin.classList.remove('flipping');
+  }
+}
+
+function applyResult(isHeads, randomness, hash) {
+  coin.textContent = isHeads ? 'H' : 'T';
+  coin.classList.add('popping');
+  setTimeout(() => coin.classList.remove('popping'), 450);
+  last = { kind: 'result', heads: isHeads };
+  paintResult();
+  rand.textContent = '0x' + randomness.toString(16).padStart(64, '0');
+  if (isHeads) hCount++; else tCount++;
+  paintStats();
+
+  const item = document.createElement('div');
+  item.className = 'item ' + (isHeads ? 'win' : 'lose');
+  item.innerHTML = `<span>${isHeads ? 'HEADS' : 'TAILS'}</span><span>${hash.slice(0, 10)}…</span>`;
+  hist.prepend(item);
+  while (hist.children.length > 12) hist.lastChild.remove();
+}
+
+$('flip').addEventListener('click', flipOnce);
+$('flipx5').addEventListener('click', async () => {
+  for (let i = 0; i < 5; i++) await flipOnce();
+});
+</script>
+</body>
+</html>

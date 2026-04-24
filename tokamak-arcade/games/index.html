@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="hub.title">Games · Tokamak Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokamak.css">
+<style>
+  .games-header {
+    max-width: 1100px; margin: 12px auto 32px;
+    display: flex; flex-direction: column; gap: 10px; padding: 0 6px;
+  }
+  .games-header .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+    background: var(--mint); border: 2px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    padding: 6px 14px; border-radius: 999px;
+    font-family: "Fredoka", sans-serif; font-size: 13px;
+    transform: rotate(-1.5deg);
+  }
+  .games-header h1 { font-size: clamp(30px, 4.2vw, 46px); letter-spacing: -0.02em; }
+  .games-header p { color: var(--ink-soft); font-size: 16px; font-weight: 500; max-width: 620px; }
+</style>
+</head>
+<body>
+  <div id="topbar"></div>
+
+  <header class="games-header">
+    <a class="tokamak-back" href="../index.html" data-i18n="common.back.landing">← 랜딩으로</a>
+    <span class="eyebrow" data-i18n="hub.eyebrow">✦ pick your game</span>
+    <h1 data-i18n="hub.h1">어떤 걸로 한번 놀아볼까요?</h1>
+    <p data-i18n-html="hub.lede">
+      모든 게임은 L2 컨트랙트가 <code>VRF.getRandomness()</code>를 직접 호출해
+      단일 트랜잭션에서 결과가 정해집니다. 오라클 · 콜백 · 중앙 서버 없음.
+    </p>
+  </header>
+
+  <main class="tokamak-grid" id="grid"></main>
+
+  <script type="module">
+    import { mountTokamakTopbar } from '../shared/topbar.js';
+    import { t, applyI18n } from '../shared/lang.js';
+    import {
+      moonMascot, catMascot, cloudMascot, unicornMascot, pongyMascot, jankenMascot, arrow,
+    } from '../shared/mascots.js';
+
+    mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../index.html' });
+
+    // Game list — descriptions + play-now label resolve via i18n each render.
+    const GAMES = [
+      { href: '../flip/index.html',      cls: 'flip',    name: 'Coin Flip', badge: 'VRF',  descKey: 'games.flip.desc',    mascot: moonMascot({ size: 92 }) },
+      { href: '../dice/index.html',      cls: 'dice',    name: 'Dice Roll', badge: 'VRF',  descKey: 'games.dice.desc',    mascot: catMascot({ size: 92 }) },
+      { href: '../plinko/index.html',    cls: 'plinko',  name: 'Plinko',    badge: 'VRF',  descKey: 'games.plinko.desc',  mascot: cloudMascot({ size: 92 }) },
+      { href: '../lottery/index.html',   cls: 'lottery', name: 'Lottery',   badge: 'VRF',  descKey: 'games.lottery.desc', mascot: unicornMascot({ size: 92 }) },
+      { href: '../jankenman/index.html', cls: 'janken',  name: 'Jankenman', badge: 'DeFi', descKey: 'games.janken.desc',  mascot: jankenMascot({ size: 92 }) },
+      { href: '../../game/index.html',   cls: 'pongy',   name: 'Pongy',     badge: 'USDC', descKey: 'games.pongy.desc',   mascot: pongyMascot({ size: 92 }) },
+    ];
+
+    const grid = document.getElementById('grid');
+    function renderGrid() {
+      grid.innerHTML = '';
+      for (const g of GAMES) {
+        const a = document.createElement('a');
+        a.className = `tokamak-card ${g.cls}`;
+        a.href = g.href;
+        a.innerHTML = `
+          <div class="mascot-holder">${g.mascot}</div>
+          <h3>${g.name} <span class="badge">${g.badge}</span></h3>
+          <div class="desc">${t(g.descKey)}</div>
+          <span class="go">${t('common.playnow')} ${arrow()}</span>
+        `;
+        grid.appendChild(a);
+      }
+    }
+    renderGrid();
+    document.addEventListener('tokamak:langchange', renderGrid);
+    applyI18n();
+  </script>
+</body>
+</html>
