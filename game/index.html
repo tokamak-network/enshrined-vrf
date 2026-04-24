@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>pongy.bet — pick &amp; play</title>
+<link rel="stylesheet" href="./shared/retro.css?v=3" />
+<style>
+  :root {
+    --mint: #A8F5C4; --mint-d: #5CCF82; --mint-deep: #2EAA62;
+    --pink: #FFCBE1; --pink-d: #FF87B5;
+    --yellow: #FFF1A0; --yellow-d: #F5DA4A;
+    --peach: #FFC8A0; --blue: #9BC9FF;
+    --red: #FF7878;
+    --ink: #2B3A2F; --muted: #7A8C82;
+    --bg: #F0FFF3;
+    --paper: #FFFFFF;
+  }
+  body {
+    background:
+      radial-gradient(circle at 12% 18%, rgba(168,245,196,0.5) 0%, transparent 50%),
+      radial-gradient(circle at 88% 78%, rgba(255,203,225,0.4) 0%, transparent 50%),
+      var(--bg);
+    color: var(--ink);
+    font-family: "Fredoka", "Comic Sans MS", -apple-system, system-ui, sans-serif;
+    padding: 0; align-items: stretch; min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* NAV */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px;
+  }
+  .brand {
+    font-weight: 900; font-size: 22px;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--mint-deep);
+  }
+  .brand .p {
+    width: 34px; height: 34px;
+    background: var(--mint); border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 20px;
+    border: 3px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .brand .domain { color: var(--muted); font-weight: 700; font-size: 17px; }
+  .wallet-chip {
+    background: var(--pink); border: 2px solid var(--ink);
+    padding: 8px 14px; font-size: 13px; font-weight: 800;
+    text-decoration: none; color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    border-radius: 999px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .wallet-chip.ghost { background: var(--paper); }
+  .usdc-icon {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #2775CA;
+    display: inline-grid; place-items: center;
+    color: #FFF; font-weight: 900; font-size: 11px;
+    font-family: "Inter", sans-serif;
+    flex-shrink: 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .usdc-icon.sm { width: 16px; height: 16px; font-size: 9px; }
+  .usdc-icon.lg { width: 24px; height: 24px; font-size: 13px; }
+
+  /* LAYOUT */
+  .layout {
+    max-width: 1080px; margin: 16px auto 36px; padding: 0 24px;
+    display: grid; grid-template-columns: 1fr 340px;
+    gap: 18px;
+    align-items: start;
+  }
+
+  /* LEFT — arcade cabinet feel */
+  .game-card {
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    box-shadow: 6px 6px 0 var(--ink);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .game-head {
+    padding: 14px 22px;
+    background: var(--mint);
+    border-bottom: 3px solid var(--ink);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .game-head .title {
+    font-size: 16px; font-weight: 900;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .game-head .title .icon {
+    width: 30px; height: 30px;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 16px;
+  }
+  .game-head .id {
+    font-family: ui-monospace, monospace;
+    font-size: 12px; color: var(--ink); font-weight: 700;
+    background: var(--paper); border: 2px solid var(--ink);
+    padding: 4px 10px; border-radius: 999px;
+  }
+
+  .stage {
+    padding: 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+
+  /* canvas: round-ish arcade display with warm bezel */
+  canvas.pixel-screen {
+    display: block; margin: 0 auto;
+    background: var(--ink);
+    border: 4px solid var(--ink);
+    border-radius: 24px;
+    box-shadow:
+      inset 0 0 0 4px #EFFFF2,
+      4px 4px 0 var(--ink);
+    width: 100%; max-width: 480px; height: auto;
+  }
+
+  /* PHYSICAL hand buttons — arcade style */
+  .hands {
+    display: flex; justify-content: center; gap: 24px;
+    width: 100%; max-width: 480px;
+  }
+  .hand-btn {
+    position: relative;
+    width: 88px; padding: 0;
+    border: none; background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .hand-btn .cap {
+    width: 74px; height: 74px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 32px; line-height: 1;
+    border: 3px solid var(--ink);
+    box-shadow:
+      inset 0 -4px 0 rgba(0,0,0,0.18),
+      inset 0 3px 0 rgba(255,255,255,0.6),
+      0 6px 0 var(--ink);
+    transition: transform 0.05s, box-shadow 0.05s;
+  }
+  .hand-btn[data-hand="rock"] .cap { background: radial-gradient(circle at 35% 30%, #FFE2C8, var(--peach)); }
+  .hand-btn[data-hand="scissors"] .cap { background: radial-gradient(circle at 35% 30%, #D0FFDF, var(--mint)); }
+  .hand-btn[data-hand="paper"] .cap { background: radial-gradient(circle at 35% 30%, #FFE4F0, var(--pink)); }
+  .hand-btn .lbl {
+    font-size: 14px; font-weight: 900; letter-spacing: 0.05em;
+    color: var(--ink);
+  }
+  .hand-btn:hover:not(:disabled) .cap { transform: translateY(-1px); box-shadow: inset 0 -4px 0 rgba(0,0,0,0.18), inset 0 3px 0 rgba(255,255,255,0.6), 0 7px 0 var(--ink); }
+  .hand-btn:active:not(:disabled) .cap {
+    transform: translateY(5px);
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,0.18), inset 0 2px 0 rgba(255,255,255,0.6), 0 1px 0 var(--ink);
+  }
+  .hand-btn.active .cap {
+    background: radial-gradient(circle at 35% 30%, #FFF8CC, var(--yellow));
+  }
+  .hand-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+  /* Pulse when SELECT phase */
+  .hands.armed .hand-btn .cap { animation: cap-pulse 1.4s ease-in-out infinite; }
+  .hands.armed .hand-btn:nth-child(2) .cap { animation-delay: 0.15s; }
+  .hands.armed .hand-btn:nth-child(3) .cap { animation-delay: 0.3s; }
+  @keyframes cap-pulse {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+
+  /* Bottom HUD strip */
+  .hud-strip {
+    width: 100%;
+    background: var(--bg);
+    border-top: 3px solid var(--ink);
+    padding: 14px 22px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  }
+  .hud-strip .cell { text-align: center; }
+  .hud-strip .k { font-size: 10px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; }
+  .hud-strip .v {
+    font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; margin-top: 2px;
+    color: var(--ink);
+  }
+  .hud-strip .v.mint { color: var(--mint-deep); }
+  .hud-strip .v.small { font-size: 14px; }
+
+  /* RIGHT — bet panel */
+  .bet-panel {
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    padding: 22px;
+    display: flex; flex-direction: column; gap: 14px;
+    box-shadow: 6px 6px 0 var(--ink);
+    align-self: flex-start;
+    position: sticky; top: 16px;
+  }
+
+  .bet-line {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+  }
+  .bet-line.mint { background: #EBFFF2; }
+  .bet-line-k {
+    font-size: 12px; font-weight: 800;
+    color: var(--ink); opacity: 0.75;
+    letter-spacing: 0.04em;
+  }
+  .bet-line-v {
+    font-size: 22px; font-weight: 900;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .bet-line.mint .bet-line-v { color: var(--mint-deep); }
+  .bet-line-v small {
+    font-size: 11px; font-weight: 800;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+
+  .cta-btn {
+    padding: 18px;
+    background: var(--ink); color: var(--yellow);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    font-family: inherit;
+    font-size: 18px; font-weight: 900;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    box-shadow: 5px 5px 0 var(--mint-d);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .cta-btn:hover:not(:disabled) { background: #1A2919; }
+  .cta-btn:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--mint-d); }
+  .cta-btn:disabled { background: #D4CEB8; color: var(--muted); cursor: not-allowed; box-shadow: none; }
+
+  .aux-btn {
+    padding: 14px;
+    background: var(--paper); border: 2px solid var(--ink);
+    color: var(--ink); font-family: inherit; font-size: 14px; font-weight: 800;
+    cursor: pointer; border-radius: 14px;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .aux-btn:hover:not(:disabled) { background: var(--pink); }
+  .aux-btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--ink); }
+  .aux-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: 2px 2px 0 var(--ink); }
+
+  .safe-badge {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: var(--mint); border: 2px solid var(--ink); border-radius: 12px;
+    font-size: 12px; font-weight: 800;
+  }
+  .safe-badge .tick {
+    width: 22px; height: 22px;
+    background: var(--ink); color: var(--yellow);
+    display: grid; place-items: center;
+    border-radius: 50%; font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .reset-link {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .reset-link:hover { color: var(--ink); }
+
+  .foot { text-align: center; font-size: 12px; color: var(--muted); padding: 14px; font-weight: 700; }
+  kbd { background: var(--yellow); border: 2px solid var(--ink); color: var(--ink); font-weight: 800; border-radius: 6px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <div class="brand"><span class="p">🐸</span> pongy<span class="domain">.bet</span></div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div class="wallet-chip" id="walletChip"><span class="usdc-icon">$</span>1,420.00 <small style="font-weight:700;opacity:0.75;">USDC</small></div>
+    <div class="wallet-chip ghost">
+      <span style="width:7px;height:7px;background:#2EAA62;border-radius:50%;display:inline-block;box-shadow:0 0 6px #5CCF82;"></span>
+      <span style="font-size:11px;font-family:ui-monospace,monospace;">0x8A3f…7A7e</span>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- LEFT GAME CARD -->
+  <div class="game-card">
+    <div class="game-head">
+      <div class="title">
+        <span class="icon">🐸</span>
+        pongy · 짱깸뽀
+      </div>
+      <div class="id">round #<span id="round">0</span></div>
+    </div>
+
+    <div class="stage">
+      <canvas id="screen" class="pixel-screen" width="440" height="360"></canvas>
+
+      <div class="hands" id="handsRow">
+        <button class="hand-btn" data-hand="rock" disabled>
+          <span class="cap">✊</span><span class="lbl">바위</span>
+        </button>
+        <button class="hand-btn" data-hand="scissors" disabled>
+          <span class="cap">✌️</span><span class="lbl">가위</span>
+        </button>
+        <button class="hand-btn" data-hand="paper" disabled>
+          <span class="cap">✋</span><span class="lbl">보</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="hud-strip">
+      <div class="cell"><div class="k">wagered · USDC</div><div class="v" id="credits">—</div></div>
+      <div class="cell"><div class="k">won · USDC</div><div class="v mint" id="medals">—</div></div>
+      <div class="cell"><div class="k">phase</div><div class="v small" id="phase">IDLE</div></div>
+      <div class="cell"><div class="k">last roll</div><div class="v small" id="lastRoll">—</div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT BET PANEL -->
+  <div class="bet-panel">
+    <div class="bet-line">
+      <span class="bet-line-k">bet per round</span>
+      <span class="bet-line-v"><span class="usdc-icon sm">$</span>1.00 <small>USDC</small></span>
+    </div>
+    <div class="bet-line mint">
+      <span class="bet-line-k">max payout (20×)</span>
+      <span class="bet-line-v"><span class="usdc-icon sm">$</span>20.00 <small>USDC</small></span>
+    </div>
+
+    <button class="cta-btn" id="coin">▶ bet $1 USDC</button>
+
+    <button class="aux-btn" id="exchange">↓ withdraw winnings to wallet</button>
+
+    <div class="safe-badge">
+      <span class="tick">✓</span>
+      <span>On-chain settlement · VRF · USDC rewards</span>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;gap:10px;">
+      <button class="reset-link" id="bgmToggle">♪ BGM off</button>
+      <button class="reset-link" id="reset">↺ reset balance</button>
+    </div>
+  </div>
+</div>
+
+<div class="foot">
+  <kbd>C</kbd> feed coin · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> rock / scissors / paper
+</div>
+
+<script type="module">
+  import { createGame } from './shared/runtime.js?v=3';
+  import { startBgm, stopBgm, primeAudio, setMuted } from './shared/audio.js?v=3';
+
+  // Global error reporter — surfaces JS errors in-page for diagnostics
+  window.addEventListener('error', (e) => {
+    console.error('[PongMoon] error:', e.message, e.filename, e.lineno);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[PongMoon] unhandled:', e.reason);
+  });
+
+  // ──────────────────────────────────────────────
+  // Engine selection — on-chain if URL params set, local otherwise.
+  // ?onchain=1&rpc=https://...&game=0x...&usdc=0x...
+  // ──────────────────────────────────────────────
+  const params = new URLSearchParams(location.search);
+  const ONCHAIN =
+    params.get('onchain') === '1' ||
+    !!params.get('game') ||
+    !!window.__PONGY_CONFIG__;
+  const CFG = window.__PONGY_CONFIG__ || {
+    chainRpc:    params.get('rpc')  || 'http://localhost:9545',
+    gameAddress: params.get('game'),
+    usdcAddress: params.get('usdc'),
+  };
+
+  async function buildEngine() {
+    if (!ONCHAIN) return null; // runtime will create LocalEngine
+    if (!window.ethereum) {
+      alert('On-chain mode requires a wallet (MetaMask, Rabby, ...).');
+      return null;
+    }
+    if (!CFG.gameAddress || !CFG.usdcAddress) {
+      alert('Missing game/usdc address. Pass ?game=0x…&usdc=0x… or set window.__PONGY_CONFIG__.');
+      return null;
+    }
+    const { createOnChainEngine } = await import('./shared/engine-onchain.js?v=3');
+    return createOnChainEngine({
+      chainRpc:    CFG.chainRpc,
+      gameAddress: CFG.gameAddress,
+      usdcAddress: CFG.usdcAddress,
+      wallet:      window.ethereum,
+    });
+  }
+
+  const canvas = document.getElementById('screen');
+  const handBtns = [...document.querySelectorAll('.hand-btn')];
+  const handsRow = document.getElementById('handsRow');
+  const coinBtn = document.getElementById('coin');
+  const exchangeBtn = document.getElementById('exchange');
+  let round = 0;
+
+  // BGM toggle (opt-in via button to respect user preference)
+  let bgmOn = false;
+
+  const engine = await buildEngine();
+  if (ONCHAIN && engine) {
+    // Show connected address in wallet chip
+    const short = engine.account.slice(0, 6) + '…' + engine.account.slice(-4);
+    const chips = document.querySelectorAll('.wallet-chip.ghost');
+    if (chips.length) chips[chips.length - 1].innerHTML =
+      `<span style="width:7px;height:7px;background:#2EAA62;border-radius:50%;display:inline-block;box-shadow:0 0 6px #5CCF82;"></span>` +
+      `<span style="font-size:11px;font-family:ui-monospace,monospace;">${short}</span>`;
+  }
+
+  const game = createGame({
+    canvas,
+    engine,                // null → LocalEngine, object → on-chain
+    theme: {
+      primaryDisplay: 'wheel',
+      wheelColors: ['#FFC8A0', '#A8F5C4', '#FFCBE1', '#FFF1A0'],
+      lightLabels: ['꽝','두배','네배','별','대박','꽝','두배','네배','꽝','두배','별','꽝','두배','네배','꽝','대박'],
+      palette: {
+        cabinet: '#2B3A2F', cabinetDark: '#1A2519',
+        accent: '#F5DA4A', screen: '#2B3A2F', screenGrid: '#3F5445',
+        win: '#FFF1A0', lose: '#FF7878',
+        medal: '#FFF1A0', medalDark: '#C4A000',
+        text: '#FFFFFF', textDim: '#D4E8D8',
+        tray: '#1A2519', trayEdge: '#5CCF82',
+      },
+      labels: {
+        insertCoin: '동전을 넣어요',
+        chant: ['짱', '깸', '뽀!'],
+        win: '이겼다!',
+        lose: '졌어요',
+        draw: '한번 더',
+        fever: '★ 대박 ★',
+        prompt: '손을 골라요',
+        playing: '기다려요',
+        idleSub: '1 coin · 1 play',
+      },
+      fonts: { pixel: '"Fredoka", "Comic Sans MS", sans-serif' },
+    },
+    hooks: {
+      onResult(r) {
+        round += 1;
+        document.getElementById('round').textContent = round;
+        const el = document.getElementById('lastRoll');
+        if (r.outcome === 'win') {
+          el.textContent = '+$' + r.payout.toFixed(2) + ' · ' + r.multiplier + '×';
+          el.style.color = 'var(--mint-deep)';
+        } else if (r.outcome === 'lose') {
+          el.textContent = '-$1.00';
+          el.style.color = 'var(--red)';
+        } else {
+          el.textContent = 'draw';
+          el.style.color = 'var(--muted)';
+        }
+      },
+    },
+  });
+
+  // credits/medals are already USD-denominated (1 unit = $1 USDC)
+  const fmtUsd = (n) => '$' + Number(n).toFixed(2);
+  const EXTERNAL_BALANCE = 1420.00;
+
+  // Cache DOM refs once — subscribe fires on every phase change.
+  const el = {
+    credits:    document.getElementById('credits'),
+    medals:     document.getElementById('medals'),
+    phase:      document.getElementById('phase'),
+    walletChip: document.getElementById('walletChip'),
+  };
+
+  // Skip re-writing strings that didn't change (avoids TextNode churn).
+  let lastCredits = NaN, lastMedals = NaN, lastPhase = '', lastCoinState = '';
+  const COIN_BET  = '▶ bet $1 USDC';
+  const COIN_WAIT = '· settling on-chain ·';
+  const COIN_LOW  = '⚠ insufficient USDC · <span style="opacity:0.7;">deposit more</span>';
+
+  game.subscribe((s) => {
+    if (s.credits !== lastCredits) {
+      el.credits.textContent = fmtUsd(s.credits);
+      lastCredits = s.credits;
+    }
+    if (s.medals !== lastMedals) {
+      el.medals.textContent = fmtUsd(s.medals);
+      lastMedals = s.medals;
+    }
+    if (s.phase !== lastPhase) {
+      el.phase.textContent = s.phase;
+      handsRow.classList.toggle('armed', s.phase === 'SELECT' || s.phase === 'CHANT');
+      handBtns.forEach((b) => (b.disabled = !(s.phase === 'SELECT' || s.phase === 'CHANT')));
+      lastPhase = s.phase;
+    }
+    // Wallet chip updates only when balance changes
+    if (s.credits !== lastCredits || s.medals !== lastMedals) {
+      const total = EXTERNAL_BALANCE - 10 + s.credits + s.medals;
+      el.walletChip.innerHTML =
+        '<span class="usdc-icon">$</span>' + total.toFixed(2) +
+        ' <small style="font-weight:700;opacity:0.75;">USDC</small>';
+    }
+    coinBtn.disabled = s.credits < 1 || s.phase !== 'IDLE';
+    exchangeBtn.disabled = s.medals < 1;
+    handBtns.forEach((b) => b.classList.toggle('active', s.playerHand === b.dataset.hand));
+
+    const nextCoin = s.credits < 1 ? COIN_LOW : s.phase !== 'IDLE' ? COIN_WAIT : COIN_BET;
+    if (nextCoin !== lastCoinState) { coinBtn.innerHTML = nextCoin; lastCoinState = nextCoin; }
+  });
+
+  coinBtn.addEventListener('click', () => game.insertCoin());
+  exchangeBtn.addEventListener('click', () => game.exchange());
+  document.getElementById('reset').addEventListener('click', () => {
+    game.reset(); round = 0;
+    document.getElementById('round').textContent = '0';
+    document.getElementById('lastRoll').textContent = '—';
+  });
+  document.getElementById('bgmToggle').addEventListener('click', (e) => {
+    bgmOn = !bgmOn;
+    if (bgmOn) { primeAudio(); startBgm(); e.target.textContent = '♪ BGM on'; }
+    else { stopBgm(); e.target.textContent = '♪ BGM off'; }
+  });
+  handBtns.forEach((b) => b.addEventListener('click', () => game.pickHand(b.dataset.hand)));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'c' || e.key === 'C') coinBtn.click();
+    if (e.key === '1') handBtns[0].click();
+    if (e.key === '2') handBtns[1].click();
+    if (e.key === '3') handBtns[2].click();
+  });
+</script>
+</body>
+</html>
