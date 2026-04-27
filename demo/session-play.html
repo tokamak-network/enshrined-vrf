@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Play — Enshrined VRF L2</title>
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#09090b;--s1:#111114;--s2:#18181b;--s3:#1f1f23;
+  --brd:#27272a;--brd2:#3f3f46;
+  --t:#fafafa;--td:#a1a1aa;--tm:#52525b;
+  --ac:#818cf8;--acd:rgba(129,140,248,.1);
+  --g:#34d399;--gd:rgba(52,211,153,.08);
+  --r:#f87171;--rd:rgba(248,113,113,.08);
+  --y:#fbbf24;--yd:rgba(251,191,36,.08);
+  --cy:#22d3ee;--cyd:rgba(34,211,238,.08);
+  --p:#c084fc;--pd:rgba(192,132,252,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t);font-family:'Geist',sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+.wrap{max-width:1200px;margin:0 auto;padding:40px 24px 80px}
+
+.eyebrow{display:inline-block;font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--ac);background:var(--acd);padding:4px 10px;border-radius:12px;border:1px solid rgba(129,140,248,.2);margin-bottom:16px;letter-spacing:.05em}
+h1{font-size:2.2rem;font-weight:700;letter-spacing:-.03em;margin-bottom:6px}
+h1 .a{color:var(--ac)} h1 .g{color:var(--g)}
+.lead{color:var(--td);margin-bottom:36px;max-width:720px;font-size:.95rem}
+
+.panel{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:24px;margin-bottom:20px}
+.panel h2{font-size:1.05rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.panel h2 .step-n{font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--tm);background:var(--s3);padding:2px 7px;border-radius:4px}
+.panel h2 .chip{font-family:'Geist Mono',monospace;font-size:.62rem;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
+.panel h2 .chip.draw{background:var(--acd);color:var(--ac);border:1px solid rgba(129,140,248,.2)}
+.panel h2 .chip.coin{background:var(--cyd);color:var(--cy);border:1px solid rgba(34,211,238,.2)}
+
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+label{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--td);display:block;margin-bottom:4px;letter-spacing:.05em}
+input{background:var(--s2);border:1px solid var(--brd);border-radius:6px;padding:9px 12px;color:var(--t);font-family:'Geist Mono',monospace;font-size:.78rem;flex:1;min-width:240px}
+input:focus{outline:none;border-color:var(--ac)}
+
+button{background:var(--ac);color:var(--bg);border:none;border-radius:6px;padding:9px 16px;font-family:'Geist',sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .15s}
+button:hover:not(:disabled){filter:brightness(1.1)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent;border:1px solid var(--brd);color:var(--t)}
+button.cy{background:var(--cy);color:var(--bg)}
+button.danger{background:var(--r);color:var(--bg)}
+
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.stat .c{background:var(--s2);border:1px solid var(--brd);border-radius:8px;padding:12px 14px}
+.stat .c .k{font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--tm);letter-spacing:.08em;margin-bottom:4px}
+.stat .c .v{font-family:'Geist Mono',monospace;font-size:.82rem;color:var(--t);word-break:break-all}
+.stat .c .v.g{color:var(--g)} .stat .c .v.p{color:var(--p)} .stat .c .v.y{color:var(--y)} .stat .c .v.cy{color:var(--cy)}
+
+.log{background:#000;border:1px solid var(--brd);border-radius:8px;padding:14px 16px;font-family:'Geist Mono',monospace;font-size:.72rem;max-height:260px;overflow-y:auto;line-height:1.7}
+.log .l{color:var(--td)}
+.log .l .ts{color:var(--tm);margin-right:8px}
+.log .l.ok{color:var(--g)} .log .l.err{color:var(--r)} .log .l.info{color:var(--ac)} .log .l.sig{color:var(--y)}
+
+.sig-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:.65rem;padding:2px 8px;border-radius:10px;margin-left:6px}
+.sig-yes{background:var(--yd);color:var(--y);border:1px solid rgba(251,191,36,.2)}
+.sig-no{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.2)}
+
+.results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:14px}
+.result{background:var(--s2);border:1px solid var(--brd);border-radius:8px;padding:10px;text-align:center}
+.result .n{font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--tm);margin-bottom:4px}
+.result .t{font-family:'Geist Mono',monospace;font-weight:700;font-size:1.2rem}
+.result .t.low{color:var(--td)} .result .t.mid{color:var(--ac)} .result .t.high{color:var(--p)} .result .t.jack{color:var(--y)}
+.result .t.heads{color:var(--g)} .result .t.tails{color:var(--r)}
+
+.empty{color:var(--tm);font-size:.82rem;text-align:center;padding:20px}
+.small{font-size:.72rem;color:var(--tm);margin-top:8px}
+.hr{height:1px;background:var(--brd);margin:6px 0 18px}
+
+.game-card{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:22px;margin-bottom:20px}
+.game-card h3{font-size:.95rem;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.game-card h3 .chip{font-family:'Geist Mono',monospace;font-size:.62rem;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
+.game-card.draw{border-color:rgba(129,140,248,.28)}
+.game-card.coin{border-color:rgba(34,211,238,.28)}
+.game-card.draw h3 .chip{background:var(--acd);color:var(--ac);border:1px solid rgba(129,140,248,.2)}
+.game-card.coin h3 .chip{background:var(--cyd);color:var(--cy);border:1px solid rgba(34,211,238,.2)}
+
+.isolation-tip{display:flex;gap:10px;background:var(--s3);border:1px dashed var(--brd);border-radius:8px;padding:10px 14px;font-size:.74rem;color:var(--td);margin-top:10px}
+.isolation-tip strong{color:var(--t)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<span class="eyebrow">SESSION PLAY · LIVE DEMO · MULTI-GAME</span>
+<h1><span class="a">한 Hub</span>, <span class="g">여러 게임</span>, 독립 세션.</h1>
+<p class="lead">같은 EOA의 GameHub 안에 DrawGame과 CoinFlip이 각자의 세션키·cap·잔고로 공존합니다. 한 게임의 세션이 다른 게임을 침범할 수 없는 것을 직접 확인해보세요.</p>
+
+<!-- CONFIG -->
+<div class="panel">
+  <h2><span class="step-n">CONFIG</span>컨트랙트 주소</h2>
+  <div class="row">
+    <div style="flex:1;min-width:260px"><label>RPC URL</label><input id="rpc" value="http://localhost:8545"></div>
+    <div style="flex:1;min-width:260px"><label>CHAIN ID</label><input id="chainId" value="1337"></div>
+  </div>
+  <div class="row">
+    <div style="flex:1"><label>GameHubFactory</label><input id="factory" placeholder="0x..."></div>
+    <div style="flex:1"><label>SessionKeyManager</label><input id="skm" placeholder="0x..."></div>
+  </div>
+  <div class="row">
+    <div style="flex:1"><label>DrawGame</label><input id="drawGame" placeholder="0x..."></div>
+    <div style="flex:1"><label>CoinFlipGame</label><input id="coinFlipGame" placeholder="0x..."></div>
+  </div>
+  <div class="row">
+    <div style="flex:1"><label>GameRegistry</label><input id="registry" placeholder="0x..."></div>
+  </div>
+  <div class="row">
+    <button id="saveConfig" class="ghost">Save Config</button>
+    <span class="small">값은 브라우저 localStorage에 저장됩니다.</span>
+  </div>
+</div>
+
+<!-- WALLET -->
+<div class="panel">
+  <h2><span class="step-n">01</span>Wallet</h2>
+  <div class="row">
+    <button id="connect">Connect MetaMask</button>
+    <button id="disconnect" class="ghost" disabled>Disconnect</button>
+  </div>
+  <div class="stat">
+    <div class="c"><div class="k">EOA</div><div class="v" id="eoa">—</div></div>
+    <div class="c"><div class="k">ETH BALANCE</div><div class="v g" id="eoaBal">—</div></div>
+    <div class="c"><div class="k">HUB ADDRESS</div><div class="v p" id="hubAddr">—</div></div>
+    <div class="c"><div class="k">TOTAL HUB DEPOSIT</div><div class="v y" id="hubTotal">—</div></div>
+  </div>
+</div>
+
+<!-- ==================== DrawGame card ==================== -->
+<div class="game-card draw">
+  <h3><span class="chip">GAME · A</span>DrawGame <span class="small" style="color:var(--tm)">— 베팅 0.01 ETH, tier 0–99</span></h3>
+  <div class="hr"></div>
+
+  <div class="row">
+    <button data-game="draw" class="start-btn" disabled>Start Session (0.05 ETH)</button>
+    <button data-game="draw" class="extend-btn" disabled>Extend (+0.05 ETH)</button>
+    <button data-game="draw" class="revoke-btn ghost" disabled>Revoke</button>
+    <button data-game="draw" class="withdraw-btn ghost" disabled>Withdraw</button>
+    <span id="draw-sigBadge" class="sig-badge sig-yes">🔐 Start × 2</span>
+  </div>
+  <div class="stat">
+    <div class="c"><div class="k">SESSION KEY</div><div class="v" id="draw-sessionAddr">—</div></div>
+    <div class="c"><div class="k">SESSION ETH</div><div class="v g" id="draw-sessionBal">—</div></div>
+    <div class="c"><div class="k">CAP</div><div class="v y" id="draw-cap">—</div></div>
+    <div class="c"><div class="k">EXPIRY</div><div class="v" id="draw-expiry">—</div></div>
+  </div>
+
+  <div class="row" style="margin-top:14px">
+    <button data-game="draw" class="play-btn" disabled>Draw 1</button>
+    <button data-game="draw" class="play10-btn ghost" disabled>Draw × 10</button>
+    <span id="draw-playBadge" class="sig-badge sig-no">✓ no popup</span>
+  </div>
+  <div id="draw-results" class="results-grid">
+    <div class="empty" style="grid-column:1/-1">아직 뽑기 기록이 없습니다.</div>
+  </div>
+</div>
+
+<!-- ==================== CoinFlip card ==================== -->
+<div class="game-card coin">
+  <h3><span class="chip">GAME · B</span>CoinFlip <span class="small" style="color:var(--tm)">— 베팅 0.01 ETH, heads/tails</span></h3>
+  <div class="hr"></div>
+
+  <div class="row">
+    <button data-game="coin" class="start-btn cy" disabled>Start Session (0.05 ETH)</button>
+    <button data-game="coin" class="extend-btn cy" disabled>Extend (+0.05 ETH)</button>
+    <button data-game="coin" class="revoke-btn ghost" disabled>Revoke</button>
+    <button data-game="coin" class="withdraw-btn ghost" disabled>Withdraw</button>
+    <span id="coin-sigBadge" class="sig-badge sig-yes">🔐 Start × 2</span>
+  </div>
+  <div class="stat">
+    <div class="c"><div class="k">SESSION KEY</div><div class="v" id="coin-sessionAddr">—</div></div>
+    <div class="c"><div class="k">SESSION ETH</div><div class="v g" id="coin-sessionBal">—</div></div>
+    <div class="c"><div class="k">CAP</div><div class="v cy" id="coin-cap">—</div></div>
+    <div class="c"><div class="k">EXPIRY</div><div class="v" id="coin-expiry">—</div></div>
+  </div>
+
+  <div class="row" style="margin-top:14px">
+    <button data-game="coin" class="play-btn cy" disabled>Flip 1</button>
+    <button data-game="coin" class="play10-btn ghost" disabled>Flip × 10</button>
+    <span id="coin-playBadge" class="sig-badge sig-no">✓ no popup</span>
+  </div>
+  <div id="coin-results" class="results-grid">
+    <div class="empty" style="grid-column:1/-1">아직 플립 기록이 없습니다.</div>
+  </div>
+
+  <div class="isolation-tip">
+    <span>ℹ️</span>
+    <span><strong>격리 검증:</strong> DrawGame 세션키로 CoinFlip을 호출하려 하면 프로토콜이 <span class="mono" style="color:var(--r)">Unauthorized</span>로 거부합니다. 각 세션은 scope의 gameAddr로 엄격히 제한됩니다.</span>
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="panel">
+  <h2><span class="step-n">LOG</span>Activity</h2>
+  <div id="log" class="log"></div>
+</div>
+
+</div>
+
+<script type="module">
+import {
+  createPublicClient, createWalletClient, custom, http,
+  parseEther, formatEther, encodeFunctionData, decodeEventLog,
+  keccak256, encodeAbiParameters, parseAbiParameters,
+} from 'https://esm.sh/viem@2.47.10';
+import { privateKeyToAccount, generatePrivateKey } from 'https://esm.sh/viem@2.47.10/accounts';
+
+// ────────────────────── ABIs ──────────────────────
+const FACTORY_ABI = [
+  {type:'function', name:'hubOf', stateMutability:'view', inputs:[{name:'owner',type:'address'}], outputs:[{type:'address'}]},
+  {type:'function', name:'depositAndRegister', stateMutability:'payable',
+   inputs:[
+     {name:'sessionKey', type:'address'},
+     {name:'scope', type:'tuple', components:[
+        {name:'gameAddr',type:'address'},
+        {name:'spendingCap',type:'uint256'},
+        {name:'expiry',type:'uint64'},
+        {name:'selectors',type:'bytes4[]'}
+     ]}
+   ], outputs:[{type:'address'}]},
+  {type:'function', name:'depositAndRefill', stateMutability:'payable',
+   inputs:[
+     {name:'sessionKey',type:'address'},{name:'game',type:'address'},
+     {name:'addedCap',type:'uint256'},{name:'newExpiry',type:'uint64'}
+   ], outputs:[{type:'address'}]},
+];
+const HUB_ABI = [
+  {type:'function', name:'balances', stateMutability:'view', inputs:[{name:'game',type:'address'}], outputs:[{type:'uint256'}]},
+  {type:'function', name:'sessionNonce', stateMutability:'view', inputs:[{name:'key',type:'address'}], outputs:[{type:'uint256'}]},
+  {type:'function', name:'revokeSession', stateMutability:'nonpayable', inputs:[{name:'key',type:'address'}], outputs:[]},
+  {type:'function', name:'withdraw', stateMutability:'nonpayable',
+   inputs:[{name:'game',type:'address'},{name:'amount',type:'uint256'},{name:'to',type:'address'}], outputs:[]},
+  {type:'function', name:'executeAsSession', stateMutability:'nonpayable',
+   inputs:[
+     {name:'sessionKey',type:'address'},{name:'game',type:'address'},{name:'value',type:'uint256'},
+     {name:'data',type:'bytes'},{name:'nonce',type:'uint256'},{name:'signature',type:'bytes'}
+   ], outputs:[{type:'bytes'}]},
+];
+const DRAW_ABI = [
+  {type:'function', name:'draw', stateMutability:'payable', inputs:[], outputs:[{type:'uint256'}]},
+  {type:'function', name:'BET', stateMutability:'view', inputs:[], outputs:[{type:'uint256'}]},
+  {type:'event', name:'Draw', inputs:[
+     {name:'player',type:'address',indexed:true},
+     {name:'tier',type:'uint256',indexed:false},
+     {name:'randomness',type:'uint256',indexed:false}
+  ]},
+];
+const COIN_ABI = [
+  {type:'function', name:'flip', stateMutability:'payable', inputs:[], outputs:[{type:'bool'}]},
+  {type:'function', name:'BET', stateMutability:'view', inputs:[], outputs:[{type:'uint256'}]},
+  {type:'event', name:'Flipped', inputs:[
+     {name:'player',type:'address',indexed:true},
+     {name:'heads',type:'bool',indexed:false},
+     {name:'randomness',type:'uint256',indexed:false}
+  ]},
+];
+const SKM_ABI = [
+  {type:'function', name:'scopeOf', stateMutability:'view',
+   inputs:[{name:'hub',type:'address'},{name:'key',type:'address'}],
+   outputs:[{type:'tuple', components:[
+     {name:'gameAddr',type:'address'},{name:'spendingCap',type:'uint256'},
+     {name:'expiry',type:'uint64'},{name:'selectors',type:'bytes4[]'}
+   ]}]},
+];
+
+// ────────────────────── Game descriptors ──────────────────────
+const GAMES = {
+  draw: {
+    key: 'draw',
+    cfgField: 'drawGame',
+    abi: DRAW_ABI,
+    playFn: 'draw',
+    eventName: 'Draw',
+    formatResult: (ev) => ({
+      value: Number(ev.args.tier),
+      label: String(ev.args.tier),
+      klass: tierClass(Number(ev.args.tier)),
+    }),
+    emptyMsg: '아직 뽑기 기록이 없습니다.',
+    name: 'DrawGame',
+  },
+  coin: {
+    key: 'coin',
+    cfgField: 'coinFlipGame',
+    abi: COIN_ABI,
+    playFn: 'flip',
+    eventName: 'Flipped',
+    formatResult: (ev) => ({
+      value: ev.args.heads,
+      label: ev.args.heads ? 'H' : 'T',
+      klass: ev.args.heads ? 'heads' : 'tails',
+    }),
+    emptyMsg: '아직 플립 기록이 없습니다.',
+    name: 'CoinFlip',
+  },
+};
+
+// ────────────────────── State ──────────────────────
+const LS_CONFIG = 'sa.config';
+const LS_SESSIONS = 'sa.sessions';
+const cfg = { rpc: '', chainId: 0, factory: '', drawGame: '', coinFlipGame: '', skm: '', registry: '' };
+let publicClient = null;
+let walletClient = null;
+let currentChain = null;
+let eoa = null;
+let hubAddr = null;
+const sessions = { draw: null, coin: null };
+const results = { draw: [], coin: [] };
+
+// ────────────────────── Helpers ──────────────────────
+const $ = id => document.getElementById(id);
+const $$ = sel => document.querySelectorAll(sel);
+const shortAddr = a => a ? a.slice(0,6)+'…'+a.slice(-4) : '—';
+
+const log = (msg, cls='') => {
+  const l = document.createElement('div');
+  l.className = 'l ' + cls;
+  const ts = new Date().toLocaleTimeString();
+  l.innerHTML = `<span class="ts">${ts}</span>${msg}`;
+  $('log').appendChild(l);
+  $('log').scrollTop = $('log').scrollHeight;
+};
+
+const ERROR_SELECTORS = {
+  '0x82b42900': 'Unauthorized — session scope/cap/expiry/selector check failed',
+  '0x8baa579f': 'InvalidSignature — session key signature does not match',
+  '0x30cd7471': 'NotOwner',
+  '0xf4d678b8': 'InsufficientBalance — hub balance for this game is 0',
+  '0x756688fe': 'BadNonce',
+};
+function friendly(e) {
+  const msg = e.shortMessage || e.message || String(e);
+  for (const [sel, name] of Object.entries(ERROR_SELECTORS)) {
+    if (msg.includes(sel)) return `${name} [${sel}]`;
+  }
+  return msg;
+}
+function tierClass(t) {
+  if (t >= 95) return 'jack';
+  if (t >= 70) return 'high';
+  if (t >= 30) return 'mid';
+  return 'low';
+}
+function makeChain() {
+  return {
+    id: Number(cfg.chainId) || 31337,
+    name: 'Local',
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [cfg.rpc] } },
+  };
+}
+
+function loadConfig() {
+  const saved = localStorage.getItem(LS_CONFIG);
+  if (saved) {
+    Object.assign(cfg, JSON.parse(saved));
+    ['rpc','chainId','factory','drawGame','coinFlipGame','skm','registry'].forEach(k => {
+      if (cfg[k] && $(k)) $(k).value = cfg[k];
+    });
+  } else {
+    cfg.rpc = $('rpc').value;
+    cfg.chainId = Number($('chainId').value);
+  }
+}
+function saveConfig() {
+  ['rpc','chainId','factory','drawGame','coinFlipGame','skm','registry'].forEach(k => {
+    cfg[k] = $(k).value.trim();
+  });
+  cfg.chainId = Number(cfg.chainId);
+  localStorage.setItem(LS_CONFIG, JSON.stringify(cfg));
+  publicClient = createPublicClient({ chain: makeChain(), transport: http(cfg.rpc) });
+  log('config saved', 'ok');
+}
+function loadSessions() {
+  const saved = localStorage.getItem(LS_SESSIONS);
+  if (!saved) return;
+  const s = JSON.parse(saved);
+  for (const k of ['draw','coin']) {
+    if (s[k]?.privateKey) {
+      sessions[k] = { privateKey: s[k].privateKey, address: privateKeyToAccount(s[k].privateKey).address };
+    }
+  }
+}
+function persistSessions() {
+  const out = {};
+  for (const k of ['draw','coin']) {
+    if (sessions[k]) out[k] = { privateKey: sessions[k].privateKey };
+  }
+  localStorage.setItem(LS_SESSIONS, JSON.stringify(out));
+}
+
+// ────────────────────── Wallet ──────────────────────
+async function connect() {
+  if (!window.ethereum) { log('no window.ethereum — open via http://localhost:8000 and install MetaMask', 'err'); return; }
+  const [addr] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  eoa = addr;
+
+  const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+  currentChain = {
+    id: parseInt(chainIdHex, 16),
+    name: 'Local',
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [cfg.rpc] } },
+  };
+  log('wallet chain id: ' + currentChain.id, 'info');
+
+  window.ethereum.removeAllListeners?.('chainChanged');
+  window.ethereum.on('chainChanged', () => {
+    log('chain changed, reloading …', 'info');
+    window.location.reload();
+  });
+
+  walletClient = createWalletClient({ chain: currentChain, transport: custom(window.ethereum) });
+  publicClient = createPublicClient({ chain: currentChain, transport: http(cfg.rpc) });
+
+  $('eoa').textContent = shortAddr(eoa);
+  $('disconnect').disabled = false;
+  $('connect').disabled = true;
+  log('connected: ' + shortAddr(eoa), 'ok');
+
+  await refreshAll();
+  $$('.start-btn').forEach(b => b.disabled = false);
+}
+function disconnect() {
+  eoa = null; walletClient = null;
+  $('eoa').textContent = '—';
+  $('connect').disabled = false;
+  $('disconnect').disabled = true;
+  $$('.start-btn, .extend-btn, .revoke-btn, .withdraw-btn, .play-btn, .play10-btn').forEach(b => b.disabled = true);
+  log('disconnected');
+}
+
+// ────────────────────── Reads ──────────────────────
+async function refreshAll() {
+  if (!eoa || !cfg.factory) return;
+  try {
+    hubAddr = await publicClient.readContract({
+      address: cfg.factory, abi: FACTORY_ABI, functionName: 'hubOf', args: [eoa]
+    });
+    $('hubAddr').textContent = shortAddr(hubAddr);
+    const bal = await publicClient.getBalance({ address: eoa });
+    $('eoaBal').textContent = formatEther(bal) + ' ETH';
+
+    const code = await publicClient.getBytecode({ address: hubAddr });
+    let hubTotal = 0n;
+    for (const g of Object.values(GAMES)) {
+      const addr = cfg[g.cfgField];
+      if (!addr) continue;
+      if (code && code !== '0x') {
+        try {
+          const b = await publicClient.readContract({
+            address: hubAddr, abi: HUB_ABI, functionName: 'balances', args: [addr]
+          });
+          hubTotal += b;
+        } catch {}
+      }
+      await refreshGameRow(g.key);
+    }
+    $('hubTotal').textContent = (code && code !== '0x') ? formatEther(hubTotal) + ' ETH' : 'hub not deployed';
+  } catch (e) { log('refresh error: ' + e.message, 'err'); }
+}
+
+async function refreshGameRow(gameKey) {
+  const g = GAMES[gameKey];
+  const s = sessions[gameKey];
+  const setBtns = (enable) => {
+    $$(`[data-game="${gameKey}"].extend-btn`).forEach(b => b.disabled = !enable);
+    $$(`[data-game="${gameKey}"].revoke-btn`).forEach(b => b.disabled = !enable);
+    $$(`[data-game="${gameKey}"].withdraw-btn`).forEach(b => b.disabled = !enable);
+    $$(`[data-game="${gameKey}"].play-btn`).forEach(b => b.disabled = !enable);
+    $$(`[data-game="${gameKey}"].play10-btn`).forEach(b => b.disabled = !enable);
+  };
+
+  if (!s) {
+    $(`${gameKey}-sessionAddr`).textContent = '—';
+    $(`${gameKey}-sessionBal`).textContent = '—';
+    $(`${gameKey}-cap`).textContent = '—';
+    $(`${gameKey}-expiry`).textContent = '—';
+    setBtns(false);
+    return;
+  }
+
+  $(`${gameKey}-sessionAddr`).textContent = shortAddr(s.address);
+  try {
+    const sbal = await publicClient.getBalance({ address: s.address });
+    $(`${gameKey}-sessionBal`).textContent = formatEther(sbal) + ' ETH';
+
+    const scope = await publicClient.readContract({
+      address: cfg.skm, abi: SKM_ABI, functionName: 'scopeOf', args: [hubAddr, s.address]
+    });
+    $(`${gameKey}-cap`).textContent = formatEther(scope.spendingCap) + ' ETH';
+    $(`${gameKey}-expiry`).textContent = scope.expiry == 0n
+      ? 'no expiry'
+      : new Date(Number(scope.expiry)*1000).toLocaleTimeString();
+
+    // Allow extend/revoke/withdraw as long as a session exists. Play requires cap > 0.
+    $$(`[data-game="${gameKey}"].extend-btn`).forEach(b => b.disabled = false);
+    $$(`[data-game="${gameKey}"].revoke-btn`).forEach(b => b.disabled = false);
+    $$(`[data-game="${gameKey}"].withdraw-btn`).forEach(b => b.disabled = false);
+    const canPlay = scope.spendingCap > 0n;
+    $$(`[data-game="${gameKey}"].play-btn`).forEach(b => b.disabled = !canPlay);
+    $$(`[data-game="${gameKey}"].play10-btn`).forEach(b => b.disabled = !canPlay);
+  } catch {
+    setBtns(false);
+  }
+}
+
+// ────────────────────── Session ops ──────────────────────
+async function startSession(gameKey) {
+  const g = GAMES[gameKey];
+  const gameAddr = cfg[g.cfgField];
+  if (!gameAddr) { log(`${g.name} 주소가 설정되지 않았습니다`, 'err'); return; }
+
+  const pk = generatePrivateKey();
+  sessions[gameKey] = { privateKey: pk, address: privateKeyToAccount(pk).address };
+  persistSessions();
+  log(`[${g.name}] generated new session key: ${shortAddr(sessions[gameKey].address)}`, 'info');
+
+  const DEPOSIT = parseEther('0.05');
+  const GAS_FUND = parseEther('0.01');
+  const scope = {
+    gameAddr,
+    spendingCap: DEPOSIT,
+    expiry: BigInt(Math.floor(Date.now()/1000) + 3600),
+    selectors: []
+  };
+
+  log(`[${g.name}] signature 1/2: depositAndRegister …`, 'sig');
+  const h1 = await walletClient.writeContract({
+    account: eoa, address: cfg.factory, abi: FACTORY_ABI,
+    functionName: 'depositAndRegister',
+    args: [sessions[gameKey].address, scope],
+    value: DEPOSIT, chain: currentChain,
+  });
+  await publicClient.waitForTransactionReceipt({ hash: h1 });
+  log(`[${g.name}] session registered ✓`, 'ok');
+
+  log(`[${g.name}] signature 2/2: fund session gas …`, 'sig');
+  const h2 = await walletClient.sendTransaction({
+    account: eoa, to: sessions[gameKey].address, value: GAS_FUND, chain: currentChain,
+  });
+  await publicClient.waitForTransactionReceipt({ hash: h2 });
+  log(`[${g.name}] session key funded ✓`, 'ok');
+
+  await refreshAll();
+}
+
+async function extendSession(gameKey) {
+  const g = GAMES[gameKey];
+  const gameAddr = cfg[g.cfgField];
+  const s = sessions[gameKey];
+  if (!s) { log(`[${g.name}] no active session`, 'err'); return; }
+
+  const ADD = parseEther('0.05');
+  const newExpiry = BigInt(Math.floor(Date.now()/1000) + 3600);
+  log(`[${g.name}] signature: extend (+0.05 ETH, +1h) …`, 'sig');
+  const h = await walletClient.writeContract({
+    account: eoa, address: cfg.factory, abi: FACTORY_ABI,
+    functionName: 'depositAndRefill',
+    args: [s.address, gameAddr, ADD, newExpiry],
+    value: ADD, chain: currentChain,
+  });
+  await publicClient.waitForTransactionReceipt({ hash: h });
+  log(`[${g.name}] session extended ✓`, 'ok');
+  await refreshAll();
+}
+
+async function revokeSession(gameKey) {
+  const g = GAMES[gameKey];
+  const s = sessions[gameKey];
+  if (!s) return;
+  log(`[${g.name}] signature: revoke …`, 'sig');
+  const h = await walletClient.writeContract({
+    account: eoa, address: hubAddr, abi: HUB_ABI, functionName: 'revokeSession',
+    args: [s.address], chain: currentChain,
+  });
+  await publicClient.waitForTransactionReceipt({ hash: h });
+  log(`[${g.name}] session revoked ✓`, 'ok');
+  sessions[gameKey] = null;
+  persistSessions();
+  results[gameKey] = [];
+  renderResults(gameKey);
+  await refreshAll();
+}
+
+async function withdraw(gameKey) {
+  const g = GAMES[gameKey];
+  const gameAddr = cfg[g.cfgField];
+  const bal = await publicClient.readContract({
+    address: hubAddr, abi: HUB_ABI, functionName: 'balances', args: [gameAddr]
+  });
+  if (bal == 0n) { log(`[${g.name}] nothing to withdraw`, 'info'); return; }
+  log(`[${g.name}] signature: withdraw ${formatEther(bal)} ETH …`, 'sig');
+  const h = await walletClient.writeContract({
+    account: eoa, address: hubAddr, abi: HUB_ABI, functionName: 'withdraw',
+    args: [gameAddr, bal, eoa], chain: currentChain,
+  });
+  await publicClient.waitForTransactionReceipt({ hash: h });
+  log(`[${g.name}] withdrew ${formatEther(bal)} ETH ✓`, 'ok');
+  await refreshAll();
+}
+
+// ────────────────────── Play ──────────────────────
+async function playOnce(gameKey) {
+  const g = GAMES[gameKey];
+  const gameAddr = cfg[g.cfgField];
+  const s = sessions[gameKey];
+  if (!s) { log(`[${g.name}] no active session`, 'err'); return; }
+
+  const bet = await publicClient.readContract({
+    address: gameAddr, abi: g.abi, functionName: 'BET'
+  });
+  const nonce = await publicClient.readContract({
+    address: hubAddr, abi: HUB_ABI, functionName: 'sessionNonce', args: [s.address]
+  });
+  const data = encodeFunctionData({ abi: g.abi, functionName: g.playFn });
+  const innerHash = keccak256(encodeAbiParameters(
+    parseAbiParameters('address, uint256, address, address, uint256, bytes32, uint256'),
+    [hubAddr, BigInt(currentChain.id), s.address, gameAddr, bet, keccak256(data), nonce]
+  ));
+  const sessionAccount = privateKeyToAccount(s.privateKey);
+  const signature = await sessionAccount.signMessage({ message: {raw: innerHash} });
+
+  const sessionWallet = createWalletClient({
+    account: sessionAccount, chain: currentChain, transport: http(cfg.rpc)
+  });
+  const hash = await sessionWallet.writeContract({
+    address: hubAddr, abi: HUB_ABI, functionName: 'executeAsSession',
+    args: [s.address, gameAddr, bet, data, nonce, signature],
+    chain: currentChain,
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+  for (const lg of receipt.logs) {
+    if (lg.address.toLowerCase() !== gameAddr.toLowerCase()) continue;
+    try {
+      const ev = decodeEventLog({ abi: g.abi, data: lg.data, topics: lg.topics });
+      if (ev.eventName === g.eventName) {
+        const r = g.formatResult(ev);
+        results[gameKey].push(r);
+        renderResults(gameKey);
+        log(`[${g.name}] play #${results[gameKey].length} → ${r.label}`, 'ok');
+        return;
+      }
+    } catch {}
+  }
+}
+
+async function playMany(gameKey, n) {
+  const g = GAMES[gameKey];
+  const gameAddr = cfg[g.cfgField];
+  const s = sessions[gameKey];
+  if (!s) { log(`[${g.name}] no active session`, 'err'); return; }
+
+  const bet = await publicClient.readContract({
+    address: gameAddr, abi: g.abi, functionName: 'BET'
+  });
+  for (let i = 0; i < n; i++) {
+    const scope = await publicClient.readContract({
+      address: cfg.skm, abi: SKM_ABI, functionName: 'scopeOf', args: [hubAddr, s.address]
+    });
+    if (scope.spendingCap < bet) {
+      log(`[${g.name}] stopped at ${i}/${n}: cap exhausted (${formatEther(scope.spendingCap)} < ${formatEther(bet)}). Extend to continue.`, 'info');
+      break;
+    }
+    try { await playOnce(gameKey); }
+    catch (e) { log(`[${g.name}] play failed: ${friendly(e)}`, 'err'); break; }
+  }
+  await refreshAll();
+}
+
+function renderResults(gameKey) {
+  const g = GAMES[gameKey];
+  const el = $(`${gameKey}-results`);
+  const arr = results[gameKey];
+  if (arr.length === 0) {
+    el.innerHTML = `<div class="empty" style="grid-column:1/-1">${g.emptyMsg}</div>`;
+    return;
+  }
+  const recent = arr.slice(-24);
+  el.innerHTML = recent.map((r, i) => {
+    const idx = arr.length - recent.length + i + 1;
+    return `<div class="result"><div class="n">#${idx}</div><div class="t ${r.klass}">${r.label}</div></div>`;
+  }).join('');
+}
+
+// ────────────────────── Wire up ──────────────────────
+loadConfig();
+loadSessions();
+for (const k of ['draw','coin']) {
+  if (sessions[k]) $(`${k}-sessionAddr`).textContent = shortAddr(sessions[k].address);
+}
+$('saveConfig').onclick = saveConfig;
+$('connect').onclick = connect;
+$('disconnect').onclick = disconnect;
+
+$$('.start-btn').forEach(b => b.onclick = () => startSession(b.dataset.game).catch(e => log(`[${b.dataset.game}] start failed: ${friendly(e)}`, 'err')));
+$$('.extend-btn').forEach(b => b.onclick = () => extendSession(b.dataset.game).catch(e => log(`[${b.dataset.game}] extend failed: ${friendly(e)}`, 'err')));
+$$('.revoke-btn').forEach(b => b.onclick = () => revokeSession(b.dataset.game).catch(e => log(friendly(e), 'err')));
+$$('.withdraw-btn').forEach(b => b.onclick = () => withdraw(b.dataset.game).catch(e => log(friendly(e), 'err')));
+$$('.play-btn').forEach(b => b.onclick = () => playMany(b.dataset.game, 1).catch(e => log(`[${b.dataset.game}] play failed: ${friendly(e)}`, 'err')));
+$$('.play10-btn').forEach(b => b.onclick = () => playMany(b.dataset.game, 10).catch(e => log(`[${b.dataset.game}] play failed: ${friendly(e)}`, 'err')));
+
+if (cfg.factory) {
+  currentChain = makeChain();
+  publicClient = createPublicClient({ chain: currentChain, transport: http(cfg.rpc) });
+}
+log('ready. configure addresses then connect wallet.', 'info');
+if (!window.ethereum) log('⚠️ window.ethereum not found. Serve via http://localhost:8000 (not file://) and install MetaMask.', 'err');
+
+window.addEventListener('error', (e) => log('js error: ' + e.message, 'err'));
+window.addEventListener('unhandledrejection', (e) => log('promise error: ' + (e.reason?.shortMessage || e.reason?.message || e.reason), 'err'));
+</script>
+</body>
+</html>

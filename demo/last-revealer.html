@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마지막 공개자 문제와 해결</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f8f9fb;
+    --surface2: #f0f2f5;
+    --border: #d8dce3;
+    --text: #1a1a2e;
+    --text-dim: #5c6370;
+    --accent: #4f46e5;
+    --accent2: #6366f1;
+    --red: #dc2626;
+    --green: #16a34a;
+    --yellow: #b45309;
+    --orange: #d97706;
+    --blue: #2563eb;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    margin-bottom: 48px;
+    line-height: 1.6;
+  }
+
+  .nav {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 40px;
+  }
+
+  .nav-btn {
+    padding: 12px 24px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .nav-btn:hover { border-color: var(--accent); color: var(--text); }
+  .nav-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .section { display: none; animation: fadeIn 0.5s ease; }
+  .section.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 12px; }
+  .section-desc { color: var(--text-dim); font-size: 1.05rem; margin-bottom: 32px; line-height: 1.7; }
+
+  /* Sequencer row */
+  .seq-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+
+  .seq-card {
+    width: 220px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.5s;
+    position: relative;
+  }
+
+  .seq-card .seq-name { font-weight: 700; font-size: 1rem; margin-bottom: 6px; }
+  .seq-card .seq-icon { font-size: 2rem; margin-bottom: 8px; }
+
+  .seq-card .seq-action {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 6px;
+    background: var(--surface2);
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.4s;
+  }
+
+  .seq-card.highlight-red { border-color: var(--red); box-shadow: 0 0 16px rgba(220,38,38,0.1); }
+  .seq-card.highlight-green { border-color: var(--green); }
+  .seq-card.highlight-blue { border-color: var(--blue); }
+
+  .badge-danger {
+    position: absolute;
+    top: -10px;
+    right: -8px;
+    background: var(--red);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+  }
+
+  .badge-safe {
+    position: absolute;
+    top: -10px;
+    right: -8px;
+    background: var(--green);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    margin: 32px 0;
+  }
+
+  .tl-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 6px;
+    opacity: 0;
+    transform: translateX(-16px);
+    transition: all 0.5s;
+  }
+
+  .tl-step.visible { opacity: 1; transform: translateX(0); }
+
+  .tl-marker {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .tl-content {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+
+  .tl-content h4 { font-size: 0.95rem; margin-bottom: 4px; }
+  .tl-content p { font-size: 0.88rem; color: var(--text-dim); line-height: 1.6; }
+
+  .tl-connector {
+    width: 2px;
+    height: 16px;
+    background: var(--border);
+    margin-left: 19px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .tl-connector.visible { opacity: 1; }
+
+  /* Result box */
+  .result-box {
+    padding: 20px 24px;
+    border-radius: 12px;
+    margin: 24px 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  .result-box.danger {
+    background: rgba(220,38,38,0.05);
+    border: 1px solid rgba(220,38,38,0.15);
+  }
+
+  .result-box.success {
+    background: rgba(22,163,74,0.05);
+    border: 1px solid rgba(22,163,74,0.15);
+  }
+
+  .result-box strong.red { color: var(--red); }
+  .result-box strong.green { color: var(--green); }
+
+  /* Comparison */
+  .compare-row {
+    display: flex;
+    gap: 16px;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+
+  .compare-card {
+    flex: 1;
+    min-width: 260px;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .compare-card h3 {
+    font-size: 1rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .compare-card .step-list {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .compare-card .step-list code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    color: var(--accent);
+  }
+
+  /* Demo button */
+  .demo-btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: block;
+    margin: 0 auto;
+  }
+
+  .demo-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+  .demo-btn.red { background: var(--red); }
+
+  /* Insight */
+  .insight-box {
+    margin-top: 24px;
+    padding: 20px 24px;
+    border-radius: 10px;
+    border-left: 4px solid var(--accent);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .insight-box strong { color: var(--text); }
+
+  /* User layer */
+  .user-layer {
+    margin-top: 32px;
+    padding: 24px;
+    border: 2px dashed var(--green);
+    border-radius: 14px;
+    background: rgba(22,163,74,0.03);
+    text-align: center;
+  }
+
+  .user-layer h3 { color: var(--green); font-size: 1.1rem; margin-bottom: 8px; }
+  .user-layer p { color: var(--text-dim); font-size: 0.95rem; }
+  .user-layer code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--accent);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  /* Divider arrow */
+  .divider-arrow {
+    text-align: center;
+    font-size: 1.4rem;
+    color: var(--accent);
+    margin: 16px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>마지막 Sequencer가 조작할 수 있는가?</h1>
+  <p class="subtitle">
+    Threshold VRF에서 A, B, C 세 명의 Sequencer가 있을 때,<br>
+    A와 B의 값을 모두 본 C가 난수를 조작할 수 있는가?
+  </p>
+
+  <div class="nav">
+    <button class="nav-btn active" onclick="showSection(0)">1. 문제</button>
+    <button class="nav-btn" onclick="showSection(1)">2. 해결</button>
+    <button class="nav-btn" onclick="showSection(2)">3. 사용자 관점</button>
+  </div>
+
+  <!-- ===== Section 1: The Problem ===== -->
+  <div class="section active" id="sec-0">
+    <div class="section-title">마지막 공개자의 우위 (Last Revealer Advantage)</div>
+    <div class="section-desc">
+      단순한 Threshold VRF에서는 Sequencer들이 partial proof를 순서대로 공유합니다.<br>
+      마지막으로 공유하는 사람이 불공정한 이점을 가집니다.
+    </div>
+
+    <button class="demo-btn red" onclick="animateProblem()">&#9654; 공격 과정 보기</button>
+
+    <div class="seq-row" id="prob-seq">
+      <div class="seq-card" id="prob-a">
+        <div class="seq-icon">🖥️</div>
+        <div class="seq-name">Sequencer A</div>
+        <div class="seq-action" id="prob-a-action">대기중...</div>
+      </div>
+      <div class="seq-card" id="prob-b">
+        <div class="seq-icon">🖥️</div>
+        <div class="seq-name">Sequencer B</div>
+        <div class="seq-action" id="prob-b-action">대기중...</div>
+      </div>
+      <div class="seq-card" id="prob-c">
+        <div class="seq-icon">🖥️</div>
+        <div class="seq-name">Sequencer C</div>
+        <div class="seq-action" id="prob-c-action">대기중...</div>
+      </div>
+    </div>
+
+    <div class="timeline" id="prob-timeline">
+      <div class="tl-step" id="pt-0">
+        <div class="tl-marker" style="background: var(--blue);">1</div>
+        <div class="tl-content">
+          <h4>A가 <code>partial_A</code>를 공유</h4>
+          <p>A는 자신의 partial proof를 계산해서 브로드캐스트합니다. A 혼자서는 최종 결과를 계산할 수 없습니다.</p>
+        </div>
+      </div>
+      <div class="tl-connector" id="ptc-0"></div>
+
+      <div class="tl-step" id="pt-1">
+        <div class="tl-marker" style="background: var(--blue);">2</div>
+        <div class="tl-content">
+          <h4>B가 <code>partial_B</code>를 공유</h4>
+          <p>B도 마찬가지로 공유합니다. A와 B 둘만으로는 최종 결과를 계산할 수 없습니다 (3-of-3 필요).</p>
+        </div>
+      </div>
+      <div class="tl-connector" id="ptc-1"></div>
+
+      <div class="tl-step" id="pt-2">
+        <div class="tl-marker" style="background: var(--red);">3</div>
+        <div class="tl-content">
+          <h4>C가 <code>partial_A</code> + <code>partial_B</code>를 수신</h4>
+          <p>C는 이제 A의 partial, B의 partial, 그리고 자신의 <code>sk_C</code>를 모두 보유합니다. <strong style="color:var(--red);">C는 자기 값을 공유하기 전에 최종 결과를 계산할 수 있습니다.</strong></p>
+        </div>
+      </div>
+      <div class="tl-connector" id="ptc-2"></div>
+
+      <div class="tl-step" id="pt-3">
+        <div class="tl-marker" style="background: var(--red);">⚠</div>
+        <div class="tl-content">
+          <h4>C가 결과를 가장 먼저 알게 됨</h4>
+          <p>C가 계산: <code>Combine(partial_A, partial_B, partial_C) → beta</code><br>
+          C는 <strong style="color:var(--red);">다른 누구보다 먼저</strong> 난수를 알게 되고, 공개할지 보류할지 선택할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-box danger">
+      <strong class="red">C가 할 수 있는 것:</strong><br>
+      &#8226; <strong>정직하게 공개</strong> — 블록이 정상 생성됨<br>
+      &#8226; <strong>partial_C를 보류</strong> — 블록 생성이 지연되고, 재추첨을 강제함 (1-bit 영향력)<br>
+      &#8226; <strong>선행 거래 (Front-run)</strong> — 다른 사람들이 결과를 보기 전에 먼저 행동<br><br>
+      이것은 Ethereum RANDAO의 "마지막 validator 우위" 문제와 동일한 구조입니다.<br>
+      C는 난수 값을 <em>선택</em>할 수 없지만, <em>먼저 볼</em> 수 있고 <em>참여 여부를 결정</em>할 수 있습니다.
+    </div>
+  </div>
+
+  <!-- ===== Section 2: The Solution ===== -->
+  <div class="section" id="sec-1">
+    <div class="section-title">해결: P2P 레이어에서 Commit-Reveal 적용</div>
+    <div class="section-desc">
+      모든 사람이 커밋하기 전까지 다른 사람의 partial을 볼 수 없게 만듭니다.<br>
+      이 과정은 Sequencer 간 P2P 네트워크에서 일어나며, 온체인이 아닙니다.
+    </div>
+
+    <button class="demo-btn" onclick="animateSolution()">&#9654; 해결 과정 보기</button>
+
+    <div class="compare-row">
+      <div class="compare-card" style="border-color: rgba(220,38,38,0.2);">
+        <h3><span style="color:var(--red);">&#10007;</span> 단순 방식 (문제)</h3>
+        <div class="step-list">
+          1. A가 <code>partial_A</code> 공유<br>
+          2. B가 <code>partial_B</code> 공유<br>
+          3. C가 둘 다 보고 → 결과 계산<br>
+          4. C가 공개 여부를 결정<br>
+          <strong style="color:var(--red);">→ C가 정보 우위를 가짐</strong>
+        </div>
+      </div>
+      <div class="compare-card" style="border-color: rgba(22,163,74,0.2);">
+        <h3><span style="color:var(--green);">&#10003;</span> Commit-Reveal (해결)</h3>
+        <div class="step-list">
+          1. A, B, C 각각 <code>hash(partial)</code> 제출<br>
+          2. 3개의 hash가 모임<br>
+          3. A, B, C 각각 <code>partial</code> 공개<br>
+          4. Combine → 결과<br>
+          <strong style="color:var(--green);">→ 커밋 전에 다른 사람의 값을 볼 수 없음</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="seq-row" id="sol-seq">
+      <div class="seq-card" id="sol-a">
+        <div class="seq-icon">🖥️</div>
+        <div class="seq-name">Sequencer A</div>
+        <div class="seq-action" id="sol-a-action">대기중...</div>
+      </div>
+      <div class="seq-card" id="sol-b">
+        <div class="seq-icon">🖥️</div>
+        <div class="seq-name">Sequencer B</div>
+        <div class="seq-action" id="sol-b-action">대기중...</div>
+      </div>
+      <div class="seq-card" id="sol-c">
+        <div class="seq-icon">🖥️</div>
+        <div class="seq-name">Sequencer C</div>
+        <div class="seq-action" id="sol-c-action">대기중...</div>
+      </div>
+    </div>
+
+    <div class="timeline" id="sol-timeline">
+      <!-- Phase 1: Commit -->
+      <div class="tl-step" id="st-0">
+        <div class="tl-marker" style="background: var(--accent);">1</div>
+        <div class="tl-content">
+          <h4>Phase 1 — 커밋 (P2P 네트워크)</h4>
+          <p>각 Sequencer가 자신의 partial을 계산하고 <strong>hash만</strong> 제출합니다.<br>
+          <code>A → hash(partial_A + salt)</code><br>
+          <code>B → hash(partial_B + salt)</code><br>
+          <code>C → hash(partial_C + salt)</code><br>
+          모두가 hash를 볼 수 있지만, <strong>hash에서 실제 partial 값을 역산할 수 없습니다.</strong></p>
+        </div>
+      </div>
+      <div class="tl-connector" id="stc-0"></div>
+
+      <!-- Phase 2: All committed -->
+      <div class="tl-step" id="st-1">
+        <div class="tl-marker" style="background: var(--accent);">🔒</div>
+        <div class="tl-content">
+          <h4>3개의 커밋이 모임 — 잠김</h4>
+          <p>이제 아무도 자기 값을 바꿀 수 없습니다. hash가 이미 기록되었습니다.<br>
+          <strong>C는 A나 B의 실제 partial을 보기 전에 이미 커밋했습니다.</strong></p>
+        </div>
+      </div>
+      <div class="tl-connector" id="stc-1"></div>
+
+      <!-- Phase 3: Reveal -->
+      <div class="tl-step" id="st-2">
+        <div class="tl-marker" style="background: var(--green);">2</div>
+        <div class="tl-content">
+          <h4>Phase 2 — 공개 (P2P 네트워크)</h4>
+          <p>각 Sequencer가 실제 partial + salt를 공개합니다.<br>
+          P2P 네트워크가 공개된 값이 커밋한 hash와 일치하는지 검증합니다.<br>
+          <code>hash(partial_A + salt) == committed_hash_A? ✓</code></p>
+        </div>
+      </div>
+      <div class="tl-connector" id="stc-2"></div>
+
+      <!-- Can C cheat at reveal? -->
+      <div class="tl-step" id="st-3">
+        <div class="tl-marker" style="background: var(--orange);">?</div>
+        <div class="tl-content">
+          <h4>C가 A, B의 공개를 먼저 보고 조작할 수 있는가?</h4>
+          <p>네, 이 시점에서 C는 최종 결과를 계산할 수 있습니다. 하지만 C는 Phase 1에서 <strong>이미 커밋</strong>했습니다.<br>
+          C에게 남은 유일한 선택은 <strong>공개를 거부</strong>하는 것(보류 공격)뿐입니다.</p>
+        </div>
+      </div>
+      <div class="tl-connector" id="stc-3"></div>
+
+      <!-- VSS -->
+      <div class="tl-step" id="st-4">
+        <div class="tl-marker" style="background: var(--green);">&#10003;</div>
+        <div class="tl-content">
+          <h4>보류 공격 → VSS로 무력화</h4>
+          <p>C가 공개를 거부하면, A와 B가 DKG 시 공유된 commitment을 이용해 <strong>C의 키 조각을 복원</strong>할 수 있습니다 (Verifiable Secret Sharing).<br>
+          블록 생성은 정상 진행됩니다. <strong style="color:var(--red);">C는 슬래싱됩니다.</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-box success">
+      <strong class="green">모든 공격이 차단됨:</strong><br>
+      &#8226; <strong>결과를 먼저 보는 것?</strong> — 불가능. Phase 1에서는 hash만 공개됨<br>
+      &#8226; <strong>다른 사람 값을 보고 바꾸는 것?</strong> — 불가능. 이미 hash로 커밋됨<br>
+      &#8226; <strong>공개를 거부하는 것?</strong> — VSS가 share를 복원하고, C는 슬래싱됨<br><br>
+      이 모든 commit-reveal 과정은 <strong>Sequencer 간 P2P 네트워크</strong>에서 일어나며, 온체인이 아닙니다.
+    </div>
+  </div>
+
+  <!-- ===== Section 3: User's View ===== -->
+  <div class="section" id="sec-2">
+    <div class="section-title">사용자가 보는 것</div>
+    <div class="section-desc">
+      위의 모든 과정은 블록이 생성되기 전에 일어납니다.<br>
+      사용자 경험은 전혀 바뀌지 않습니다.
+    </div>
+
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px;">
+      <h3 style="font-size: 1.05rem; margin-bottom: 20px;">뒷단에서 일어나는 일 (블록 생성 전)</h3>
+
+      <div class="timeline" id="user-timeline">
+        <div class="tl-step visible">
+          <div class="tl-marker" style="background: var(--text-dim);">1</div>
+          <div class="tl-content">
+            <h4>TX 순서 합의</h4>
+            <p>Sequencer들이 BFT로 트랜잭션 순서에 합의합니다. 순서가 잠깁니다.</p>
+          </div>
+        </div>
+        <div class="tl-connector visible"></div>
+
+        <div class="tl-step visible">
+          <div class="tl-marker" style="background: var(--text-dim);">2</div>
+          <div class="tl-content">
+            <h4>Partial proof 커밋 (P2P)</h4>
+            <p>각 Sequencer가 hash(partial)을 제출합니다. 실제 값은 아무도 볼 수 없습니다.</p>
+          </div>
+        </div>
+        <div class="tl-connector visible"></div>
+
+        <div class="tl-step visible">
+          <div class="tl-marker" style="background: var(--text-dim);">3</div>
+          <div class="tl-content">
+            <h4>Partial proof 공개 (P2P)</h4>
+            <p>각 Sequencer가 partial을 공개합니다. 합쳐서 최종 beta가 됩니다.</p>
+          </div>
+        </div>
+        <div class="tl-connector visible"></div>
+
+        <div class="tl-step visible">
+          <div class="tl-marker" style="background: var(--accent);">4</div>
+          <div class="tl-content">
+            <h4>블록 생성</h4>
+            <p><code>commitRandomness(nonce, beta, proof)</code>가 deposit TX로 포함됩니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider-arrow">&#9660;</div>
+
+    <div class="user-layer">
+      <h3>사용자의 트랜잭션 (변경 없음)</h3>
+      <p style="margin-bottom: 12px;">여전히 <strong>1개의 트랜잭션</strong>, 여전히 <strong>같은 블록 안</strong>에서.</p>
+      <code>uint256 random = VRF.getRandomness();</code>
+      <p style="margin-top: 12px; font-size: 0.88rem; color: var(--text-dim);">
+        Commit-reveal 오버헤드는 블록 생성 시간에 약간의 레이턴시(~100ms)를 추가할 뿐,<br>
+        사용자 트랜잭션 수가 늘어나는 것이 아닙니다.
+      </p>
+    </div>
+
+    <div class="insight-box" style="margin-top: 24px;">
+      <strong>요약:</strong><br><br>
+      <strong>Q: 마지막 Sequencer가 난수를 조작할 수 있는가?</strong><br>
+      A: 아니오. Commit-reveal로 커밋 전에 다른 사람의 partial을 볼 수 없습니다.<br><br>
+      <strong>Q: 마지막 Sequencer가 참여를 거부할 수 있는가?</strong><br>
+      A: 네, 하지만 VSS로 다른 참여자들이 빠진 share를 복원합니다. 블록은 정상 생성되고 공격자는 슬래싱됩니다.<br><br>
+      <strong>Q: 사용자에게 추가 트랜잭션이 필요한가?</strong><br>
+      A: 아니오. Commit-reveal은 블록 생성 전 Sequencer 간 P2P 네트워크에서 일어납니다. 사용자는 여전히 <code>getRandomness()</code> 한 번으로 같은 트랜잭션에서 결과를 받습니다.
+    </div>
+  </div>
+</div>
+
+<script>
+  function showSection(idx) {
+    document.querySelectorAll('.section').forEach((s, i) => s.classList.toggle('active', i === idx));
+    document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  }
+
+  function animateProblem() {
+    // Reset
+    ['prob-a','prob-b','prob-c'].forEach(id => {
+      document.getElementById(id).className = 'seq-card';
+      const badge = document.getElementById(id).querySelector('.badge-danger');
+      if (badge) badge.remove();
+    });
+    document.querySelectorAll('#prob-timeline .tl-step').forEach(s => s.classList.remove('visible'));
+    document.querySelectorAll('#prob-timeline .tl-connector').forEach(c => c.classList.remove('visible'));
+
+    // Step 1: A shares
+    setTimeout(() => {
+      document.getElementById('prob-a').classList.add('highlight-blue');
+      document.getElementById('prob-a-action').textContent = 'partial_A → 브로드캐스트';
+      document.getElementById('prob-a-action').style.color = 'var(--blue)';
+      document.getElementById('pt-0').classList.add('visible');
+    }, 400);
+
+    setTimeout(() => document.getElementById('ptc-0').classList.add('visible'), 900);
+
+    // Step 2: B shares
+    setTimeout(() => {
+      document.getElementById('prob-b').classList.add('highlight-blue');
+      document.getElementById('prob-b-action').textContent = 'partial_B → 브로드캐스트';
+      document.getElementById('prob-b-action').style.color = 'var(--blue)';
+      document.getElementById('pt-1').classList.add('visible');
+    }, 1200);
+
+    setTimeout(() => document.getElementById('ptc-1').classList.add('visible'), 1700);
+
+    // Step 3: C receives both
+    setTimeout(() => {
+      document.getElementById('prob-c').classList.add('highlight-red');
+      document.getElementById('prob-c-action').innerHTML = 'A + B + 자신의 sk<sub>C</sub> 보유';
+      document.getElementById('prob-c-action').style.color = 'var(--red)';
+      document.getElementById('pt-2').classList.add('visible');
+      const badge = document.createElement('div');
+      badge.className = 'badge-danger';
+      badge.textContent = '결과를 먼저 봄';
+      document.getElementById('prob-c').appendChild(badge);
+    }, 2100);
+
+    setTimeout(() => document.getElementById('ptc-2').classList.add('visible'), 2600);
+
+    // Step 4: C knows result
+    setTimeout(() => {
+      document.getElementById('prob-c-action').innerHTML = 'beta = 0x7a3f...';
+      document.getElementById('pt-3').classList.add('visible');
+    }, 3000);
+  }
+
+  function animateSolution() {
+    // Reset
+    ['sol-a','sol-b','sol-c'].forEach(id => {
+      document.getElementById(id).className = 'seq-card';
+      const badge = document.getElementById(id).querySelector('.badge-safe');
+      if (badge) badge.remove();
+      const badge2 = document.getElementById(id).querySelector('.badge-danger');
+      if (badge2) badge2.remove();
+    });
+    ['sol-a-action','sol-b-action','sol-c-action'].forEach(id => {
+      document.getElementById(id).textContent = '대기중...';
+      document.getElementById(id).style.color = 'var(--text-dim)';
+    });
+    document.querySelectorAll('#sol-timeline .tl-step').forEach(s => s.classList.remove('visible'));
+    document.querySelectorAll('#sol-timeline .tl-connector').forEach(c => c.classList.remove('visible'));
+
+    // Phase 1: All commit
+    setTimeout(() => {
+      document.getElementById('st-0').classList.add('visible');
+      ['sol-a','sol-b','sol-c'].forEach(id => {
+        document.getElementById(id).classList.add('highlight-blue');
+      });
+      document.getElementById('sol-a-action').textContent = 'hash(partial_A)';
+      document.getElementById('sol-b-action').textContent = 'hash(partial_B)';
+      document.getElementById('sol-c-action').textContent = 'hash(partial_C)';
+      ['sol-a-action','sol-b-action','sol-c-action'].forEach(id => {
+        document.getElementById(id).style.color = 'var(--accent)';
+      });
+    }, 400);
+
+    setTimeout(() => document.getElementById('stc-0').classList.add('visible'), 1100);
+
+    // Phase 1.5: Locked
+    setTimeout(() => {
+      document.getElementById('st-1').classList.add('visible');
+    }, 1400);
+
+    setTimeout(() => document.getElementById('stc-1').classList.add('visible'), 1900);
+
+    // Phase 2: All reveal
+    setTimeout(() => {
+      document.getElementById('st-2').classList.add('visible');
+      ['sol-a','sol-b','sol-c'].forEach(id => {
+        document.getElementById(id).className = 'seq-card highlight-green';
+      });
+      document.getElementById('sol-a-action').textContent = 'partial_A 공개 ✓';
+      document.getElementById('sol-b-action').textContent = 'partial_B 공개 ✓';
+      document.getElementById('sol-c-action').textContent = 'partial_C 공개 ✓';
+      ['sol-a-action','sol-b-action','sol-c-action'].forEach(id => {
+        document.getElementById(id).style.color = 'var(--green)';
+      });
+    }, 2300);
+
+    setTimeout(() => document.getElementById('stc-2').classList.add('visible'), 2800);
+
+    // Can C cheat?
+    setTimeout(() => {
+      document.getElementById('st-3').classList.add('visible');
+    }, 3100);
+
+    setTimeout(() => document.getElementById('stc-3').classList.add('visible'), 3600);
+
+    // VSS
+    setTimeout(() => {
+      document.getElementById('st-4').classList.add('visible');
+      const badge = document.createElement('div');
+      badge.className = 'badge-safe';
+      badge.textContent = '공정';
+      ['sol-a','sol-b','sol-c'].forEach(id => {
+        const b = badge.cloneNode(true);
+        const existing = document.getElementById(id).querySelector('.badge-safe');
+        if (!existing) document.getElementById(id).appendChild(b);
+      });
+    }, 3900);
+  }
+
+  // Auto-trigger animations
+  const observer = new MutationObserver(() => {
+    if (document.getElementById('sec-0').classList.contains('active')) {
+      setTimeout(animateProblem, 300);
+    }
+    if (document.getElementById('sec-1').classList.contains('active')) {
+      setTimeout(animateSolution, 300);
+    }
+  });
+  document.querySelectorAll('.section').forEach(s => {
+    observer.observe(s, { attributes: true, attributeFilter: ['class'] });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AA Implementation — Design Spec & Rationale</title>
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#09090b;--s1:#111114;--s2:#18181b;--s3:#1f1f23;--s4:#26262b;
+  --brd:#27272a;--brd2:#3f3f46;
+  --t:#fafafa;--td:#a1a1aa;--tm:#52525b;
+  --ac:#818cf8;--acd:rgba(129,140,248,.1);
+  --g:#34d399;--gd:rgba(52,211,153,.1);
+  --r:#f87171;--rd:rgba(248,113,113,.1);
+  --y:#fbbf24;--yd:rgba(251,191,36,.1);
+  --cy:#22d3ee;--cyd:rgba(34,211,238,.1);
+  --p:#c084fc;--pd:rgba(192,132,252,.1);
+  --o:#fb923c;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t);font-family:'Geist',sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6}
+.wrap{max-width:1240px;margin:0 auto;padding:48px 28px 120px}
+
+.eyebrow{display:inline-block;font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--ac);background:var(--acd);padding:4px 10px;border-radius:12px;border:1px solid rgba(129,140,248,.25);margin-bottom:18px;letter-spacing:.06em}
+.hero{margin-bottom:64px;max-width:820px}
+h1{font-size:2.6rem;font-weight:700;letter-spacing:-.035em;line-height:1.08;margin-bottom:14px}
+h1 .ac{color:var(--ac)} h1 .g{color:var(--g)} h1 .y{color:var(--y)} h1 .p{color:var(--p)}
+.lead{color:var(--td);font-size:1rem;line-height:1.7}
+.lead strong{color:var(--t);font-weight:600}
+.lead code{background:var(--s3);padding:1px 6px;border-radius:4px;font-family:'Geist Mono',monospace;font-size:.88em;color:var(--cy)}
+
+section{margin-bottom:72px;scroll-margin-top:24px}
+.section-head{display:flex;align-items:baseline;gap:14px;margin-bottom:10px}
+.section-head .num{font-family:'Geist Mono',monospace;font-size:.72rem;color:var(--tm);letter-spacing:.1em}
+.section-head h2{font-size:1.5rem;font-weight:700;letter-spacing:-.025em}
+.section-sub{font-size:.9rem;color:var(--td);margin-bottom:28px;max-width:820px;line-height:1.7}
+
+/* ToC */
+.toc{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:18px 22px;margin-bottom:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.toc a{font-family:'Geist Mono',monospace;font-size:.74rem;color:var(--td);text-decoration:none;padding:7px 10px;border-radius:6px;display:flex;align-items:center;gap:10px;transition:all .15s}
+.toc a:hover{background:var(--s3);color:var(--ac)}
+.toc a .n{color:var(--tm);min-width:20px}
+
+/* spec vs rationale — the core pattern */
+.sr{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+@media (max-width:900px){.sr{grid-template-columns:1fr}}
+.sr-col{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:22px 24px;position:relative}
+.sr-col.spec{border-color:rgba(34,211,238,.25)}
+.sr-col.why{border-color:rgba(251,191,36,.25)}
+.sr-tag{position:absolute;top:-10px;left:20px;font-family:'Geist Mono',monospace;font-size:.58rem;letter-spacing:.1em;padding:3px 10px;border-radius:10px;background:var(--bg)}
+.sr-col.spec .sr-tag{color:var(--cy);border:1px solid rgba(34,211,238,.35)}
+.sr-col.why .sr-tag{color:var(--y);border:1px solid rgba(251,191,36,.35)}
+.sr-col h4{font-size:.98rem;font-weight:600;margin-bottom:10px;letter-spacing:-.01em;margin-top:4px}
+.sr-col.spec h4{color:var(--cy)}
+.sr-col.why h4{color:var(--y)}
+.sr-col p,.sr-col li{font-size:.85rem;color:var(--td);line-height:1.65}
+.sr-col ul{list-style:none;margin-top:8px}
+.sr-col li{padding-left:18px;position:relative;margin-bottom:6px}
+.sr-col.spec li::before{content:'▸';position:absolute;left:0;color:var(--cy);font-size:.82rem}
+.sr-col.why li::before{content:'→';position:absolute;left:0;color:var(--y);font-size:.82rem}
+.sr-col strong{color:var(--t);font-weight:600}
+.sr-col code{background:var(--s3);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace;font-size:.78rem;color:var(--cy)}
+.sr-col.why code{color:var(--p)}
+
+/* contract block */
+.contract{margin-bottom:40px}
+.contract-head{background:var(--s2);border:1px solid var(--brd);border-radius:10px 10px 0 0;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:none}
+.contract-head .addr{font-family:'Geist Mono',monospace;font-size:.72rem}
+.contract-head .name{font-size:1.15rem;font-weight:700;letter-spacing:-.02em}
+.contract-head .name.ac{color:var(--ac)} .contract-head .name.g{color:var(--g)} .contract-head .name.p{color:var(--p)} .contract-head .name.y{color:var(--y)}
+.contract-head .addr-pill{font-family:'Geist Mono',monospace;font-size:.58rem;color:var(--tm);background:var(--s3);padding:4px 10px;border-radius:10px;letter-spacing:.05em}
+.contract-head .file-pill{font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--td);padding:4px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--brd)}
+.contract-body{background:var(--s1);border:1px solid var(--brd);border-top:none;border-radius:0 0 10px 10px;padding:26px 24px}
+.contract-body .sr{margin-bottom:0}
+.contract-body .sr-col{padding:20px 22px}
+
+/* layered stack visual */
+.layers-viz{background:var(--s1);border:1px solid var(--brd);border-radius:14px;padding:30px 34px;margin-bottom:22px}
+.layer-row{display:grid;grid-template-columns:160px 1fr;gap:18px;align-items:center;padding:12px 0;border-bottom:1px dashed var(--brd)}
+.layer-row:last-child{border-bottom:none}
+.layer-row .lvl{font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--tm);letter-spacing:.06em}
+.layer-row .content{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.layer-chip{font-family:'Geist Mono',monospace;font-size:.68rem;padding:5px 12px;border-radius:8px;background:var(--s3);color:var(--td);border:1px solid var(--brd)}
+.layer-chip.us{background:var(--acd);color:var(--ac);border-color:rgba(129,140,248,.4);font-weight:600}
+.layer-chip.us::before{content:'★ ';}
+.layer-row .note{font-size:.78rem;color:var(--tm);margin-left:8px;font-style:italic}
+
+/* digest math box */
+.math-box{background:#000;border:1px solid var(--brd);border-radius:10px;padding:22px 26px;font-family:'Geist Mono',monospace;font-size:.86rem;line-height:1.8;overflow-x:auto;margin-bottom:18px}
+.math-box .lbl{color:var(--p);font-weight:600}
+.math-box .kw{color:#f472b6}
+.math-box .fn{color:var(--y)}
+.math-box .str{color:var(--g)}
+.math-box .var{color:var(--cy)}
+.math-box .cm{color:var(--tm);font-style:italic}
+
+/* invariant list */
+.invariants{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+@media (max-width:900px){.invariants{grid-template-columns:1fr}}
+.inv{background:var(--s1);border:1px solid var(--brd);border-radius:10px;padding:16px 18px;border-left:3px solid var(--g)}
+.inv .num{font-family:'Geist Mono',monospace;font-size:.58rem;color:var(--g);letter-spacing:.08em;margin-bottom:4px}
+.inv .claim{font-size:.88rem;font-weight:600;margin-bottom:5px;color:var(--t)}
+.inv .mech{font-size:.76rem;color:var(--td);font-family:'Geist Mono',monospace;line-height:1.5}
+.inv .mech code{background:var(--s3);padding:1px 5px;border-radius:3px;color:var(--cy)}
+
+/* attacks table */
+.attacks{display:grid;gap:10px;margin-bottom:22px}
+.atk{display:grid;grid-template-columns:240px 1fr;gap:18px;padding:14px 18px;background:var(--s1);border:1px solid var(--brd);border-radius:10px;align-items:center}
+@media (max-width:700px){.atk{grid-template-columns:1fr}}
+.atk .scenario{display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:600}
+.atk .scenario .ico{color:var(--r)}
+.atk .defense{font-size:.8rem;color:var(--td);font-family:'Geist Mono',monospace;line-height:1.55}
+.atk .defense code{background:var(--s3);padding:1px 5px;border-radius:3px;color:var(--g)}
+
+/* comparison table */
+.cmp-wrap{overflow-x:auto;margin-bottom:20px;background:var(--s1);border:1px solid var(--brd);border-radius:12px}
+.cmp{width:100%;border-collapse:collapse;font-size:.82rem;min-width:720px}
+.cmp th{background:var(--s2);padding:14px 16px;text-align:left;font-weight:600;font-family:'Geist Mono',monospace;font-size:.7rem;letter-spacing:.05em;color:var(--tm);border-bottom:1px solid var(--brd)}
+.cmp th.us{color:var(--ac);background:var(--acd)}
+.cmp td{padding:12px 16px;color:var(--td);vertical-align:top;border-bottom:1px solid var(--brd);line-height:1.55}
+.cmp td:first-child{font-weight:600;color:var(--t);font-size:.82rem}
+.cmp td.us{color:var(--t);background:rgba(129,140,248,.04)}
+.cmp tr:last-child td{border-bottom:none}
+.cmp code{background:var(--s3);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace;font-size:.75rem;color:var(--cy)}
+
+/* decision matrix */
+.dec-wrap{overflow-x:auto;background:var(--s1);border:1px solid var(--brd);border-radius:12px;margin-bottom:20px}
+.dec{width:100%;border-collapse:collapse;font-size:.84rem;min-width:760px}
+.dec th{background:var(--s2);padding:14px 16px;text-align:left;font-family:'Geist Mono',monospace;font-size:.68rem;letter-spacing:.06em;color:var(--tm);border-bottom:1px solid var(--brd)}
+.dec th.us{color:var(--ac)}
+.dec td{padding:13px 16px;color:var(--td);vertical-align:top;border-bottom:1px solid var(--brd);line-height:1.55}
+.dec td.pick{color:var(--t);font-weight:600;background:rgba(129,140,248,.04)}
+.dec td.alt{color:var(--tm);text-decoration:line-through;font-style:italic}
+.dec tr:last-child td{border-bottom:none}
+.dec code{background:var(--s3);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace;font-size:.76rem;color:var(--cy)}
+
+/* roadmap */
+.roadmap{display:grid;gap:12px}
+.phase{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:18px 22px;display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start}
+.phase .marker{min-width:88px;font-family:'Geist Mono',monospace;font-size:.68rem;letter-spacing:.06em;padding:5px 11px;border-radius:10px;text-align:center;height:fit-content;white-space:nowrap}
+.phase.done .marker{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.3)}
+.phase.now .marker{background:var(--acd);color:var(--ac);border:1px solid rgba(129,140,248,.35)}
+.phase.next .marker{background:var(--yd);color:var(--y);border:1px solid rgba(251,191,36,.25)}
+.phase.later .marker{background:var(--s3);color:var(--tm);border:1px solid var(--brd)}
+.phase .body h4{font-size:1rem;font-weight:600;margin-bottom:4px}
+.phase .body .ph-sub{font-size:.76rem;color:var(--tm);font-family:'Geist Mono',monospace;margin-bottom:10px}
+.phase .body .ph-list{font-size:.82rem;color:var(--td);line-height:1.65}
+.phase .body .ph-why{margin-top:8px;font-size:.78rem;color:var(--y);font-style:italic;border-left:2px solid var(--y);padding-left:10px}
+
+/* goals split */
+.goals-split{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px}
+@media (max-width:900px){.goals-split{grid-template-columns:1fr}}
+.goals-card{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:22px 24px}
+.goals-card.yes{border-left:3px solid var(--g)}
+.goals-card.no{border-left:3px solid var(--r)}
+.goals-card h3{font-size:.94rem;font-weight:600;margin-bottom:14px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.goals-card.yes h3{color:var(--g)}
+.goals-card.no h3{color:var(--r)}
+.goals-card ul{list-style:none}
+.goals-card li{padding:6px 0 6px 22px;position:relative;font-size:.84rem;color:var(--td);line-height:1.55;border-bottom:1px dashed var(--brd)}
+.goals-card li:last-child{border-bottom:none}
+.goals-card.yes li::before{content:'✓';position:absolute;left:0;color:var(--g);font-weight:700}
+.goals-card.no li::before{content:'✗';position:absolute;left:0;color:var(--r);font-weight:700}
+.goals-card strong{color:var(--t);font-weight:600}
+
+/* arch diagram */
+.arch{background:var(--s1);border:1px solid var(--brd);border-radius:14px;padding:32px;margin-bottom:22px}
+.arch-tier{display:grid;grid-template-columns:160px 1fr;gap:22px;align-items:center;padding:18px 0;border-bottom:1px dashed var(--brd)}
+.arch-tier:last-child{border-bottom:none}
+.arch-tier .tier-label{font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--tm);letter-spacing:.06em;line-height:1.55}
+.arch-tier .tier-label .big{color:var(--t);font-size:.82rem;font-weight:600;display:block;margin-bottom:3px}
+.arch-tier .tier-content{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.arch-entity{background:var(--s2);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;min-width:0}
+.arch-entity .ae-ico{font-size:1.15rem}
+.arch-entity .ae-txt{display:flex;flex-direction:column;min-width:0}
+.arch-entity .ae-nm{font-family:'Geist Mono',monospace;font-size:.72rem;font-weight:600}
+.arch-entity .ae-addr{font-family:'Geist Mono',monospace;font-size:.58rem;color:var(--tm)}
+.arch-entity.eoa .ae-nm{color:var(--y)}
+.arch-entity.client .ae-nm{color:var(--p)}
+.arch-entity.predeploy{border-color:rgba(129,140,248,.3);background:var(--acd)}
+.arch-entity.predeploy .ae-nm{color:var(--ac)}
+.arch-entity.peruser{border-color:rgba(52,211,153,.3);background:var(--gd)}
+.arch-entity.peruser .ae-nm{color:var(--g)}
+.arch-entity.app .ae-nm{color:var(--cy)}
+
+/* nav */
+.nav{display:flex;gap:12px;justify-content:center;margin-top:56px;padding-top:40px;border-top:1px solid var(--brd);flex-wrap:wrap}
+.nav a{font-family:'Geist Mono',monospace;font-size:.74rem;color:var(--td);text-decoration:none;padding:8px 14px;border:1px solid var(--brd);border-radius:8px;transition:all .15s}
+.nav a:hover{color:var(--ac);border-color:var(--ac)}
+
+/* misc */
+.callout{background:var(--acd);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:16px 20px;margin-bottom:22px;font-size:.86rem;color:var(--t);line-height:1.65}
+.callout strong{color:var(--ac);font-weight:600}
+.callout code{background:var(--s3);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace;font-size:.82rem;color:var(--cy)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<!-- HERO -->
+<div class="hero">
+  <span class="eyebrow">AA IMPLEMENTATION SPEC &amp; RATIONALE</span>
+  <h1>최소 AA — <span class="ac">세션 키 UX만을</span> 위한 컨트랙트 레이어 설계</h1>
+  <p class="lead">
+    enshrined-vrf의 AA는 <strong>ERC-4337도 EIP-7702도 RIP-7560도 아닌</strong> 컨트랙트 레이어의 커스텀 구현입니다.
+    기존 AA 스택을 그대로 채택하지 않은 데에는 이유가 있고, 빠진 기능에도 이유가 있습니다.
+    이 문서는 <strong>스펙(WHAT)</strong>과 <strong>근거(WHY)</strong>를 좌우로 배치해 각 결정을 그대로 드러냅니다.
+  </p>
+</div>
+
+<!-- TOC -->
+<nav class="toc">
+  <a href="#positioning"><span class="n">01</span> 위치 선정</a>
+  <a href="#goals"><span class="n">02</span> 목표 · 비목표</a>
+  <a href="#arch"><span class="n">03</span> 아키텍처</a>
+  <a href="#contracts"><span class="n">04</span> 컨트랙트 4종</a>
+  <a href="#signature"><span class="n">05</span> 서명 스킴</a>
+  <a href="#trust"><span class="n">06</span> 신뢰 모델 · 불변식</a>
+  <a href="#comparison"><span class="n">07</span> 표준 AA 비교</a>
+  <a href="#decisions"><span class="n">08</span> 설계 결정</a>
+  <a href="#roadmap"><span class="n">09</span> 로드맵</a>
+</nav>
+
+<!-- 01 POSITIONING -->
+<section id="positioning">
+  <div class="section-head"><span class="num">01</span><h2>어느 레이어에 서는가</h2></div>
+  <p class="section-sub">AA는 여러 레이어에서 구현 가능합니다. 각 레이어는 서로 다른 비용과 유연성을 요구합니다. 우리는 <strong>컨트랙트 레이어</strong>를 선택했지만, ERC-4337의 bundler 네트워크는 채택하지 않았습니다.</p>
+
+  <div class="layers-viz">
+    <div class="layer-row">
+      <div class="lvl">프로토콜 (CL)</div>
+      <div class="content">
+        <span class="layer-chip">RIP-7560 Native AA</span>
+        <span class="note">새 tx 타입 · sequencer 변경 필요</span>
+      </div>
+    </div>
+    <div class="layer-row">
+      <div class="lvl">실행 (EL)</div>
+      <div class="content">
+        <span class="layer-chip">EIP-7702</span>
+        <span class="note">EOA delegation · geth 포크 필요</span>
+      </div>
+    </div>
+    <div class="layer-row">
+      <div class="lvl">컨트랙트 (표준)</div>
+      <div class="content">
+        <span class="layer-chip">ERC-4337</span>
+        <span class="note">EntryPoint + Bundler network · 인프라 필요</span>
+      </div>
+    </div>
+    <div class="layer-row">
+      <div class="lvl">컨트랙트 (커스텀)</div>
+      <div class="content">
+        <span class="layer-chip us">enshrined-vrf AA</span>
+        <span class="note">4개 Solidity 컨트랙트 · 프로토콜 변경 없음 · bundler 없음</span>
+      </div>
+    </div>
+    <div class="layer-row">
+      <div class="lvl">앱</div>
+      <div class="content">
+        <span class="layer-chip">일반 dApp</span>
+        <span class="note">매 액션마다 서명 (우리가 피하고자 하는 것)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Why this layer?</strong> VRF는 이미 op-geth에 enshrine되어 있어 포크를 유지 중이지만 — AA까지 같이 포크에 묶으면 <em>설계가 덜 익은 채로 프로토콜에 고정</em>됩니다. Phase 1에서 컨트랙트로 프로토타입하고, 검증 후 Phase 4에서 프리디플로이 승격을 노립니다.
+  </div>
+</section>
+
+<!-- 02 GOALS -->
+<section id="goals">
+  <div class="section-head"><span class="num">02</span><h2>무엇을 이루고, 무엇을 포기했는가</h2></div>
+  <p class="section-sub">목표와 비목표는 같은 무게로 중요합니다. "무엇을 하지 않기로 했다"가 설계를 단순하게 만듭니다.</p>
+
+  <div class="goals-split">
+    <div class="goals-card yes">
+      <h3>Primary Goals (Phase 1)</h3>
+      <ul>
+        <li><strong>입금 1서명, 게임 0서명.</strong> 모든 다른 요구사항은 이 목표를 해치지 않는 범위에서.</li>
+        <li><strong>세션 키 scope 강제.</strong> 유출되어도 피해가 제한적이어야 함 (game, cap, expiry, selectors).</li>
+        <li><strong>인출은 절대 세션 키로 불가능.</strong> 최악의 시나리오에서도 자금 유출 차단.</li>
+        <li><strong>누구나 tx 제출 가능.</strong> 검열 저항, 전용 bundler 네트워크 불필요.</li>
+        <li><strong>결정적 Hub 주소.</strong> EOA 주소만 알면 Hub 주소 계산 가능 → pre-onboarding UX.</li>
+        <li><strong>OP Stack 변경 없음.</strong> 4개 Solidity 컨트랙트로 완결. 포크 추가 유지보수 비용 없음.</li>
+      </ul>
+    </div>
+    <div class="goals-card no">
+      <h3>Non-goals (의식적으로 뺌)</h3>
+      <ul>
+        <li><strong>ERC-4337 호환성.</strong> EntryPoint/UserOp 포맷 채택하면 bundler 인프라 필요 + 게이밍 UX에 과잉.</li>
+        <li><strong>EIP-7702 통합.</strong> EOA → Hub delegation은 매력적이나 Phase 3 이후. 지금은 별도 Hub 주소 모델.</li>
+        <li><strong>Paymaster / gas sponsorship.</strong> Phase 5 옵션. 현재는 Relayer가 자기 가스로 내고 오프체인 비즈니스 모델로 회수.</li>
+        <li><strong>Passkey / WebAuthn signers.</strong> MVP는 ECDSA만. P256 precompile 있으니 후속 확장 가능.</li>
+        <li><strong>소셜 복구 / 멀티시그.</strong> 게임 UX 범위 밖. Hub 소유자는 단일 EOA.</li>
+        <li><strong>Cross-game asset transfers.</strong> 자금은 게임별 <code>balances[game]</code>에 earmark, 게임 간 이동 불가.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 03 ARCHITECTURE -->
+<section id="arch">
+  <div class="section-head"><span class="num">03</span><h2>아키텍처 한눈에</h2></div>
+  <p class="section-sub">AA는 체인 밖과 안의 여러 주체가 엮여 동작합니다. 아래는 역할별 구분.</p>
+
+  <div class="arch">
+    <div class="arch-tier">
+      <div class="tier-label"><span class="big">OFF-CHAIN</span>클라이언트 측</div>
+      <div class="tier-content">
+        <div class="arch-entity eoa"><span class="ae-ico">🏦</span><span class="ae-txt"><span class="ae-nm">Owner EOA</span><span class="ae-addr">main wallet</span></span></div>
+        <div class="arch-entity client"><span class="ae-ico">💻</span><span class="ae-txt"><span class="ae-nm">Browser</span><span class="ae-addr">session privkey in localStorage</span></span></div>
+        <div class="arch-entity client"><span class="ae-ico">📡</span><span class="ae-txt"><span class="ae-nm">Relayer</span><span class="ae-addr">tx submitter · pays gas</span></span></div>
+      </div>
+    </div>
+
+    <div class="arch-tier">
+      <div class="tier-label"><span class="big">GLOBAL PREDEPLOYS</span>모든 사용자 공유<br>(Phase 4에 enshrine 예정)</div>
+      <div class="tier-content">
+        <div class="arch-entity predeploy"><span class="ae-ico">🏭</span><span class="ae-txt"><span class="ae-nm">GameHubFactory</span><span class="ae-addr">0x42…A0</span></span></div>
+        <div class="arch-entity predeploy"><span class="ae-ico">🗝️</span><span class="ae-txt"><span class="ae-nm">SessionKeyManager</span><span class="ae-addr">0x42…A1</span></span></div>
+        <div class="arch-entity predeploy"><span class="ae-ico">📋</span><span class="ae-txt"><span class="ae-nm">GameRegistry</span><span class="ae-addr">0x42…A2</span></span></div>
+        <div class="arch-entity predeploy"><span class="ae-ico">🎲</span><span class="ae-txt"><span class="ae-nm">EnshrainedVRF</span><span class="ae-addr">0x42…F0 (기존)</span></span></div>
+      </div>
+    </div>
+
+    <div class="arch-tier">
+      <div class="tier-label"><span class="big">PER-USER</span>EOA당 1개<br>(CREATE2 결정적)</div>
+      <div class="tier-content">
+        <div class="arch-entity peruser"><span class="ae-ico">📦</span><span class="ae-txt"><span class="ae-nm">GameHubAccount</span><span class="ae-addr">hubOf(owner) via CREATE2</span></span></div>
+      </div>
+    </div>
+
+    <div class="arch-tier">
+      <div class="tier-label"><span class="big">APP</span>게임 컨트랙트</div>
+      <div class="tier-content">
+        <div class="arch-entity app"><span class="ae-ico">🪙</span><span class="ae-txt"><span class="ae-nm">CoinFlipGame</span><span class="ae-addr">VRF 소비자</span></span></div>
+        <div class="arch-entity app"><span class="ae-ico">🎰</span><span class="ae-txt"><span class="ae-nm">DrawGame</span><span class="ae-addr">VRF 소비자</span></span></div>
+        <div class="arch-entity app"><span class="ae-ico">➕</span><span class="ae-txt"><span class="ae-nm">(more)</span><span class="ae-addr">self-register on deploy</span></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 CONTRACTS -->
+<section id="contracts">
+  <div class="section-head"><span class="num">04</span><h2>컨트랙트 4종 — 스펙 &amp; 근거</h2></div>
+  <p class="section-sub">각 컨트랙트마다 <em>무엇을 하는지</em>를 왼쪽에, <em>왜 이 모양인지</em>를 오른쪽에 나란히 배치합니다.</p>
+
+  <!-- GameHubAccount -->
+  <div class="contract">
+    <div class="contract-head">
+      <div><span class="name ac">GameHubAccount</span> <span class="addr-pill">PER-USER · CREATE2</span></div>
+      <span class="file-pill">contracts/src/aa/GameHubAccount.sol</span>
+    </div>
+    <div class="contract-body">
+      <div class="sr">
+        <div class="sr-col spec">
+          <span class="sr-tag">SPEC</span>
+          <h4>사용자당 1개의 스마트 계정</h4>
+          <p>자금을 게임별 슬롯으로 보관, 세션 키 서명을 검증하고 scope 안에서 게임을 대신 호출.</p>
+          <ul>
+            <li><strong>immutables:</strong> <code>owner</code>, <code>factory</code>, <code>sessionKeys</code>, <code>registry</code></li>
+            <li><strong>storage:</strong> <code>balances[game]</code>, <code>sessionNonce[sessionKey]</code></li>
+            <li><code>executeAsOwner(game, value, data)</code> — EOA만 호출 가능, 임의 게임 호출</li>
+            <li><code>executeAsSession(skey, game, value, data, nonce, sig)</code> — 누구나 제출 가능, Hub 내부에서 sig·scope 검증</li>
+            <li><code>deposit(game) payable</code> / <code>withdraw(game, amount, to)</code> — 입출금</li>
+            <li><code>registerSession / refillSession / revokeSession</code> — 세션 라이프사이클</li>
+            <li>modifier: <code>onlyOwnerOrFactory</code> (deposit · register · refill)</li>
+          </ul>
+        </div>
+        <div class="sr-col why">
+          <span class="sr-tag">WHY</span>
+          <h4>왜 이 모양인가</h4>
+          <ul>
+            <li><strong>사용자당 1개 Hub</strong> (게임당 X) — 키 관리를 단순화하고 주소를 고정. 여러 게임을 오가도 자금 창고는 하나.</li>
+            <li><strong>Factory modifier 허용</strong> — 온보딩을 1 signature로 원자화. Factory 없으면 deploy·deposit·register가 3 tx.</li>
+            <li><strong>Owner/Session 경로 타입으로 분리</strong> — <code>executeAsOwner</code>는 scope 무시, <code>executeAsSession</code>은 scope 강제. 권한 차이가 함수 시그니처에 그대로 드러남.</li>
+            <li><strong>세션 키별 독립 nonce</strong> — 여러 세션이 동시에 parallel tx 제출 가능 (RIP-7712 2D nonce 유사 효과).</li>
+            <li><strong>Per-game balance slot</strong> — CoinFlip에 베팅한 돈이 Plinko로 새지 않음. 한 게임 버그가 전체 자금을 위협하지 않음.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GameHubFactory -->
+  <div class="contract">
+    <div class="contract-head">
+      <div><span class="name ac">GameHubFactory</span> <span class="addr-pill">PREDEPLOY · 0x42…A0</span></div>
+      <span class="file-pill">contracts/src/aa/GameHubFactory.sol</span>
+    </div>
+    <div class="contract-body">
+      <div class="sr">
+        <div class="sr-col spec">
+          <span class="sr-tag">SPEC</span>
+          <h4>결정적 Hub 배포 + 원자적 온보딩</h4>
+          <ul>
+            <li><code>hubOf(owner) view returns (address)</code> — CREATE2 주소 계산 (salt = <code>bytes32(uint256(uint160(owner)))</code>)</li>
+            <li><code>depositAndRegister(sessionKey, scope) payable</code> — Hub 미존재 시 배포 → <code>deposit</code> forward → <code>registerSession</code> forward</li>
+            <li><code>depositAndRefill(sessionKey, game, addedCap, newExpiry) payable</code> — 원자적 리필</li>
+          </ul>
+        </div>
+        <div class="sr-col why">
+          <span class="sr-tag">WHY</span>
+          <h4>원자성과 결정성의 힘</h4>
+          <ul>
+            <li><strong>CREATE2 salt = owner</strong> — owner만 알면 Hub 주소 오프체인 계산 가능. 게임 UI가 "Hub 주소가 이것입니다"를 먼저 보여줄 수 있음.</li>
+            <li><strong>원자적 deploy+deposit+register</strong> — 중간 단계에서 tx가 실패하면 전체 롤백. 사용자가 "Hub는 있는데 세션 등록 실패" 같은 이상 상태에 놓이지 않음.</li>
+            <li><strong>Factory가 Hub에 forward 호출</strong> — Hub 내부에서 <code>msg.sender = Factory</code>가 되어 <code>onlyOwnerOrFactory</code> 통과. Factory가 권한 uplift 경로.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SessionKeyManager -->
+  <div class="contract">
+    <div class="contract-head">
+      <div><span class="name p">SessionKeyManager</span> <span class="addr-pill">PREDEPLOY · 0x42…A1</span></div>
+      <span class="file-pill">contracts/src/aa/SessionKeyManager.sol</span>
+    </div>
+    <div class="contract-body">
+      <div class="sr">
+        <div class="sr-col spec">
+          <span class="sr-tag">SPEC</span>
+          <h4>모든 Hub이 공유하는 scope 레지스트리</h4>
+          <ul>
+            <li><strong>storage:</strong> <code>_scopes[hub][sessionKey] = Scope</code>, <code>_active[hub][sessionKey] = bool</code></li>
+            <li><code>Scope = { gameAddr, spendingCap, expiry, bytes4[] selectors }</code></li>
+            <li><code>register(sessionKey, scope)</code> — <code>msg.sender</code>가 Hub, 해당 Hub의 scope에 기록</li>
+            <li><code>canCall(hub, skey, game, selector, value) view</code> — 4중 체크 (active · gameAddr · expiry · cap · selector)</li>
+            <li><code>consume(sessionKey, amount)</code> — 성공한 exec 후 Hub이 cap 차감</li>
+            <li><code>refill(skey, addedCap, newExpiry)</code> / <code>revoke(skey)</code></li>
+          </ul>
+        </div>
+        <div class="sr-col why">
+          <span class="sr-tag">WHY</span>
+          <h4>Hub에 내장하지 않은 이유</h4>
+          <ul>
+            <li><strong>공유 레지스트리 = 프리디플로이 승격 후보.</strong> 모든 Hub이 같은 SKM을 바라보게 하면 Phase 4에서 프리디플로이 한 곳에 하드코딩하면 됨.</li>
+            <li><strong>"msg.sender가 Hub" 불변식.</strong> EOA가 SKM을 직접 호출해도 자기 주소 slot에만 기록 → 실제 Hub의 scope는 건드릴 수 없음. 별도 접근 제어 불필요.</li>
+            <li><strong>canCall은 view, consume은 mutation.</strong> 의사결정권자는 Hub. SKM은 "스코프 저장소 + 검증 유틸"로 역할 국한.</li>
+            <li><strong>Scope에 selectors 포함.</strong> 같은 게임 안에서도 함수 단위 제한 (예: <code>flip</code> 허용, <code>emergencyWithdraw</code> 금지). 게임 업그레이드 시 세션 무효화 가능.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GameRegistry -->
+  <div class="contract">
+    <div class="contract-head">
+      <div><span class="name g">GameRegistry</span> <span class="addr-pill">PREDEPLOY · 0x42…A2</span></div>
+      <span class="file-pill">contracts/src/aa/GameRegistry.sol</span>
+    </div>
+    <div class="contract-body">
+      <div class="sr">
+        <div class="sr-col spec">
+          <span class="sr-tag">SPEC</span>
+          <h4>게임 컨트랙트 화이트리스트</h4>
+          <ul>
+            <li><code>register()</code> — <code>msg.sender</code>를 게임으로 등록, <code>tx.origin</code>을 등록자로 기록</li>
+            <li><code>isRegistered(game) view returns (bool)</code></li>
+            <li><code>deregister(game)</code> — 등록 시점 <code>tx.origin</code>만 가능</li>
+            <li>게임 컨트랙트는 자기 <code>constructor</code>에서 <code>registry.register()</code> 호출</li>
+          </ul>
+        </div>
+        <div class="sr-col why">
+          <span class="sr-tag">WHY</span>
+          <h4>자기 등록 패턴의 강점</h4>
+          <ul>
+            <li><strong>등록 권한이 컨트랙트 코드 자체.</strong> EOA가 임의로 "악성 컨트랙트"를 게임으로 spoof 등록 불가. 게임 컨트랙트의 <code>constructor</code> 코드가 실제로 <code>register()</code>를 부르는지 검증 가능.</li>
+            <li><strong>세션 키의 call target 제한.</strong> 등록 안 된 컨트랙트로는 세션 키가 자금을 옮길 수 없음 → rug pull 방지.</li>
+            <li><strong>별도 컨트랙트로 분리.</strong> SKM과 마찬가지 이유 — 모든 Hub이 공유하는 global 레지스트리 → 프리디플로이 승격 용이.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 SIGNATURE -->
+<section id="signature">
+  <div class="section-head"><span class="num">05</span><h2>서명 스킴</h2></div>
+  <p class="section-sub">세션 키가 서명하는 digest의 구성과, 왜 EIP-712가 아닌 <code>\x19</code> prefix를 쓰는지.</p>
+
+  <div class="math-box">
+<span class="cm">// GameHubAccount.sol :: _digest()</span>
+<span class="var">inner</span>  = <span class="fn">keccak256</span>(<span class="fn">abi.encode</span>(
+    <span class="lbl">address(this)</span>,      <span class="cm">// hub 주소 — 다른 Hub로 replay 불가</span>
+    <span class="lbl">block.chainid</span>,      <span class="cm">// chain 바인딩 — 크로스체인 replay 불가</span>
+    <span class="lbl">sessionKey</span>,         <span class="cm">// 어느 세션 키인지</span>
+    <span class="lbl">game</span>,               <span class="cm">// 어느 게임을 호출하는지</span>
+    <span class="lbl">value</span>,              <span class="cm">// 얼마 쓰는지</span>
+    <span class="fn">keccak256</span>(<span class="lbl">data</span>),    <span class="cm">// 어떤 calldata인지 (가변 → 고정해시)</span>
+    <span class="lbl">nonce</span>               <span class="cm">// sessionNonce[skey] — replay 방지</span>
+));
+
+<span class="var">digest</span> = <span class="fn">keccak256</span>(<span class="fn">abi.encodePacked</span>(
+    <span class="str">"\x19Ethereum Signed Message:\n32"</span>,
+    <span class="var">inner</span>
+));
+
+<span class="var">signer</span> = <span class="fn">ecrecover</span>(<span class="var">digest</span>, <span class="var">v</span>, <span class="var">r</span>, <span class="var">s</span>);
+<span class="kw">require</span>(<span class="var">signer</span> == <span class="lbl">sessionKey</span>);</div>
+
+  <div class="sr">
+    <div class="sr-col spec">
+      <span class="sr-tag">SPEC</span>
+      <h4>digest에 들어가는 7개 필드</h4>
+      <ul>
+        <li><code>address(this)</code>, <code>chainid</code>: replay 경계 정의</li>
+        <li><code>sessionKey</code>, <code>game</code>, <code>value</code>: 무엇을 누구에게 얼마로 할 것인가</li>
+        <li><code>keccak(data)</code>: calldata 바인딩 (길이 가변 → 고정)</li>
+        <li><code>nonce</code>: 세션 키별 단조 증가, 동일 sig 두 번 불가</li>
+        <li>서명: 표준 ECDSA(secp256k1), 65 bytes (r, s, v)</li>
+        <li>검증: <code>ecrecover</code> 1회 + <code>SKM.canCall</code> 1회</li>
+      </ul>
+    </div>
+    <div class="sr-col why">
+      <span class="sr-tag">WHY</span>
+      <h4>각 선택의 근거</h4>
+      <ul>
+        <li><strong>EIP-712 대신 <code>\x19Ethereum Signed Message</code>:</strong> 게임 sig는 짧고 빈번. Structured data의 도메인 separator·type string 오버헤드 대비 이득 미미. 웹3 라이브러리의 <code>signMessage</code> API로 바로 서명 가능 → SDK가 단순. EIP-712 전환은 나중에 쉬움.</li>
+            <li><strong>secp256k1만 (WebAuthn X):</strong> OP Stack 기본 내장. P256 precompile은 <code>0x0100</code>에 이미 있어 passkey는 Phase 후반 확장 후보.</li>
+            <li><strong>address(this) + chainid:</strong> cross-Hub / cross-chain replay 원천 차단. 사용자가 테스트넷에서 실험한 sig를 누가 메인넷에 재제출해도 <code>ecrecover</code>는 다른 signer를 반환.</li>
+            <li><strong>세션 키별 독립 nonce:</strong> 여러 세션이 병렬 submit 해도 간섭 없음. 전역 nonce였다면 throughput 병목.</li>
+            <li><strong>Hub이 ecrecover 직접 호출:</strong> EntryPoint 스타일 indirection 없음. "Hub = validator" 원칙에 충실, 오버헤드 최소.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 06 TRUST MODEL -->
+<section id="trust">
+  <div class="section-head"><span class="num">06</span><h2>신뢰 모델 &amp; 불변식</h2></div>
+  <p class="section-sub">시스템의 안정성은 몇 개의 명시적 불변식 위에 서 있습니다. 각 불변식이 어떤 공격을 막는지도 함께.</p>
+
+  <div class="invariants">
+    <div class="inv">
+      <div class="num">INVARIANT 1</div>
+      <div class="claim">"Hub만이 자기 자신의 세션 키를 등록할 수 있다"</div>
+      <div class="mech">SKM.register에서 <code>msg.sender</code>를 Hub 주소로 기록. EOA가 SKM을 직접 호출해도 자기 주소 slot에만 기록돼 Hub scope는 오염 불가.</div>
+    </div>
+    <div class="inv">
+      <div class="num">INVARIANT 2</div>
+      <div class="claim">"세션 키는 withdraw 경로에 진입할 수 없다"</div>
+      <div class="mech">Hub.<code>withdraw</code>는 <code>msg.sender == owner</code> 체크. <code>executeAsSession</code>은 <code>SKM.canCall</code>에서 <code>gameAddr</code> 일치 강제 → Hub 자신을 target으로 부를 수 없음.</div>
+    </div>
+    <div class="inv">
+      <div class="num">INVARIANT 3</div>
+      <div class="claim">"세션 키는 GameRegistry에 등록된 컨트랙트만 호출할 수 있다"</div>
+      <div class="mech">Scope의 <code>gameAddr</code>는 Hub.<code>deposit</code>에서 <code>registry.isRegistered(game)</code> 통과한 주소로만 설정됨. 악성 컨트랙트는 등록 못 하므로 targeting 불가.</div>
+    </div>
+    <div class="inv">
+      <div class="num">INVARIANT 4</div>
+      <div class="claim">"한 게임에 earmark된 자금은 다른 게임으로 이동할 수 없다"</div>
+      <div class="mech"><code>balances[game]</code> slot 분리. <code>executeAsSession</code>은 <code>balances[game] -= value</code>만 차감, 다른 slot 건드리지 않음.</div>
+    </div>
+    <div class="inv">
+      <div class="num">INVARIANT 5</div>
+      <div class="claim">"같은 서명을 두 번 제출할 수 없다"</div>
+      <div class="mech"><code>sessionNonce[skey]</code>가 단조 증가. digest에 nonce 포함 + Hub이 <code>nonce == sessionNonce[skey]</code> 검증 + 성공 시 increment.</div>
+    </div>
+    <div class="inv">
+      <div class="num">INVARIANT 6</div>
+      <div class="claim">"Hub 주소는 owner 주소로부터 결정적으로 유도된다"</div>
+      <div class="mech">Factory가 CREATE2, salt = <code>bytes32(owner)</code>. 사용자당 1개의 Hub만 존재 가능. 오프체인 UI가 EOA만 알면 Hub 주소 계산.</div>
+    </div>
+  </div>
+
+  <h3 style="font-size:1.05rem;font-weight:600;margin:20px 0 14px;color:var(--t)">공격 시나리오별 방어</h3>
+  <div class="attacks">
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>세션 키 유출</div>
+      <div class="defense">피해는 <code>(spendingCap, expiry, gameAddr, selectors)</code>에 한정. 인출·다른 게임 호출 불가. EOA는 <code>revokeSession</code>으로 즉시 무효화.</div>
+    </div>
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>Hub tx replay</div>
+      <div class="defense"><code>sessionNonce</code>가 increment → 동일 sig + 동일 calldata 재제출 시 <code>BadNonce</code> revert.</div>
+    </div>
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>Cross-chain replay</div>
+      <div class="defense">digest에 <code>block.chainid</code> 포함 → 다른 chain에서 <code>ecrecover</code>가 다른 signer 반환.</div>
+    </div>
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>Cross-Hub replay</div>
+      <div class="defense">digest에 <code>address(this)</code> 포함 → 다른 Hub로 동일 sig 재사용 불가.</div>
+    </div>
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>악성 컨트랙트로 자금 이동</div>
+      <div class="defense">GameRegistry 미등록 컨트랙트는 scope.gameAddr가 될 수 없음. 등록은 컨트랙트 생성자 자기 호출만 가능.</div>
+    </div>
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>과도한 지출</div>
+      <div class="defense"><code>SKM.consume</code>이 cap 차감, underflow 시 solidity 0.8+ revert.</div>
+    </div>
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>기간 초과 사용</div>
+      <div class="defense"><code>canCall</code>에서 <code>s.expiry ≤ block.timestamp</code> 체크.</div>
+    </div>
+    <div class="atk">
+      <div class="scenario"><span class="ico">⚠</span>Relayer 검열</div>
+      <div class="defense">아무나 <code>executeAsSession</code> 제출 가능 — 사용자 자신의 지갑, 다른 relayer, 게임 백엔드 어느 경로든. 단일 bundler 의존성 없음.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 COMPARISON -->
+<section id="comparison">
+  <div class="section-head"><span class="num">07</span><h2>표준 AA와의 비교</h2></div>
+  <p class="section-sub">같은 "계정 추상화"라도 채택한 레이어·인프라 요구·호환성이 제각각입니다.</p>
+
+  <div class="cmp-wrap">
+    <table class="cmp">
+      <thead>
+        <tr>
+          <th>차원</th>
+          <th>ERC-4337</th>
+          <th>EIP-7702</th>
+          <th>RIP-7560 (Native AA)</th>
+          <th class="us">enshrined-vrf AA ★</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Entry point</td>
+          <td>공유 EntryPoint</td>
+          <td>EOA 자체 (delegated code)</td>
+          <td>프로토콜 (tx 타입)</td>
+          <td class="us">Hub 자체가 entry</td>
+        </tr>
+        <tr>
+          <td>Tx 포맷</td>
+          <td>UserOperation</td>
+          <td>일반 tx + <code>authorization_list</code></td>
+          <td>신규 AA tx type</td>
+          <td class="us">일반 tx, data = <code>executeAsSession(sig, ...)</code></td>
+        </tr>
+        <tr>
+          <td>제출자 (submitter)</td>
+          <td>전용 Bundler 네트워크</td>
+          <td>누구나</td>
+          <td>Sequencer</td>
+          <td class="us">누구나 (릴레이어/지갑/백엔드)</td>
+        </tr>
+        <tr>
+          <td>Signer 추상화</td>
+          <td>Account가 <code>validateUserOp</code> 구현</td>
+          <td>Delegated code가 validate</td>
+          <td>Account가 validate</td>
+          <td class="us">Hub이 <code>ecrecover</code> + SKM scope</td>
+        </tr>
+        <tr>
+          <td>Gas 후원</td>
+          <td>Paymaster 표준화</td>
+          <td>직접 X, 별도 설계 필요</td>
+          <td>Paymaster 네이티브</td>
+          <td class="us">현재 없음, Phase 5 옵션</td>
+        </tr>
+        <tr>
+          <td>구현 레이어</td>
+          <td>컨트랙트</td>
+          <td>실행 레이어 (EL)</td>
+          <td>합의/실행 레이어</td>
+          <td class="us">컨트랙트 (프리디플로이 후보)</td>
+        </tr>
+        <tr>
+          <td>배포 복잡도</td>
+          <td>EntryPoint + Bundler 인프라</td>
+          <td>EL 포크</td>
+          <td>EL + CL 포크</td>
+          <td class="us">4개 Solidity 컨트랙트</td>
+        </tr>
+        <tr>
+          <td>UserOp / sig mempool</td>
+          <td>별도 Alt-mempool</td>
+          <td>기존 mempool</td>
+          <td>기존 mempool</td>
+          <td class="us">기존 mempool</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <strong>Why not ERC-4337?</strong> UserOp 포맷·EntryPoint·Bundler 네트워크가 주는 유연성은 컸지만, <em>게임 세션 키 UX라는 단일 요구</em>에 비해 과잉. 우리는 <code>executeAsSession</code> 하나에 sig를 calldata로 담아 기존 tx mempool로 흘려보내는 쪽을 택했습니다. 훗날 ERC-4337 host에도 올리고 싶다면 Hub이 <code>IAccount</code> 구현 추가하면 됩니다.
+  </div>
+</section>
+
+<!-- 08 DECISIONS -->
+<section id="decisions">
+  <div class="section-head"><span class="num">08</span><h2>주요 설계 결정</h2></div>
+  <p class="section-sub">각 결정에는 버린 대안이 있습니다. 그 대안을 명시적으로 기록해두는 게 설계의 일관성을 유지하는 유일한 방법입니다.</p>
+
+  <div class="dec-wrap">
+    <table class="dec">
+      <thead>
+        <tr>
+          <th class="us">선택한 것</th>
+          <th>버린 대안</th>
+          <th>근거</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="pick">사용자당 1개 Hub</td>
+          <td class="alt">게임당 1개 Hub (Hub × games)</td>
+          <td>게임이 늘 때마다 Hub가 늘면 키 관리 복잡. 하나의 Hub에 per-game balance slot으로 격리하면 충분.</td>
+        </tr>
+        <tr>
+          <td class="pick">SKM을 Hub에 분리</td>
+          <td class="alt">Hub 내부 <code>mapping(skey => Scope)</code></td>
+          <td>프리디플로이 승격 용이. 모든 Hub이 공유하는 global 레지스트리 → Phase 4에서 genesis에 하드코딩.</td>
+        </tr>
+        <tr>
+          <td class="pick">GameRegistry 분리</td>
+          <td class="alt">Hub마다 자체 화이트리스트</td>
+          <td>게임 등록을 탈중앙화. 게임 배포자가 자기 생성자에서 <code>register()</code> 호출하면 끝. 중앙 권한자 없음.</td>
+        </tr>
+        <tr>
+          <td class="pick">CREATE2 salt = owner 주소</td>
+          <td class="alt"><code>keccak(owner, seed)</code> with seed</td>
+          <td>owner만 알면 Hub 주소 계산 가능 → pre-onboarding UI, 주소 예측 가능성 확보.</td>
+        </tr>
+        <tr>
+          <td class="pick">ECDSA(secp256k1)만</td>
+          <td class="alt">WebAuthn/passkey (secp256r1)</td>
+          <td>MVP 단순성. OP Stack에 P256 precompile 이미 있으므로 Phase 후반에 multi-sig-scheme으로 확장 가능.</td>
+        </tr>
+        <tr>
+          <td class="pick"><code>\x19Ethereum Signed Message</code> digest</td>
+          <td class="alt">EIP-712 structured data</td>
+          <td>짧고 빈번한 게임 sig에 대한 복잡도 vs. 이득 판단. 지갑/브라우저 기본 지원.</td>
+        </tr>
+        <tr>
+          <td class="pick">누구나 tx 제출 가능</td>
+          <td class="alt">화이트리스트된 Bundler만</td>
+          <td>검열 저항, bundler 네트워크 운영 부담 없음. Sig 검증은 Hub이 하므로 제출자는 trust boundary 밖.</td>
+        </tr>
+        <tr>
+          <td class="pick">세션 키 = 게임 1개</td>
+          <td class="alt">세션 키 = 복수 게임 scope</td>
+          <td>Scope 구조 단순화. 게임 간 권한 격리 명시적. 복수 게임 쓰려면 게임당 세션 키 발급.</td>
+        </tr>
+        <tr>
+          <td class="pick">세션 키는 인출 불가</td>
+          <td class="alt">cap 내에서 인출 허용</td>
+          <td>"세션 키 = 소비 권한, 인출은 main wallet" 원칙. 유출 시 자금 완전 보호.</td>
+        </tr>
+        <tr>
+          <td class="pick"><code>onlyOwnerOrFactory</code></td>
+          <td class="alt"><code>onlyOwner</code>만</td>
+          <td>Factory가 원자적 온보딩 수행 가능하게. Factory는 trusted predeploy이므로 권한 uplift 경로로 허용.</td>
+        </tr>
+        <tr>
+          <td class="pick">Per-game balance slot</td>
+          <td class="alt">단일 pool <code>balance</code></td>
+          <td>한 게임 버그가 다른 게임 자금 위협하지 않음. 세션 키 scope와 1:1 대응.</td>
+        </tr>
+        <tr>
+          <td class="pick"><code>canCall</code>은 view, <code>consume</code>은 mutation</td>
+          <td class="alt">단일 <code>consumeIfAllowed</code></td>
+          <td>의사결정 주체를 Hub으로 명시. Hub이 판단 후 상태 변경 명령. SKM은 저장소 역할.</td>
+        </tr>
+        <tr>
+          <td class="pick">Paymaster 없음 (Phase 1)</td>
+          <td class="alt">초기부터 Paymaster 포함</td>
+          <td>MVP scope 축소. 현재 Relayer가 자기 가스 지불 후 오프체인 비즈니스 모델로 회수.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 09 ROADMAP -->
+<section id="roadmap">
+  <div class="section-head"><span class="num">09</span><h2>단계적 로드맵</h2></div>
+  <p class="section-sub">프로토콜 enshrining은 설계가 안정화된 뒤에. 각 phase는 이전 phase의 결과로 결정이 바뀔 수 있음을 전제합니다.</p>
+
+  <div class="roadmap">
+    <div class="phase done">
+      <div class="marker">PHASE 1 · DONE</div>
+      <div class="body">
+        <h4>Solidity 프로토타입</h4>
+        <div class="ph-sub">contracts/src/aa/ — 4개 컨트랙트 + Foundry 테스트</div>
+        <div class="ph-list">4개 컨트랙트(GameHubAccount, GameHubFactory, SessionKeyManager, GameRegistry) 구현 완료. <code>contracts/test/SessionAccounts.t.sol</code>이 3가지 lifecycle(deposit / play / withdraw) 커버.</div>
+        <div class="ph-why">컨트랙트로 먼저 만드는 이유: 프로토콜 포크에 고정하기 전에 설계 검증. 잘못된 설계를 genesis에 하드코딩하면 되돌리기 어려움.</div>
+      </div>
+    </div>
+
+    <div class="phase now">
+      <div class="marker">PHASE 2 · NOW</div>
+      <div class="body">
+        <h4>브라우저 E2E 데모</h4>
+        <div class="ph-sub">demo/session-play.html — 지갑 연결, 실제 체인 상호작용</div>
+        <div class="ph-list">UX 목표(1 서명 → 0 서명) 실제로 달성되는지 검증. SDK 수준의 세션 키 관리(localStorage, refill 플로우, revoke 버튼) 프로토타이핑.</div>
+        <div class="ph-why">실 사용자 터치포인트 검증 없이 Phase 3-4 넘어가면 설계의 ergonomic 결함 놓침.</div>
+      </div>
+    </div>
+
+    <div class="phase next">
+      <div class="marker">PHASE 3 · NEXT</div>
+      <div class="body">
+        <h4>EIP-7702 통합</h4>
+        <div class="ph-sub">기존 EOA가 Hub 구현을 delegation target으로 사용</div>
+        <div class="ph-list">사용자가 "별도 Hub 주소"를 갖지 않고 자기 EOA 자체가 Hub처럼 동작. Phase 1-2 인터페이스는 유지, EOA-address 경로만 추가.</div>
+        <div class="ph-why">"Hub 주소 따로 관리" 멘탈 모델을 제거해서 기존 지갑 사용자의 온보딩 장벽 낮춤.</div>
+      </div>
+    </div>
+
+    <div class="phase next">
+      <div class="marker">PHASE 4 · NEXT</div>
+      <div class="body">
+        <h4>프로토콜 enshrining</h4>
+        <div class="ph-sub">op-geth 프리디플로이 + optimism 포크 설정</div>
+        <div class="ph-list">Factory / SKM / Registry를 <code>0x42…A0/A1/A2</code>에 genesis로 하드코딩. VRF처럼 enshrined 프리미티브가 됨.</div>
+        <div class="ph-why">설계가 안정된 뒤에만 — Phase 1-3에서 검증된 인터페이스만 영구 고정. 변경 비용이 큰 결정이므로 마지막에.</div>
+      </div>
+    </div>
+
+    <div class="phase later">
+      <div class="marker">PHASE 5 · LATER</div>
+      <div class="body">
+        <h4>GamePaymaster (옵션)</h4>
+        <div class="ph-sub">게임이 자기 유저의 가스 후원</div>
+        <div class="ph-list">새 프리디플로이 <code>0x42…A3</code>. 게임이 "내가 내는 대신 유저를 더 얻겠다" 선택 시만 사용.</div>
+        <div class="ph-why">수요가 실제로 있을 때만. Phase 1-4 없이도 Relayer가 가스 내고 오프체인에서 회수 가능.</div>
+      </div>
+    </div>
+
+    <div class="phase later">
+      <div class="marker">PHASE 6 · LATER</div>
+      <div class="body">
+        <h4>Native AA (RIP-7560) 검토</h4>
+        <div class="ph-sub">gas/sequencer ergonomics 요구가 생길 때만</div>
+        <div class="ph-list">현재 <code>executeAsSession</code>이 일반 tx로 충분하지만, throughput 병목이나 gas model 변화 필요 시 고려.</div>
+        <div class="ph-why">"일반 tx + 컨트랙트 검증" 모델이 충분히 좋아서 지금은 불필요. 미래 요구에 열어둠.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Nav -->
+<div class="nav">
+  <a href="aa-flow.html">← AA Flow Simulator</a>
+  <a href="session-accounts.html">Architecture Overview</a>
+  <a href="session-play.html">Live Chain Demo</a>
+  <a href="https://github.com/tokamak-network/enshrined-vrf/tree/main/contracts/src/aa" target="_blank">source · contracts/src/aa/</a>
+  <a href="https://github.com/tokamak-network/enshrined-vrf/blob/main/docs/session-accounts.md" target="_blank">docs/session-accounts.md</a>
+</div>
+
+</div>
+
+<script>
+// smooth-scroll for in-page ToC
+document.querySelectorAll('.toc a').forEach(a => {
+  a.addEventListener('click', e => {
+    const id = a.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) { e.preventDefault(); el.scrollIntoView({behavior:'smooth', block:'start'}); history.replaceState(null, '', '#' + id); }
+  });
+});
+</script>
+
+</body>
+</html>

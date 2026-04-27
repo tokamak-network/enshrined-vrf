@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Accounts — Visual Walkthrough</title>
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#09090b;--s1:#111114;--s2:#18181b;--s3:#1f1f23;--s4:#26262b;
+  --brd:#27272a;--brd2:#3f3f46;
+  --t:#fafafa;--td:#a1a1aa;--tm:#52525b;
+  --ac:#818cf8;--acd:rgba(129,140,248,.12);
+  --g:#34d399;--gd:rgba(52,211,153,.12);
+  --r:#f87171;--rd:rgba(248,113,113,.12);
+  --y:#fbbf24;--yd:rgba(251,191,36,.12);
+  --cy:#22d3ee;--cyd:rgba(34,211,238,.12);
+  --p:#c084fc;--pd:rgba(192,132,252,.12);
+  --o:#fb923c;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t);font-family:'Geist',sans-serif;-webkit-font-smoothing:antialiased;line-height:1.55;overflow-x:hidden}
+.wrap{max-width:1280px;margin:0 auto;padding:44px 28px 100px}
+
+.eyebrow{display:inline-block;font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--ac);background:var(--acd);padding:4px 10px;border-radius:12px;border:1px solid rgba(129,140,248,.25);margin-bottom:18px;letter-spacing:.06em}
+.hero{margin-bottom:72px;max-width:820px}
+h1{font-size:2.6rem;font-weight:700;letter-spacing:-.035em;line-height:1.08;margin-bottom:14px}
+h1 .a{color:var(--ac)} h1 .g{color:var(--g)} h1 .y{color:var(--y)} h1 .r{color:var(--r)}
+.lead{color:var(--td);font-size:1rem;line-height:1.7}
+.lead strong{color:var(--t);font-weight:600}
+
+.section-title{display:flex;align-items:baseline;gap:14px;margin-bottom:14px;margin-top:10px}
+.section-title h2{font-size:1.45rem;font-weight:700;letter-spacing:-.025em}
+.section-title .num{font-family:'Geist Mono',monospace;font-size:.72rem;color:var(--tm);letter-spacing:.1em}
+.section-sub{font-size:.88rem;color:var(--td);margin-bottom:32px;max-width:760px;line-height:1.65}
+section{margin-bottom:84px}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 1 — The Problem vs The Magic (two animated phones)
+   ═══════════════════════════════════════════════════════════════ */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media (max-width:900px){.compare{grid-template-columns:1fr}}
+.phone-wrap{display:flex;flex-direction:column;align-items:center;gap:18px}
+.phone-label{font-family:'Geist Mono',monospace;font-size:.7rem;letter-spacing:.08em;padding:5px 12px;border-radius:14px;border:1px solid}
+.phone-label.bad{color:var(--r);background:var(--rd);border-color:rgba(248,113,113,.3)}
+.phone-label.good{color:var(--g);background:var(--gd);border-color:rgba(52,211,153,.3)}
+
+.phone{width:280px;height:520px;background:linear-gradient(180deg,#000,#0a0a0b);border:3px solid #2a2a2e;border-radius:36px;padding:18px 14px;position:relative;box-shadow:0 24px 60px -20px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04)}
+.phone::before{content:'';position:absolute;top:14px;left:50%;transform:translateX(-50%);width:62px;height:5px;background:#1a1a1d;border-radius:3px}
+.screen{width:100%;height:100%;background:radial-gradient(ellipse at top,#141419 0%,#09090b 100%);border-radius:24px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.screen-top{padding:26px 16px 14px;text-align:center;border-bottom:1px solid var(--brd)}
+.screen-top .title{font-size:.82rem;font-weight:600;color:var(--t);letter-spacing:-.01em}
+.screen-top .sub{font-size:.62rem;color:var(--tm);font-family:'Geist Mono',monospace;margin-top:2px}
+.coin-area{flex:1;display:flex;align-items:center;justify-content:center;position:relative}
+.coin{width:110px;height:110px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--y),#a8740a);box-shadow:0 8px 30px -6px rgba(251,191,36,.45), inset 0 2px 8px rgba(255,255,255,.2), inset 0 -6px 12px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-weight:700;color:#3a2800;font-size:1.4rem;transition:transform .4s cubic-bezier(.4,1.4,.6,1)}
+.coin.flipping{animation:flip .6s ease-in-out}
+@keyframes flip{0%,100%{transform:rotateY(0)}50%{transform:rotateY(180deg) scale(.92)}}
+.result-line{position:absolute;bottom:100px;left:0;right:0;text-align:center;font-family:'Geist Mono',monospace;font-size:.78rem;color:var(--td);min-height:18px}
+.result-line .heads{color:var(--g)} .result-line .tails{color:var(--r)}
+.btn-flip{margin:0 16px 18px;padding:14px;border-radius:12px;background:linear-gradient(180deg,var(--ac),#5b6ae6);color:#fff;font-weight:600;font-size:.95rem;border:none;cursor:pointer;box-shadow:0 6px 18px -6px rgba(129,140,248,.5)}
+.btn-flip:active{transform:translateY(1px)}
+
+/* signature modal (only on "bad" phone) */
+.sig-modal{position:absolute;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.sig-modal.show{opacity:1;pointer-events:auto}
+.sig-sheet{width:100%;background:#0f0f12;border-top:1px solid var(--brd);border-radius:20px 20px 0 0;padding:22px 16px 18px;transform:translateY(100%);transition:transform .3s cubic-bezier(.3,1.2,.4,1)}
+.sig-modal.show .sig-sheet{transform:translateY(0)}
+.sig-sheet .h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sig-sheet .warn-icon{width:22px;height:22px;border-radius:50%;background:var(--r);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.72rem;font-weight:700}
+.sig-sheet .h-title{font-size:.82rem;font-weight:600}
+.sig-sheet .h-addr{font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--tm);margin-bottom:14px}
+.sig-sheet .payload{font-family:'Geist Mono',monospace;font-size:.64rem;background:#000;border:1px solid var(--brd);border-radius:6px;padding:8px 10px;color:var(--td);word-break:break-all;margin-bottom:12px;line-height:1.5}
+.sig-sheet .btns{display:flex;gap:8px}
+.sig-sheet button{flex:1;padding:10px;border-radius:8px;border:none;font-weight:600;font-size:.78rem;cursor:pointer}
+.sig-sheet .rej{background:#2a2a2e;color:var(--td)}
+.sig-sheet .sgn{background:var(--ac);color:#fff}
+
+/* counter under phone */
+.counters{display:flex;gap:10px;width:280px}
+.ctr{flex:1;background:var(--s1);border:1px solid var(--brd);border-radius:10px;padding:12px 14px;text-align:center}
+.ctr .k{font-family:'Geist Mono',monospace;font-size:.58rem;color:var(--tm);letter-spacing:.08em;margin-bottom:4px}
+.ctr .v{font-family:'Geist Mono',monospace;font-size:1.3rem;font-weight:700}
+.ctr .v.y{color:var(--y)} .ctr .v.g{color:var(--g)} .ctr .v.r{color:var(--r)}
+
+.play-ctrl{display:flex;gap:10px;justify-content:center;margin-top:28px}
+.play-ctrl button{background:var(--ac);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:600;font-size:.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-family:'Geist',sans-serif}
+.play-ctrl button:hover{filter:brightness(1.1)}
+.play-ctrl button.ghost{background:transparent;border:1px solid var(--brd2);color:var(--t)}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 2 — The three layers (visual metaphor)
+   ═══════════════════════════════════════════════════════════════ */
+.layers{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px;align-items:stretch}
+@media (max-width:900px){.layers{grid-template-columns:1fr}}
+.lcard{background:var(--s1);border:1px solid var(--brd);border-radius:16px;padding:28px 24px;position:relative;overflow:hidden;transition:border-color .15s}
+.lcard::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top,currentColor,transparent 65%);opacity:.05;pointer-events:none}
+.lcard.l1{color:var(--y)} .lcard.l1{border-color:rgba(251,191,36,.3)}
+.lcard.l2{color:var(--ac)} .lcard.l2{border-color:rgba(129,140,248,.3)}
+.lcard.l3{color:var(--p)} .lcard.l3{border-color:rgba(192,132,252,.3)}
+.lcard .role{font-family:'Geist Mono',monospace;font-size:.6rem;letter-spacing:.1em;color:currentColor;opacity:.8;margin-bottom:10px}
+.lcard h3{font-size:1.1rem;color:var(--t);font-weight:600;margin-bottom:8px;letter-spacing:-.01em}
+.lcard .desc{font-size:.82rem;color:var(--td);line-height:1.6;margin-bottom:22px}
+.lcard .viz{height:150px;display:flex;align-items:center;justify-content:center;position:relative}
+
+/* L1: Vault */
+.vault{width:120px;height:100px;background:linear-gradient(180deg,#3d3519,#2a2310);border:2px solid var(--y);border-radius:12px;position:relative;box-shadow:0 10px 30px -10px rgba(251,191,36,.3), inset 0 1px 0 rgba(255,255,255,.08)}
+.vault::before{content:'';position:absolute;inset:10px;border:1px dashed rgba(251,191,36,.35);border-radius:7px}
+.vault::after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border:3px solid var(--y);border-radius:50%;background:radial-gradient(circle,#2a2310,#1a1508)}
+.vault-lbl{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--y);letter-spacing:.06em}
+
+/* L2: Hub with game slots */
+.hub-box{width:160px;height:110px;background:linear-gradient(180deg,#1c1d3a,#12132b);border:2px solid var(--ac);border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;box-shadow:0 10px 30px -10px rgba(129,140,248,.3)}
+.hub-slot{background:rgba(129,140,248,.1);border:1px dashed rgba(129,140,248,.35);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px}
+.hub-slot .emoji{font-size:1.1rem}
+.hub-slot .g-name{font-family:'Geist Mono',monospace;font-size:.52rem;color:var(--ac);margin-top:2px}
+.hub-slot .g-bal{font-family:'Geist Mono',monospace;font-size:.54rem;color:var(--t);font-weight:600}
+
+/* L3: Session keycards */
+.keys-stack{position:relative;width:170px;height:130px}
+.keycard{position:absolute;width:160px;height:100px;background:linear-gradient(135deg,#3b1f4d,#2a1338);border:1px solid var(--p);border-radius:10px;padding:10px 12px;color:#e9d5ff;transition:transform .3s;box-shadow:0 8px 22px -8px rgba(192,132,252,.4)}
+.keycard:nth-child(1){top:0;left:0;transform:rotate(-4deg) translateX(-6px)}
+.keycard:nth-child(2){top:14px;left:0;transform:rotate(0deg)}
+.keycard:nth-child(3){top:28px;left:0;transform:rotate(4deg) translateX(6px);z-index:3}
+.keycard .kc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.keycard .kc-g{font-family:'Geist Mono',monospace;font-size:.58rem;color:var(--p);opacity:.9}
+.keycard .kc-emoji{font-size:.95rem}
+.keycard .kc-meter{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-bottom:5px}
+.keycard .kc-bar{height:100%;background:linear-gradient(90deg,var(--p),var(--ac))}
+.keycard .kc-kv{display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:.54rem;color:rgba(255,255,255,.6)}
+.keycard .kc-val{color:#fff;font-weight:600}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 3 — Interactive stage
+   ═══════════════════════════════════════════════════════════════ */
+.tabs{display:flex;gap:6px;margin-bottom:22px;background:var(--s2);padding:5px;border-radius:10px;border:1px solid var(--brd);max-width:780px}
+.tab{flex:1;padding:11px 14px;font-family:'Geist',sans-serif;font-size:.82rem;font-weight:500;color:var(--td);background:transparent;border:none;border-radius:7px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px;transition:all .15s}
+.tab:hover{color:var(--t);background:var(--s3)}
+.tab.on{color:var(--t);background:var(--s3);box-shadow:inset 0 0 0 1px var(--brd2)}
+.tab .tn{font-family:'Geist Mono',monospace;font-size:.6rem;letter-spacing:.05em}
+.tab.on[data-flow="onboard"] .tn{color:var(--y)}
+.tab.on[data-flow="play"] .tn{color:var(--g)}
+.tab.on[data-flow="withdraw"] .tn{color:var(--r)}
+
+.stage{background:var(--s1);border:1px solid var(--brd);border-radius:16px;padding:28px 24px;position:relative;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-areas:"actors code" "narr code" "ctrl code";gap:18px 22px}
+@media (max-width:1080px){.stage{grid-template-columns:1fr;grid-template-areas:"actors" "code" "narr" "ctrl"}}
+.stage > .stage-actors{grid-area:actors}
+.stage > .narration{grid-area:narr;margin-top:0}
+.stage > .stage-controls{grid-area:ctrl;margin-top:0;padding-top:16px;border-top:1px solid var(--brd)}
+.stage > .live-code{grid-area:code;margin-top:0;align-self:stretch;display:flex;flex-direction:column}
+.stage > .live-code .live-code-body{flex:1;max-height:none}
+.stage-actors{display:flex;flex-direction:column;gap:6px;align-items:stretch;position:relative;z-index:2}
+.actor{background:var(--s2);border:2px solid var(--brd);border-radius:12px;padding:14px 16px;transition:all .25s;position:relative;display:grid;grid-template-columns:48px 1fr auto;grid-auto-rows:auto;column-gap:14px;row-gap:4px;text-align:left}
+.actor.active{border-color:var(--ac);box-shadow:0 0 0 4px rgba(129,140,248,.15)}
+.actor.busy{animation:pulse 1.2s ease infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(129,140,248,.15)}50%{box-shadow:0 0 0 8px rgba(129,140,248,.25)}}
+.actor .ico{font-size:1.95rem;line-height:1;text-align:center;grid-column:1;grid-row:1 / span 2;align-self:center}
+.actor .name{font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--tm);letter-spacing:.05em;grid-column:2;grid-row:1;align-self:end;margin:0}
+.actor .label{font-size:.94rem;font-weight:600;letter-spacing:-.01em;grid-column:2;grid-row:2;align-self:start;margin:0}
+.actor .state-pill{grid-column:3;grid-row:1 / span 2;align-self:center;margin:0;font-family:'Geist Mono',monospace;font-size:.6rem;padding:5px 10px;border-radius:10px;background:var(--s3);color:var(--td);white-space:nowrap;justify-self:end;max-width:none;overflow:visible;text-overflow:clip}
+.actor .hub-slots{grid-column:1 / -1;grid-row:3;margin-top:8px;padding-top:10px;border-top:1px dashed var(--brd)}
+.actor .skey-mini{grid-column:1 / -1;grid-row:4;margin-top:6px}
+.actor.eoa .label{color:var(--y)}
+.actor.hub .label{color:var(--ac)}
+.actor.game .label{color:var(--cy)}
+.actor.browser{border-color:rgba(192,132,252,.25)}
+.actor.browser .label{color:var(--p)}
+.actor.browser.active{border-color:var(--p);box-shadow:0 0 0 4px rgba(192,132,252,.15)}
+.actor.relayer{border-color:rgba(34,211,238,.22)}
+.actor.relayer .label{color:var(--cy)}
+.actor.relayer.active{border-color:var(--cy);box-shadow:0 0 0 4px rgba(34,211,238,.15)}
+.browser-key{grid-column:1 / -1;grid-row:3;margin-top:6px;padding:6px 10px;background:linear-gradient(135deg,#2a1338,#3b1f4d);border:1px solid var(--p);border-radius:6px;font-family:'Geist Mono',monospace;font-size:.62rem;color:#e9d5ff;display:flex;align-items:center;gap:8px;opacity:0;transform:scale(.9);transition:all .3s}
+.browser-key.show{opacity:1;transform:scale(1)}
+.browser-key .kc-ico{font-size:.85rem}
+.browser-key .kc-addr{color:#fff;font-weight:600}
+
+/* meta banner — shows signer/submitter/gas per step */
+.meta-banner{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:9px 12px;background:var(--s2);border:1px dashed var(--brd2);border-radius:8px}
+.mb-pill{font-family:'Geist Mono',monospace;font-size:.58rem;letter-spacing:.05em;padding:4px 9px;border-radius:10px;background:var(--s3);color:var(--td);display:inline-flex;align-items:center;gap:6px;flex:1;justify-content:center;min-width:0;white-space:nowrap}
+.mb-pill .mb-k{color:var(--tm);text-transform:uppercase;font-size:.54rem;letter-spacing:.08em;margin-right:4px;flex-shrink:0}
+.mb-pill .mb-v{overflow:hidden;text-overflow:ellipsis}
+.mb-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--tm);flex-shrink:0;transition:background .2s}
+.mb-pill.eoa{color:var(--y)} .mb-pill.eoa .dot{background:var(--y)}
+.mb-pill.skey{color:var(--p)} .mb-pill.skey .dot{background:var(--p)}
+.mb-pill.relayer{color:var(--cy)} .mb-pill.relayer .dot{background:var(--cy)}
+
+/* envelope orb — represents an off-chain signed message */
+.orb.env{width:22px;height:14px;border-radius:3px;background:linear-gradient(180deg,#8b5cf6,#5b21b6);border:1px solid #c4b5fd;box-shadow:0 0 14px rgba(192,132,252,.6),inset 0 1px 0 rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:.5rem;color:#fff;font-weight:700;letter-spacing:.05em}
+.orb.env::after{content:'sig'}
+.orb.tx{width:24px;height:16px;border-radius:3px;background:linear-gradient(180deg,#22d3ee,#0891b2);border:1px solid #a5f3fc;box-shadow:0 0 14px rgba(34,211,238,.6);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:.48rem;color:#0a1a1f;font-weight:700}
+.orb.tx::after{content:'TX'}
+.actor .state-pill{margin-top:8px;font-family:'Geist Mono',monospace;font-size:.56rem;padding:3px 7px;border-radius:10px;background:var(--s3);color:var(--td);display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.connector{display:flex;align-items:center;justify-content:center;position:relative;width:100%;min-height:32px;padding:2px 0;gap:12px}
+.connector .line{width:2px;height:24px;background:linear-gradient(180deg,transparent,var(--brd),transparent);position:relative}
+.connector.lit .line{background:linear-gradient(180deg,transparent,var(--ac),transparent);box-shadow:0 0 14px rgba(129,140,248,.5)}
+.connector.lit-r .line{background:linear-gradient(0deg,transparent,var(--g),transparent)}
+.connector .line::after{content:'';position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--brd);opacity:0;transition:opacity .2s}
+.connector.lit .line::after{opacity:1;border-top-color:var(--ac)}
+.connector.lit-r .line::after{content:none}
+.connector.lit-r .line::before{content:'';position:absolute;left:50%;top:-3px;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:5px solid var(--g)}
+.connector .tag{position:static;transform:none;top:auto;left:auto;font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--tm);background:var(--s1);padding:3px 9px;border-radius:8px;white-space:nowrap;border:1px solid var(--brd);opacity:0;transition:opacity .2s}
+.connector.lit .tag,.connector.lit-r .tag{opacity:1;color:var(--ac);border-color:rgba(129,140,248,.3)}
+
+/* money orbs flying along connectors */
+.orb{position:absolute;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--y),#a8740a);box-shadow:0 0 12px var(--y),inset 0 1px 2px rgba(255,255,255,.3);pointer-events:none;z-index:10}
+.orb.sig{background:radial-gradient(circle at 35% 30%,#fff,var(--r));box-shadow:0 0 14px var(--r)}
+.orb.skey{background:radial-gradient(circle at 35% 30%,#fff,var(--p));box-shadow:0 0 12px var(--p)}
+
+/* signature badge flashing over EOA */
+.sig-toast{position:absolute;top:-14px;right:-14px;background:var(--y);color:#3a2800;font-family:'Geist Mono',monospace;font-size:.6rem;padding:3px 8px;border-radius:10px;font-weight:700;letter-spacing:.05em;opacity:0;transform:translateY(4px);transition:all .3s;box-shadow:0 4px 14px rgba(251,191,36,.4)}
+.sig-toast.show{opacity:1;transform:translateY(0)}
+
+/* hub slots (inside Hub actor) */
+.hub-slots{display:flex;gap:4px;justify-content:center;margin-top:6px;flex-wrap:wrap}
+.hub-slots .slot{min-width:36px;background:rgba(129,140,248,.1);border:1px dashed rgba(129,140,248,.3);border-radius:4px;padding:3px 4px;font-family:'Geist Mono',monospace;font-size:.5rem;color:var(--ac);text-align:center}
+.hub-slots .slot .e{font-size:.78rem;display:block}
+.hub-slots .slot .b{color:var(--t);font-weight:600}
+
+/* small session key attached to eoa/hub */
+.skey-mini{margin-top:8px;padding:6px 8px;background:linear-gradient(135deg,#2a1338,#3b1f4d);border:1px solid var(--p);border-radius:6px;display:flex;flex-direction:column;gap:3px;opacity:0;transform:scale(.9);transition:all .3s}
+.skey-mini.show{opacity:1;transform:scale(1)}
+.skey-mini .mhead{display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:.58rem;color:#e9d5ff}
+.skey-mini .mbar{height:5px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
+.skey-mini .mfill{height:100%;background:linear-gradient(90deg,var(--p),var(--ac));transition:width .5s}
+.skey-mini .mmeta{display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:.52rem;color:rgba(255,255,255,.6)}
+.skey-mini .mmeta .v{color:#fff;font-weight:600}
+
+/* narration box */
+.narration{background:var(--s2);border:1px solid var(--brd);border-radius:12px;padding:18px 22px;margin-top:28px;min-height:72px;display:flex;align-items:center;gap:14px}
+.narration .step-num{font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--tm);background:var(--s3);padding:4px 9px;border-radius:6px;white-space:nowrap}
+.narration .txt{font-size:.92rem;color:var(--t);line-height:1.55}
+.narration .txt strong{color:var(--ac)}
+.narration .txt em{color:var(--y);font-style:normal}
+
+/* bottom controls */
+.stage-controls{display:flex;gap:12px;align-items:center;margin-top:22px;flex-wrap:wrap}
+.stage-controls button{background:var(--ac);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:600;font-size:.82rem;cursor:pointer;font-family:'Geist',sans-serif;display:inline-flex;align-items:center;gap:8px}
+.stage-controls button:hover:not(:disabled){filter:brightness(1.1)}
+.stage-controls button:disabled{opacity:.35;cursor:not-allowed}
+.stage-controls button.ghost{background:transparent;border:1px solid var(--brd2);color:var(--t)}
+.stage-controls .dot-prog{display:flex;gap:5px;margin-left:auto}
+.stage-controls .dot-prog .d{width:8px;height:8px;border-radius:50%;background:var(--s3);transition:all .2s}
+.stage-controls .dot-prog .d.done{background:var(--ac)}
+.stage-controls .dot-prog .d.cur{background:var(--ac);box-shadow:0 0 0 3px rgba(129,140,248,.3)}
+
+/* live code panel — synced with stage animation */
+.live-code{background:#000;border:1px solid var(--brd);border-radius:10px;margin-top:20px;overflow:hidden}
+.live-code-head{background:var(--s2);padding:10px 14px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center;font-family:'Geist Mono',monospace;font-size:.68rem;flex-wrap:wrap;gap:8px}
+.live-code-head .file{color:var(--ac);font-weight:600}
+.live-code-head .fn{color:var(--tm);font-size:.62rem;margin-left:10px}
+.live-code-head .running{display:inline-flex;align-items:center;gap:6px;color:var(--g);font-size:.58rem;letter-spacing:.08em;padding:3px 8px;background:var(--gd);border-radius:10px;border:1px solid rgba(52,211,153,.25)}
+.live-code-head .running .d{width:6px;height:6px;border-radius:50%;background:var(--g);animation:pulse-dot 1s ease infinite}
+.live-code-head .running.idle{color:var(--tm);background:var(--s3);border-color:var(--brd)}
+.live-code-head .running.idle .d{background:var(--tm);animation:none}
+.live-code-head .running.revert{color:var(--r);background:var(--rd);border-color:rgba(248,113,113,.3)}
+.live-code-head .running.revert .d{background:var(--r)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.live-code-body{padding:12px 0;max-height:260px;overflow-y:auto;font-family:'Geist Mono',monospace;font-size:.72rem;line-height:1.7}
+.live-code-body .cl{display:grid;grid-template-columns:18px 34px 1fr;gap:0;padding:0;white-space:pre;transition:background .15s}
+.live-code-body .cl .gut{color:transparent;text-align:center;user-select:none;font-weight:700;font-size:.72rem;line-height:1.7}
+.live-code-body .cl .ln{color:var(--tm);text-align:right;padding-right:10px;border-right:1px solid var(--brd);user-select:none;font-size:.66rem;line-height:1.7}
+.live-code-body .cl .cd{padding-left:12px;color:var(--td);min-height:1.7em}
+.live-code-body .cl.visited{background:rgba(129,140,248,.04)}
+.live-code-body .cl.visited .cd{color:#8892a8}
+.live-code-body .cl.hl{background:rgba(129,140,248,.15);box-shadow:inset 3px 0 0 var(--ac)}
+.live-code-body .cl.hl .cd{color:var(--t)}
+.live-code-body .cl.hl .ln{color:var(--ac)}
+.live-code-body .cl.hl .gut{color:var(--ac)}
+.live-code-body .cl.hl-r{background:rgba(248,113,113,.15);box-shadow:inset 3px 0 0 var(--r)}
+.live-code-body .cl.hl-r .cd{color:var(--t)}
+.live-code-body .cl.hl-r .ln{color:var(--r)}
+.live-code-body .cl.hl-r .gut{color:var(--r)}
+.live-code-empty{padding:24px 20px;text-align:center;color:var(--tm);font-family:'Geist Mono',monospace;font-size:.72rem;font-style:italic}
+.live-code-note{padding:12px 16px;border-top:1px solid var(--brd);background:var(--s2);font-family:'Geist Mono',monospace;font-size:.72rem;min-height:46px;display:flex;align-items:center;gap:10px;transition:background .2s}
+.live-code-note.revert{background:rgba(248,113,113,.06)}
+.live-code-note .arrow-indicator{color:var(--ac);font-size:1rem;flex-shrink:0}
+.live-code-note.revert .arrow-indicator{color:var(--r)}
+.live-code-note .note-txt{color:var(--t);line-height:1.55}
+.live-code-note .note-txt .kw{color:var(--cy);background:var(--s3);padding:1px 5px;border-radius:3px}
+.live-code-note .note-txt .ok{color:var(--g);font-weight:600}
+.live-code-note .note-txt .bad{color:var(--r);font-weight:600}
+.live-code-note .note-txt .val{color:var(--y)}
+.live-code-note .note-label{color:var(--tm);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;margin-right:4px;flex-shrink:0}
+.call-stack{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:8px 14px 0;font-family:'Geist Mono',monospace;font-size:.6rem}
+.call-stack .frame{background:var(--s3);padding:2px 7px;border-radius:4px;color:var(--td);border:1px solid var(--brd)}
+.call-stack .frame.top{background:var(--acd);color:var(--ac);border-color:rgba(129,140,248,.3)}
+.call-stack .sep{color:var(--tm);margin:0 2px}
+.call-stack .label{color:var(--tm);letter-spacing:.06em;margin-right:6px}
+.tk-k{color:#f472b6}.tk-t{color:var(--cy)}.tk-s{color:var(--g)}.tk-n{color:var(--o)}.tk-c{color:var(--tm);font-style:italic}.tk-f{color:var(--y)}
+
+.nav{display:flex;gap:12px;justify-content:center;margin-top:48px;padding-top:32px;border-top:1px solid var(--brd);flex-wrap:wrap}
+.nav a{font-family:'Geist Mono',monospace;font-size:.74rem;color:var(--td);text-decoration:none;padding:8px 14px;border:1px solid var(--brd);border-radius:8px;transition:all .15s}
+.nav a:hover{color:var(--ac);border-color:var(--ac)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<div class="hero">
+  <span class="eyebrow">VISUAL WALKTHROUGH · AA + SESSION KEYS</span>
+  <h1>The magic of <span class="r">no wallet popups</span> during gameplay.<br>What actually happens under the hood?</h1>
+  <p class="lead">
+    Classic Web3 games trigger a <strong>signature popup on every click</strong>. A Session Account signs
+    <strong>just once at deposit</strong>, and the main wallet stays out of the way for the rest of the session.
+    Below: (1) the feel of it, (2) the structure, and (3) the actual internal flow — in order.
+  </p>
+</div>
+
+<!-- ══════ SECTION 1 ══════ -->
+<section id="s1">
+  <div class="section-title"><span class="num">01</span><h2>First, the feel</h2></div>
+  <p class="section-sub">Two phones flip a coin 5 times in parallel. Left: classic wallet. Right: Session Account.</p>
+
+  <div class="compare">
+    <div class="phone-wrap">
+      <div class="phone-label bad">● Classic wallet — sign every action</div>
+      <div class="phone" id="phone-bad">
+        <div class="screen">
+          <div class="screen-top">
+            <div class="title">🪙 CoinFlip</div>
+            <div class="sub">round <span id="bad-round">0</span> / 5</div>
+          </div>
+          <div class="coin-area">
+            <div class="coin" id="bad-coin">?</div>
+          </div>
+          <div class="result-line" id="bad-result">—</div>
+          <button class="btn-flip" id="bad-btn">FLIP</button>
+          <div class="sig-modal" id="bad-sig">
+            <div class="sig-sheet">
+              <div class="h">
+                <div class="warn-icon">!</div>
+                <div class="h-title">Confirm Transaction</div>
+              </div>
+              <div class="h-addr">0xA1…d3 · CoinFlip.flip</div>
+              <div class="payload">to: 0xCoin…Game<br>value: 0.01 ETH<br>data: 0x5638e6cd</div>
+              <div class="btns">
+                <button class="rej">Reject</button>
+                <button class="sgn">Sign</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="counters">
+        <div class="ctr"><div class="k">EOA SIGNATURES</div><div class="v r" id="bad-sigs">0</div></div>
+        <div class="ctr"><div class="k">GAMES PLAYED</div><div class="v y" id="bad-games">0</div></div>
+      </div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone-label good">● Session Account — sign once at deposit</div>
+      <div class="phone" id="phone-good">
+        <div class="screen">
+          <div class="screen-top">
+            <div class="title">🪙 CoinFlip</div>
+            <div class="sub">round <span id="good-round">0</span> / 5</div>
+          </div>
+          <div class="coin-area">
+            <div class="coin" id="good-coin">?</div>
+          </div>
+          <div class="result-line" id="good-result">—</div>
+          <button class="btn-flip" id="good-btn">FLIP</button>
+        </div>
+      </div>
+      <div class="counters">
+        <div class="ctr"><div class="k">EOA SIGNATURES</div><div class="v g" id="good-sigs">1</div></div>
+        <div class="ctr"><div class="k">GAMES PLAYED</div><div class="v y" id="good-games">0</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="play-ctrl">
+    <button id="run-compare">▶ Play both scenarios</button>
+    <button id="reset-compare" class="ghost">Reset</button>
+  </div>
+</section>
+
+<!-- ══════ SECTION 2 ══════ -->
+<section id="s2">
+  <div class="section-title"><span class="num">02</span><h2>The three layers of a Session Account</h2></div>
+  <p class="section-sub">Vault → Locker → Keycard. The metaphor maps one-to-one to three smart contracts.</p>
+
+  <div class="layers">
+    <div class="lcard l1">
+      <div class="role">LAYER 1 · MAIN WALLET</div>
+      <h3>🏦 Vault (EOA)</h3>
+      <p class="desc">The user's main wallet. Custodies all funds. Signs only on <strong>deposit</strong> and <strong>withdrawal</strong>. Stays idle during gameplay.</p>
+      <div class="viz">
+        <div style="position:relative">
+          <div class="vault"></div>
+          <div class="vault-lbl">0xA1…d3</div>
+        </div>
+      </div>
+    </div>
+    <div class="lcard l2">
+      <div class="role">LAYER 2 · SMART ACCOUNT</div>
+      <h3>📦 Hub (per-game locker)</h3>
+      <p class="desc">One smart account per user. Keeps <strong>a separate balance slot per game</strong>. Verifies session-key signatures and calls the game on the user's behalf.</p>
+      <div class="viz">
+        <div class="hub-box">
+          <div class="hub-slot"><div class="emoji">🪙</div><div class="g-name">Coin</div><div class="g-bal">0.10</div></div>
+          <div class="hub-slot"><div class="emoji">🎰</div><div class="g-name">Draw</div><div class="g-bal">0.05</div></div>
+          <div class="hub-slot"><div class="emoji">🎲</div><div class="g-name">Dice</div><div class="g-bal">0.00</div></div>
+          <div class="hub-slot"><div class="emoji">🎯</div><div class="g-name">Plinko</div><div class="g-bal">0.00</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="lcard l3">
+      <div class="role">LAYER 3 · SCOPED POWERS</div>
+      <h3>🎫 Session Keys (keycards)</h3>
+      <p class="desc">One <strong>restricted key</strong> per game. Each card is stamped with a <em>game</em>, <em>cap</em>, <em>expiry</em>, and <em>allowed selectors</em>. Cannot withdraw.</p>
+      <div class="viz">
+        <div class="keys-stack">
+          <div class="keycard">
+            <div class="kc-head"><span class="kc-g">CoinFlip</span><span class="kc-emoji">🪙</span></div>
+            <div class="kc-meter"><div class="kc-bar" style="width:86%"></div></div>
+            <div class="kc-kv"><span>cap</span><span class="kc-val">0.043 / 0.050</span></div>
+            <div class="kc-kv" style="margin-top:2px"><span>expires</span><span class="kc-val">58:41</span></div>
+          </div>
+          <div class="keycard">
+            <div class="kc-head"><span class="kc-g">DrawGame</span><span class="kc-emoji">🎰</span></div>
+            <div class="kc-meter"><div class="kc-bar" style="width:62%"></div></div>
+            <div class="kc-kv"><span>cap</span><span class="kc-val">0.031 / 0.050</span></div>
+            <div class="kc-kv" style="margin-top:2px"><span>expires</span><span class="kc-val">22:14</span></div>
+          </div>
+          <div class="keycard">
+            <div class="kc-head"><span class="kc-g">Plinko</span><span class="kc-emoji">🎯</span></div>
+            <div class="kc-meter"><div class="kc-bar" style="width:30%"></div></div>
+            <div class="kc-kv"><span>cap</span><span class="kc-val">0.030 / 0.100</span></div>
+            <div class="kc-kv" style="margin-top:2px"><span>expires</span><span class="kc-val">04:03</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ SECTION 3 ══════ -->
+<section id="s3">
+  <div class="section-title"><span class="num">03</span><h2>Internal flow simulator</h2></div>
+  <p class="section-sub">ETH flows as a <span style="color:var(--y)">yellow orb</span>; session-key signatures flow as a <span style="color:var(--p)">purple orb</span>. Whenever a main-EOA signature is required, a <span style="color:var(--r)">red badge</span> flashes.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab on" data-flow="onboard">
+      <span class="tn">ONBOARDING · 1 signature</span>
+      <span>Deposit + register session key</span>
+    </button>
+    <button class="tab" data-flow="play">
+      <span class="tn">GAMEPLAY · 0 signatures</span>
+      <span>Play continuously with the session key</span>
+    </button>
+    <button class="tab" data-flow="withdraw">
+      <span class="tn">WITHDRAWAL · 1 signature</span>
+      <span>Withdraw Hub → EOA</span>
+    </button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="stage-actors">
+      <div class="meta-banner">
+        <span class="mb-pill" id="mb-signer-pill"><span class="dot"></span><span class="mb-k">SIGNER</span><span class="mb-v" id="mb-signer">—</span></span>
+        <span class="mb-pill" id="mb-submitter-pill"><span class="dot"></span><span class="mb-k">SUBMITTER</span><span class="mb-v" id="mb-submitter">—</span></span>
+        <span class="mb-pill" id="mb-gas-pill"><span class="dot"></span><span class="mb-k">GAS</span><span class="mb-v" id="mb-gas">—</span></span>
+      </div>
+      <div class="actor eoa" id="act-eoa">
+        <span class="ico">🏦</span>
+        <div class="name">EOA (0xA1…d3)</div>
+        <div class="label">Owner Wallet</div>
+        <div class="state-pill" id="eoa-bal">10.00 ETH</div>
+        <div class="sig-toast" id="eoa-sig-toast">SIGNING…</div>
+      </div>
+      <div class="connector" id="conn-1"><div class="line"></div><div class="tag" id="tag-1">—</div></div>
+      <div class="actor browser" id="act-browser">
+        <span class="ico">💻</span>
+        <div class="name">Browser (client)</div>
+        <div class="label">Session Key holder</div>
+        <div class="state-pill" id="browser-state">no key</div>
+        <div class="browser-key" id="browser-key"><span class="kc-ico">🎫</span><span>session key · <span class="kc-addr">0xS1…7e</span></span></div>
+      </div>
+      <div class="connector" id="conn-2"><div class="line"></div><div class="tag" id="tag-2">—</div></div>
+      <div class="actor relayer" id="act-relayer">
+        <span class="ico">📡</span>
+        <div class="name">Relayer (0xR…ly)</div>
+        <div class="label">Tx submitter</div>
+        <div class="state-pill" id="relayer-state">idle</div>
+      </div>
+      <div class="connector" id="conn-3"><div class="line"></div><div class="tag" id="tag-3">—</div></div>
+      <div class="actor hub" id="act-hub">
+        <span class="ico">📦</span>
+        <div class="name">Hub (0xH…b9)</div>
+        <div class="label">GameHub Account</div>
+        <div class="hub-slots">
+          <div class="slot"><span class="e">🪙</span><span class="b" id="hub-coin-bal">0.00</span></div>
+          <div class="slot"><span class="e">🎰</span><span class="b" id="hub-draw-bal">0.00</span></div>
+        </div>
+        <div class="skey-mini" id="skey-card">
+          <div class="mhead"><span>🎫 SKM record</span><span id="skey-game">—</span></div>
+          <div class="mbar"><div class="mfill" id="skey-fill" style="width:0%"></div></div>
+          <div class="mmeta"><span>cap</span><span class="v" id="skey-cap">— / —</span></div>
+        </div>
+      </div>
+      <div class="connector" id="conn-4"><div class="line"></div><div class="tag" id="tag-4">—</div></div>
+      <div class="actor game" id="act-game">
+        <span class="ico" id="game-ico">🪙</span>
+        <div class="name" id="game-addr">CoinFlip (0x…Coin)</div>
+        <div class="label" id="game-label">CoinFlipGame</div>
+        <div class="state-pill" id="game-state">waiting</div>
+      </div>
+    </div>
+
+    <div class="narration">
+      <div class="step-num" id="narr-step">0 / —</div>
+      <div class="txt" id="narr-txt">Pick a flow and press <strong>Play</strong> — each step is animated in sequence.</div>
+    </div>
+
+    <div class="stage-controls">
+      <button id="stage-play">▶ Play</button>
+      <button id="stage-next" class="ghost">Next Step →</button>
+      <button id="stage-reset" class="ghost">Reset</button>
+      <div class="dot-prog" id="dot-prog"></div>
+    </div>
+
+    <div class="live-code">
+      <div class="live-code-head">
+        <div>
+          <span class="file" id="lc-file">—</span>
+          <span class="fn" id="lc-fn">select a flow</span>
+        </div>
+        <span class="running idle" id="lc-status">
+          <span class="d"></span>
+          <span id="lc-status-txt">IDLE</span>
+        </span>
+      </div>
+      <div class="call-stack" id="lc-stack">
+        <span class="label">STACK</span>
+        <span class="frame top">—</span>
+      </div>
+      <div class="live-code-body" id="lc-body">
+        <div class="live-code-empty">Press Play — Solidity executes line-by-line, and the values each line reads/writes appear below.</div>
+      </div>
+      <div class="live-code-note" id="lc-note">
+        <span class="note-label">LINE</span>
+        <span class="arrow-indicator">▸</span>
+        <span class="note-txt" id="lc-note-txt" style="color:var(--tm);font-style:italic">idle</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="nav">
+  <a href="session-accounts.html">← Architecture Overview</a>
+  <a href="session-play.html">Live Gameplay Demo →</a>
+  <a href="https://github.com/tokamak-network/enshrined-vrf/blob/main/docs/session-accounts.md" target="_blank">Design Doc</a>
+</div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// SECTION 1 — comparative phone animation
+// ══════════════════════════════════════════════════════════════
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+let compareRunning = false;
+
+async function runBad() {
+  const coin = document.getElementById('bad-coin');
+  const result = document.getElementById('bad-result');
+  const modal = document.getElementById('bad-sig');
+  const round = document.getElementById('bad-round');
+  const sigs = document.getElementById('bad-sigs');
+  const games = document.getElementById('bad-games');
+  for (let i = 1; i <= 5; i++) {
+    if (!compareRunning) return;
+    round.textContent = i;
+    // signature popup
+    modal.classList.add('show');
+    await sleep(1100);
+    if (!compareRunning) { modal.classList.remove('show'); return; }
+    sigs.textContent = parseInt(sigs.textContent) + 1;
+    modal.classList.remove('show');
+    await sleep(250);
+    // flip
+    coin.classList.add('flipping');
+    await sleep(600);
+    coin.classList.remove('flipping');
+    const heads = Math.random() > .5;
+    coin.textContent = heads ? 'H' : 'T';
+    result.innerHTML = heads ? '<span class="heads">HEADS — +0.02</span>' : '<span class="tails">TAILS — lose</span>';
+    games.textContent = i;
+    await sleep(500);
+  }
+}
+
+async function runGood() {
+  const coin = document.getElementById('good-coin');
+  const result = document.getElementById('good-result');
+  const round = document.getElementById('good-round');
+  const games = document.getElementById('good-games');
+  for (let i = 1; i <= 5; i++) {
+    if (!compareRunning) return;
+    round.textContent = i;
+    // no popup — instant flip
+    coin.classList.add('flipping');
+    await sleep(400);
+    coin.classList.remove('flipping');
+    const heads = Math.random() > .5;
+    coin.textContent = heads ? 'H' : 'T';
+    result.innerHTML = heads ? '<span class="heads">HEADS — +0.02</span>' : '<span class="tails">TAILS — lose</span>';
+    games.textContent = i;
+    await sleep(550);  // slightly slower to align total time with bad path
+  }
+}
+
+function resetCompare() {
+  compareRunning = false;
+  document.getElementById('bad-sig').classList.remove('show');
+  document.getElementById('bad-coin').textContent = '?';
+  document.getElementById('good-coin').textContent = '?';
+  document.getElementById('bad-result').textContent = '—';
+  document.getElementById('good-result').textContent = '—';
+  document.getElementById('bad-round').textContent = '0';
+  document.getElementById('good-round').textContent = '0';
+  document.getElementById('bad-sigs').textContent = '0';
+  document.getElementById('good-sigs').textContent = '1';
+  document.getElementById('bad-games').textContent = '0';
+  document.getElementById('good-games').textContent = '0';
+}
+
+document.getElementById('run-compare').addEventListener('click', async () => {
+  resetCompare();
+  compareRunning = true;
+  await Promise.all([runBad(), runGood()]);
+});
+document.getElementById('reset-compare').addEventListener('click', resetCompare);
+
+// Also allow manual button taps on the good phone
+document.getElementById('good-btn').addEventListener('click', async () => {
+  if (compareRunning) return;
+  const coin = document.getElementById('good-coin');
+  const result = document.getElementById('good-result');
+  const games = document.getElementById('good-games');
+  coin.classList.add('flipping');
+  await sleep(400);
+  coin.classList.remove('flipping');
+  const heads = Math.random() > .5;
+  coin.textContent = heads ? 'H' : 'T';
+  result.innerHTML = heads ? '<span class="heads">HEADS — +0.02</span>' : '<span class="tails">TAILS — lose</span>';
+  games.textContent = parseInt(games.textContent) + 1;
+});
+document.getElementById('bad-btn').addEventListener('click', async () => {
+  if (compareRunning) return;
+  const modal = document.getElementById('bad-sig');
+  modal.classList.add('show');
+  await sleep(900);
+  document.getElementById('bad-sigs').textContent = parseInt(document.getElementById('bad-sigs').textContent) + 1;
+  modal.classList.remove('show');
+  const coin = document.getElementById('bad-coin');
+  const result = document.getElementById('bad-result');
+  const games = document.getElementById('bad-games');
+  coin.classList.add('flipping');
+  await sleep(500);
+  coin.classList.remove('flipping');
+  const heads = Math.random() > .5;
+  coin.textContent = heads ? 'H' : 'T';
+  result.innerHTML = heads ? '<span class="heads">HEADS — +0.02</span>' : '<span class="tails">TAILS — lose</span>';
+  games.textContent = parseInt(games.textContent) + 1;
+});
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 3 — stage orchestrator
+// Animates orbs between actors, updates labels/meters,
+// and syncs the live Solidity code panel line-by-line.
+// ══════════════════════════════════════════════════════════════
+
+// ── Solidity snippets (excerpted from contracts/src/aa/*) ──
+const CODE = {
+  factory_depositAndRegister: {
+    file: 'contracts/src/aa/GameHubFactory.sol',
+    fn: 'function depositAndRegister(sessionKey, scope) payable',
+    startLine: 40,
+    lines: [
+      'function depositAndRegister(',
+      '    address sessionKey,',
+      '    SessionKeyManager.Scope calldata scope',
+      ') external payable returns (address hubAddr) {',
+      '    hubAddr = hubOf(msg.sender);                    // deterministic CREATE2',
+      '    if (hubAddr.code.length == 0) {',
+      '        bytes32 salt = bytes32(uint256(uint160(msg.sender)));',
+      '        GameHubAccount deployed = new GameHubAccount{salt: salt}(',
+      '            msg.sender, sessionKeys, registry, address(this)',
+      '        );',
+      '        emit HubDeployed(msg.sender, hubAddr);',
+      '    }',
+      '    // forward deposit + session registration through the Hub',
+      '    hubAddr.call{value: msg.value}(',
+      '        abi.encodeCall(GameHubAccount.deposit, (scope.gameAddr))',
+      '    );',
+      '    hubAddr.call(',
+      '        abi.encodeCall(GameHubAccount.registerSession, (sessionKey, scope))',
+      '    );',
+      '}',
+    ],
+  },
+  hub_deposit: {
+    file: 'contracts/src/aa/GameHubAccount.sol',
+    fn: 'function deposit(game) payable',
+    startLine: 50,
+    lines: [
+      'function deposit(address game) external payable onlyOwnerOrFactory {',
+      '    if (!registry.isRegistered(game)) revert GameNotRegistered();',
+      '    balances[game] += msg.value;                    // per-game slot',
+      '    emit Deposited(game, msg.value);',
+      '}',
+    ],
+  },
+  skm_register: {
+    file: 'contracts/src/aa/SessionKeyManager.sol',
+    fn: 'function register(sessionKey, scope)',
+    startLine: 44,
+    lines: [
+      'function register(address sessionKey, Scope calldata scope) external {',
+      '    // msg.sender is the Hub — only a Hub can register its own keys',
+      '    if (_active[msg.sender][sessionKey]) revert AlreadyActive();',
+      '    if (scope.gameAddr == address(0)) revert InvalidGame();',
+      '    if (scope.expiry != 0 && scope.expiry <= block.timestamp)',
+      '        revert InvalidExpiry();',
+      '    _scopes[msg.sender][sessionKey] = scope;',
+      '    _active[msg.sender][sessionKey] = true;',
+      '    emit SessionRegistered(msg.sender, sessionKey,',
+      '        scope.gameAddr, scope.spendingCap, scope.expiry);',
+      '}',
+    ],
+  },
+  hub_executeAsSession: {
+    file: 'contracts/src/aa/GameHubAccount.sol',
+    fn: 'function executeAsSession(sessionKey, game, value, data, nonce, sig)',
+    startLine: 113,
+    lines: [
+      'function executeAsSession(',
+      '    address sessionKey, address game, uint256 value,',
+      '    bytes calldata data, uint256 nonce, bytes calldata signature',
+      ') external returns (bytes memory) {',
+      '    // 1. replay protection',
+      '    if (nonce != sessionNonce[sessionKey]) revert BadNonce();',
+      '    // 2. recover signer from session-key signature',
+      '    bytes32 digest = _digest(sessionKey, game, value, data, nonce);',
+      '    address recovered = _recover(digest, signature);',
+      '    if (recovered != sessionKey) revert InvalidSignature();',
+      '    // 3. ask SessionKeyManager if this call is in scope',
+      '    bytes4 selector = bytes4(data[:4]);',
+      '    if (!sessionKeys.canCall(',
+      '            address(this), sessionKey, game, selector, value',
+      '        )) revert Unauthorized();',
+      '    if (balances[game] < value) revert InsufficientBalance();',
+      '    // 4. commit state + consume cap + forward to game',
+      '    sessionNonce[sessionKey] = nonce + 1;',
+      '    balances[game] -= value;',
+      '    if (value > 0) sessionKeys.consume(sessionKey, value);',
+      '    emit SessionExecuted(sessionKey, game, selector, value);',
+      '    return _call(game, value, data);',
+      '}',
+    ],
+  },
+  skm_canCall: {
+    file: 'contracts/src/aa/SessionKeyManager.sol',
+    fn: 'function canCall(hub, sessionKey, game, selector, value) view',
+    startLine: 82,
+    lines: [
+      'function canCall(',
+      '    address hub, address sessionKey, address game,',
+      '    bytes4 selector, uint256 value',
+      ') external view returns (bool) {',
+      '    if (!_active[hub][sessionKey]) return false;',
+      '    Scope storage s = _scopes[hub][sessionKey];',
+      '    if (s.gameAddr != game) return false;             // ✗ game mismatch',
+      '    if (s.expiry != 0 && s.expiry <= block.timestamp) return false;',
+      '    if (value > s.spendingCap) return false;          // ✗ over cap',
+      '    if (s.selectors.length > 0) {                     // selector allowlist',
+      '        bool match_;',
+      '        for (uint i; i < s.selectors.length; ++i)',
+      '            if (s.selectors[i] == selector) { match_ = true; break; }',
+      '        if (!match_) return false;',
+      '    }',
+      '    return true;',
+      '}',
+    ],
+  },
+  skm_consume: {
+    file: 'contracts/src/aa/SessionKeyManager.sol',
+    fn: 'function consume(sessionKey, amount)',
+    startLine: 106,
+    lines: [
+      'function consume(address sessionKey, uint256 amount) external {',
+      '    // called by the Hub after a successful executeAsSession',
+      '    if (!_active[msg.sender][sessionKey]) revert NotActive();',
+      '    Scope storage s = _scopes[msg.sender][sessionKey];',
+      '    s.spendingCap -= amount;                          // underflow reverts',
+      '    emit CapConsumed(msg.sender, sessionKey, amount, s.spendingCap);',
+      '}',
+    ],
+  },
+  game_flip: {
+    file: 'contracts/src/aa/examples/CoinFlipGame.sol',
+    fn: 'function flip() payable',
+    startLine: 23,
+    lines: [
+      'function flip() external payable returns (bool heads) {',
+      '    if (msg.value != BET) revert WrongBet();',
+      '    uint256 r = vrf.getRandomness();                  // ← enshrined VRF',
+      '    heads = (r % 2 == 0);',
+      '    emit Flipped(msg.sender, heads, r);',
+      '}',
+    ],
+  },
+  hub_withdraw: {
+    file: 'contracts/src/aa/GameHubAccount.sol',
+    fn: 'function withdraw(game, amount, to)',
+    startLine: 89,
+    lines: [
+      'function withdraw(address game, uint256 amount, address payable to) external {',
+      '    if (msg.sender != owner) revert NotOwner();       // ← EOA-only path',
+      '    if (balances[game] < amount) revert InsufficientBalance();',
+      '    balances[game] -= amount;',
+      '    (bool ok, ) = to.call{value: amount}("");',
+      '    if (!ok) revert CallFailed("");',
+      '    emit Withdrawn(game, amount, to);',
+      '}',
+    ],
+  },
+};
+
+// ── syntax highlight (single-pass, won't eat its own tags) ──
+function _esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+const _KW_RE = /(\/\/[^\n]*)|("(?:[^"\\]|\\.)*")|\b(function|external|internal|public|private|view|pure|payable|returns|memory|calldata|storage|if|else|revert|emit|require|new|return|for|bool|address|uint256|uint64|uint8|bytes32|bytes4|bytes)\b|\b(\d+)\b/g;
+function _tk(line){
+  const esc = _esc(line);
+  return esc.replace(_KW_RE, (m, c, s, k, n) => {
+    if (c) return `<span class="tk-c">${c}</span>`;
+    if (s) return `<span class="tk-s">${s}</span>`;
+    if (k) return `<span class="tk-k">${k}</span>`;
+    if (n) return `<span class="tk-n">${n}</span>`;
+    return m;
+  });
+}
+
+// visited lines within current code file (resets when code file changes)
+let _visitedByKey = {};
+let _currentCodeKey = null;
+
+function renderCode(key, hlLines, status) {
+  const c = CODE[key];
+  const fileEl = document.getElementById('lc-file');
+  const fnEl = document.getElementById('lc-fn');
+  const statusEl = document.getElementById('lc-status');
+  const statusTxt = document.getElementById('lc-status-txt');
+  const body = document.getElementById('lc-body');
+  if (!c) {
+    body.innerHTML = '<div class="live-code-empty">Press Play to start execution.</div>';
+    return;
+  }
+  if (_currentCodeKey !== key) {
+    _visitedByKey[key] = new Set();
+    _currentCodeKey = key;
+  }
+  fileEl.textContent = c.file;
+  fnEl.textContent = c.fn;
+  statusEl.classList.remove('idle','revert');
+  if (status === 'idle') statusEl.classList.add('idle');
+  else if (status === 'revert') statusEl.classList.add('revert');
+  statusTxt.textContent = (status || 'EXECUTING').toUpperCase();
+  const hl = new Set(hlLines || []);
+  const visited = _visitedByKey[key] || new Set();
+  // mark newly-visited lines for subsequent renders
+  hl.forEach(l => visited.add(l));
+  _visitedByKey[key] = visited;
+  const cls = status === 'revert' ? 'hl-r' : 'hl';
+  body.innerHTML = c.lines.map((line, i) => {
+    const ln = c.startLine + i;
+    const isHl = hl.has(i);
+    const isVisited = !isHl && visited.has(i);
+    const extra = isHl ? cls : (isVisited ? 'visited' : '');
+    const pointer = isHl ? '▸' : '';
+    return `<div class="cl ${extra}"><span class="gut">${pointer}</span><span class="ln">${ln}</span><span class="cd">${_tk(line)}</span></div>`;
+  }).join('');
+  const first = body.querySelector('.cl.hl, .cl.hl-r');
+  if (first) first.scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+
+function renderNote(note, status) {
+  const box = document.getElementById('lc-note');
+  const txt = document.getElementById('lc-note-txt');
+  box.classList.toggle('revert', status === 'revert');
+  txt.innerHTML = note || '<span style="color:var(--tm);font-style:italic">—</span>';
+  txt.style.color = '';
+  txt.style.fontStyle = '';
+}
+
+function renderStack(frames) {
+  const el = document.getElementById('lc-stack');
+  if (!frames || !frames.length) {
+    el.innerHTML = '<span class="label">STACK</span><span class="frame top">—</span>';
+    return;
+  }
+  const parts = ['<span class="label">STACK</span>'];
+  frames.forEach((f, i) => {
+    const isTop = i === frames.length - 1;
+    parts.push(`<span class="frame ${isTop?'top':''}">${f}</span>`);
+    if (i < frames.length - 1) parts.push('<span class="sep">›</span>');
+  });
+  el.innerHTML = parts.join('');
+}
+
+function resetCodePanel() {
+  _visitedByKey = {};
+  _currentCodeKey = null;
+}
+
+const stage = document.getElementById('stage');
+const actEoa = document.getElementById('act-eoa');
+const actBrowser = document.getElementById('act-browser');
+const actRelayer = document.getElementById('act-relayer');
+const actHub = document.getElementById('act-hub');
+const actGame = document.getElementById('act-game');
+const conn1 = document.getElementById('conn-1');
+const conn2 = document.getElementById('conn-2');
+const conn3 = document.getElementById('conn-3');
+const conn4 = document.getElementById('conn-4');
+const tag1 = document.getElementById('tag-1');
+const tag2 = document.getElementById('tag-2');
+const tag3 = document.getElementById('tag-3');
+const tag4 = document.getElementById('tag-4');
+const sigToast = document.getElementById('eoa-sig-toast');
+const browserKey = document.getElementById('browser-key');
+const browserState = document.getElementById('browser-state');
+const relayerState = document.getElementById('relayer-state');
+const narrStep = document.getElementById('narr-step');
+const narrTxt = document.getElementById('narr-txt');
+const eoaBal = document.getElementById('eoa-bal');
+const hubCoinBal = document.getElementById('hub-coin-bal');
+const hubDrawBal = document.getElementById('hub-draw-bal');
+const skeyCard = document.getElementById('skey-card');
+const skeyFill = document.getElementById('skey-fill');
+const skeyCap = document.getElementById('skey-cap');
+const skeyGame = document.getElementById('skey-game');
+const gameState = document.getElementById('game-state');
+const gameIco = document.getElementById('game-ico');
+const gameAddr = document.getElementById('game-addr');
+const gameLabel = document.getElementById('game-label');
+const dotProg = document.getElementById('dot-prog');
+
+function clearLit() {
+  [conn1,conn2,conn3,conn4].forEach(c => c.classList.remove('lit','lit-r'));
+  [tag1,tag2,tag3,tag4].forEach(t => t.textContent = '—');
+  [actEoa,actBrowser,actRelayer,actHub,actGame].forEach(a => a.classList.remove('active','busy'));
+}
+
+// meta-banner updates: who signed, who submitted, who paid gas
+function renderMeta(signer, submitter, gas) {
+  const sp = document.getElementById('mb-signer-pill');
+  const up = document.getElementById('mb-submitter-pill');
+  const gp = document.getElementById('mb-gas-pill');
+  const s = document.getElementById('mb-signer');
+  const u = document.getElementById('mb-submitter');
+  const g = document.getElementById('mb-gas');
+  sp.className = 'mb-pill' + (signer ? ' ' + signer.cls : '');
+  up.className = 'mb-pill' + (submitter ? ' ' + submitter.cls : '');
+  gp.className = 'mb-pill' + (gas ? ' ' + gas.cls : '');
+  s.textContent = signer ? signer.name : '—';
+  u.textContent = submitter ? submitter.name : '—';
+  g.textContent = gas ? gas.name : '—';
+}
+
+// personas for meta-banner
+const WHO = {
+  eoa:     { cls:'eoa',     name:'EOA 0xA1…d3' },
+  skey:    { cls:'skey',    name:'Session Key 0xS1…7e' },
+  relayer: { cls:'relayer', name:'Relayer 0xR…ly' },
+  none:    { cls:'',        name:'—' },
+};
+
+function lit(connEl, tagEl, label, reverse = false) {
+  connEl.classList.remove('lit','lit-r');
+  connEl.classList.add(reverse ? 'lit-r' : 'lit');
+  tagEl.textContent = label;
+}
+
+const ORB_SIZES = { eth:[16,16], skey:[16,16], sig:[16,16], env:[22,14], tx:[24,16] };
+function spawnOrb(fromEl, toEl, type = 'eth') {
+  const stageRect = stage.getBoundingClientRect();
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+  const [w,h] = ORB_SIZES[type] || [16,16];
+  const fromX = fromRect.left + fromRect.width/2 - stageRect.left;
+  const fromY = fromRect.top + fromRect.height/2 - stageRect.top;
+  const toX = toRect.left + toRect.width/2 - stageRect.left;
+  const toY = toRect.top + toRect.height/2 - stageRect.top;
+  const orb = document.createElement('div');
+  orb.className = 'orb' + (type !== 'eth' ? ' ' + type : '');
+  orb.style.left = (fromX - w/2) + 'px';
+  orb.style.top = (fromY - h/2) + 'px';
+  stage.appendChild(orb);
+  orb.offsetHeight;
+  orb.style.transition = 'left 700ms cubic-bezier(.4,0,.2,1), top 700ms cubic-bezier(.4,0,.2,1), opacity 300ms';
+  orb.style.left = (toX - w/2) + 'px';
+  orb.style.top = (toY - h/2) + 'px';
+  setTimeout(() => { orb.style.opacity = '0'; setTimeout(() => orb.remove(), 300); }, 700);
+  return sleep(700);
+}
+
+function showSigToast(color = 'eoa') {
+  sigToast.style.background = color === 'eoa' ? 'var(--y)' : 'var(--p)';
+  sigToast.style.color = color === 'eoa' ? '#3a2800' : '#fff';
+  sigToast.textContent = color === 'eoa' ? 'EOA SIGN' : 'SESSION SIGN';
+  sigToast.classList.add('show');
+}
+function hideSigToast() {
+  sigToast.classList.remove('show');
+}
+
+function setSkey(game, used, cap) {
+  skeyCard.classList.add('show');
+  skeyGame.textContent = game;
+  const pct = cap > 0 ? ((cap - used) / cap) * 100 : 0;
+  skeyFill.style.width = pct + '%';
+  skeyCap.textContent = `${(cap - used).toFixed(3)} / ${cap.toFixed(3)}`;
+}
+function hideSkey() {
+  skeyCard.classList.remove('show');
+}
+
+// ── Flow definitions ──
+// Each step is an async function that mutates the stage.
+// Each macro-step has a `trace` — an ordered list of micro-steps that advance
+// one (or a few tightly-coupled) line(s) of Solidity at a time. Each micro-step:
+//   { code, lines, note, stack?, status?, action?, delay? }
+// and may trigger a visual action (orb flight, state pill update, etc).
+const FLOWS = {
+  onboard: [
+    {
+      narr: 'The <strong>EOA signs once</strong> — Hub deploy + deposit + session registration bundled into a single tx <em>submitted directly from the user\'s own wallet</em>. Browser and Relayer aren\'t involved yet.',
+      meta: { signer:'eoa', submitter:'eoa', gas:'eoa' },
+      stageInit: () => { clearLit(); actEoa.classList.add('active','busy'); showSigToast('eoa'); },
+      stageFinish: () => { hideSigToast(); },
+      trace: [
+        { code:'factory_depositAndRegister', lines:[0,1,2,3], stack:['EOA','Factory'],
+          note:'EOA signs <span class="kw">depositAndRegister</span> · <span class="val">msg.value = 0.10 ETH</span>, sessionKey = <span class="val">0xS1…7e</span>, scope = {game:0x…Coin, cap:0.05, expiry:+1h, selectors:[flip]}', delay:900 },
+        { code:'factory_depositAndRegister', lines:[4],
+          note:'<span class="kw">hubAddr = hubOf(0xA1…d3)</span> → <span class="val">0xH…b9</span> (deterministic CREATE2 address)', delay:700 },
+      ],
+    },
+    {
+      narr: 'The EOA <strong>broadcasts the tx directly from its own wallet</strong>. Browser/Relayer are bypassed — no session key exists yet, so the AA path isn\'t available.',
+      meta: { signer:'eoa', submitter:'eoa', gas:'eoa' },
+      stageInit: () => { clearLit(); actEoa.classList.add('active'); actHub.classList.add('active','busy'); lit(conn1, tag1, 'tx'); lit(conn2, tag2, 'bypass'); lit(conn3, tag3, 'bypass'); },
+      trace: [
+        { code:'factory_depositAndRegister', lines:[5], stack:['EOA','Factory'],
+          note:'check <span class="kw">hubAddr.code.length == 0</span> → Hub not yet deployed, proceeding', delay:500 },
+        { code:'factory_depositAndRegister', lines:[6], note:'<span class="kw">salt = bytes32(uint160(msg.sender))</span> — one deterministic Hub per user', delay:500 },
+        { code:'factory_depositAndRegister', lines:[7,8,9], note:'<span class="kw">new GameHubAccount{salt}</span> → <span class="ok">Hub deployed</span> at 0xH…b9',
+          action: async () => { await spawnOrb(actEoa, actHub, 'eth'); }, delay:200 },
+        { code:'factory_depositAndRegister', lines:[10], note:'<span class="kw">emit HubDeployed</span>(owner, hubAddr)', delay:400 },
+        { code:'factory_depositAndRegister', lines:[12,13,14,15], stack:['EOA','Factory','Hub'],
+          note:'Factory → Hub.<span class="kw">deposit{value:0.10}</span>(game) — msg.value forwarded as-is', delay:500 },
+        { code:'hub_deposit', lines:[0], stack:['EOA','Factory','Hub'],
+          note:'enter <span class="kw">deposit</span> · <span class="val">msg.sender = Factory</span> → <span class="kw">onlyOwnerOrFactory</span> modifier passes', delay:500 },
+        { code:'hub_deposit', lines:[1], stack:['EOA','Factory','Hub','Registry'],
+          note:'Registry.<span class="kw">isRegistered(0x…Coin)</span> (view call) → <span class="ok">true ✓</span>', delay:600 },
+        { code:'hub_deposit', lines:[2], stack:['EOA','Factory','Hub'],
+          note:'<span class="kw">balances[0x…Coin] += 0.10</span> → <span class="val">0.10 ETH</span> (storage write @ slot keccak(game, 2))',
+          action: async () => { await spawnOrb(actEoa, actHub, 'eth'); eoaBal.textContent = '9.90 ETH'; hubCoinBal.textContent = '0.10'; }, delay:300 },
+        { code:'hub_deposit', lines:[3], note:'<span class="kw">emit Deposited</span>(game, 0.10)', delay:400 },
+      ],
+    },
+    {
+      narr: '<strong>SessionKeyManager.register</strong> records the session key\'s <em>public key</em> on-chain. Meanwhile the Browser stores the <em>private key</em> locally.',
+      meta: { signer:'eoa', submitter:'eoa', gas:'eoa' },
+      stageInit: () => { clearLit(); actHub.classList.add('active','busy'); },
+      trace: [
+        { code:'factory_depositAndRegister', lines:[16,17,18], stack:['EOA','Factory','Hub'],
+          note:'Factory → Hub.<span class="kw">registerSession(skey, scope)</span>', delay:500 },
+        { code:'skm_register', lines:[0], stack:['EOA','Factory','Hub','SKM'],
+          note:'enter <span class="kw">SessionKeyManager.register</span> · <span class="val">msg.sender = Hub</span> (invariant: only a Hub can register its own keys)', delay:500 },
+        { code:'skm_register', lines:[1,2], note:'check <span class="kw">!_active[hub][skey]</span> → <span class="ok">true ✓</span>', delay:500 },
+        { code:'skm_register', lines:[3,4,5], note:'scope sanity check (gameAddr, expiry) → <span class="ok">✓</span>', delay:500 },
+        { code:'skm_register', lines:[6], note:'<span class="kw">_scopes[hub][skey] = scope</span> (storage write) — the session key\'s <em>public</em> info is recorded on-chain',
+          action: async () => { setSkey('CoinFlip', 0, 0.05); }, delay:500 },
+        { code:'skm_register', lines:[7], note:'<span class="kw">_active[hub][skey] = true</span> — session activated',
+          action: async () => {
+            browserKey.classList.add('show');
+            browserState.textContent = '🎫 active';
+          }, delay:500 },
+        { code:'skm_register', lines:[8,9], note:'<span class="kw">emit SessionRegistered</span> · Browser holds this session key\'s <em>private key</em>', delay:500 },
+      ],
+    },
+    {
+      narr: '<strong>Onboarding complete.</strong> From here on, Browser signs and Relayer submits — the EOA stays completely idle.',
+      meta: { signer:'none', submitter:'none', gas:'none' },
+      stageInit: () => { clearLit(); actHub.classList.add('active'); actBrowser.classList.add('active'); },
+      trace: [
+        { code:'factory_depositAndRegister', lines:[19], stack:['EOA'],
+          note:'tx mined. <span class="ok">From the next game action onward, the AA path is used → EOA signatures stay at 0</span>', delay:800 },
+      ],
+    },
+  ],
+
+  play: [
+    {
+      narr: '<strong>The Browser signs the digest with the session key</strong>. This is not an on-chain tx — it\'s an <em>off-chain message signature</em>. The main EOA stays completely idle.',
+      meta: { signer:'skey', submitter:'none', gas:'none' },
+      stageInit: () => { clearLit(); actBrowser.classList.add('active','busy'); },
+      trace: [
+        { code:'hub_executeAsSession', lines:[6,7], stack:['Browser (local)'],
+          note:'Browser computes <span class="kw">digest = keccak(hub, chainId, skey, game, 0.01, keccak(flip()), nonce=0)</span>', delay:800 },
+        { code:'hub_executeAsSession', lines:[8], stack:['Browser (local)'],
+          note:'Browser signs the digest with the <span class="kw">session private key</span> from LocalStorage → <span class="val">signature(r,s,v)</span>',
+          action: async () => { browserState.textContent = '✉ signing'; await sleep(200); }, delay:800 },
+      ],
+    },
+    {
+      narr: 'The Browser <strong>POSTs (sig + calldata) to the Relayer over HTTPS</strong>. Still nothing on-chain.',
+      meta: { signer:'skey', submitter:'relayer', gas:'relayer' },
+      stageInit: () => { clearLit(); actBrowser.classList.add('active'); actRelayer.classList.add('active','busy'); lit(conn2, tag2, 'POST /submit'); },
+      trace: [
+        { code:'hub_executeAsSession', lines:[0,1,2,3], stack:['Browser','Relayer'],
+          note:'<span class="kw">POST https://relayer/submit</span> body = {sig, hubAddr, game, value, data, nonce}',
+          action: async () => { await spawnOrb(actBrowser, actRelayer, 'env'); browserState.textContent = '🎫 active'; relayerState.textContent = '📨 received'; }, delay:300 },
+      ],
+    },
+    {
+      narr: 'The Relayer <strong>wraps the request in a tx that calls Hub.executeAsSession</strong> and submits it on-chain. <span style="color:var(--r)">tx.origin = Relayer (not the user!)</span>',
+      meta: { signer:'skey', submitter:'relayer', gas:'relayer' },
+      stageInit: () => { clearLit(); actRelayer.classList.add('active','busy'); actHub.classList.add('active'); lit(conn3, tag3, 'tx: executeAsSession'); },
+      trace: [
+        { code:'hub_executeAsSession', lines:[0,1,2,3], stack:['Relayer','Hub'],
+          note:'Relayer sends <span class="kw">eth_sendRawTransaction</span> → mempool → Hub.<span class="kw">executeAsSession(skey, game, 0.01, flip(), 0, sig)</span>',
+          action: async () => { await spawnOrb(actRelayer, actHub, 'tx'); relayerState.textContent = '📡 sent'; }, delay:300 },
+        { code:'hub_executeAsSession', lines:[4,5], stack:['Relayer','Hub'],
+          note:'enter Hub · <span class="kw">msg.sender = Relayer</span>, but the Hub <em>doesn\'t trust that</em> — it verifies the inner sig', delay:700 },
+      ],
+    },
+    {
+      narr: '<strong>The Hub\'s custom verification logic</strong> — this is the heart of AA. Scope/cap/selector checks in Solidity that a plain EOA could never do.',
+      meta: { signer:'skey', submitter:'relayer', gas:'relayer' },
+      stageInit: () => { clearLit(); actHub.classList.add('active','busy'); },
+      trace: [
+        { code:'hub_executeAsSession', lines:[6,7], stack:['Relayer','Hub'],
+          note:'recompute digest (so the sig is bound to this specific tx)', delay:500 },
+        { code:'hub_executeAsSession', lines:[8,9], note:'<span class="kw">ecrecover(digest, sig) == sessionKey</span> → <span class="ok">✓</span> — the Hub directly recovers "who authorized this action"', delay:700 },
+        { code:'hub_executeAsSession', lines:[12,13,14], stack:['Relayer','Hub','SKM'],
+          note:'→ SKM.<span class="kw">canCall</span>(hub, skey, game, flip_selector, 0.01)', delay:500 },
+        { code:'skm_canCall', lines:[4], stack:['Relayer','Hub','SKM'],
+          note:'check · <span class="kw">_active[hub][skey]</span> → <span class="ok">true ✓</span>', delay:500 },
+        { code:'skm_canCall', lines:[6], note:'check · <span class="kw">scope.gameAddr == game</span> → <span class="ok">✓</span>', delay:500 },
+        { code:'skm_canCall', lines:[7], note:'check · <span class="kw">scope.expiry > now</span> → <span class="ok">✓</span>', delay:500 },
+        { code:'skm_canCall', lines:[8], note:'check · <span class="kw">value ≤ spendingCap</span> (0.01 ≤ 0.05) → <span class="ok">✓</span>', delay:500 },
+        { code:'skm_canCall', lines:[9,10,11,12,13,14], note:'check · <span class="kw">selector ∈ scope.selectors</span> → <span class="ok">✓</span>', delay:600 },
+        { code:'skm_canCall', lines:[15], note:'<span class="kw">return true</span> — confirmed that the Browser\'s session key is authorized for this call', delay:400 },
+      ],
+    },
+    {
+      narr: 'The Hub <strong>commits state and calls the Game</strong>. Value comes from Hub\'s <code style="background:var(--s3);padding:1px 5px;border-radius:3px">balances[game]</code> (the Relayer only pays gas — the value is the user\'s funds).',
+      meta: { signer:'skey', submitter:'relayer', gas:'relayer' },
+      stageInit: () => { clearLit(); actHub.classList.add('active','busy'); actGame.classList.add('active'); lit(conn4, tag4, 'flip() · 0.01 ETH'); },
+      trace: [
+        { code:'hub_executeAsSession', lines:[16,17,18], stack:['Relayer','Hub'],
+          note:'<span class="kw">sessionNonce[skey]++</span>, <span class="kw">balances[game] -= 0.01</span>',
+          action: async () => { hubCoinBal.textContent = '0.09'; }, delay:500 },
+        { code:'hub_executeAsSession', lines:[19], stack:['Relayer','Hub','SKM'],
+          note:'SKM.<span class="kw">consume(skey, 0.01)</span> → <span class="val">spendingCap: 0.05 → 0.04</span>',
+          action: async () => { setSkey('CoinFlip', 0.01, 0.05); }, delay:500 },
+        { code:'hub_executeAsSession', lines:[21], stack:['Relayer','Hub','Game'],
+          note:'<span class="kw">_call(game, 0.01, flip())</span> → calls CoinFlipGame',
+          action: async () => { await spawnOrb(actHub, actGame, 'eth'); gameState.textContent = 'VRF draw…'; }, delay:200 },
+        { code:'game_flip', lines:[2], stack:['Relayer','Hub','Game'],
+          note:'<span class="kw">r = vrf.getRandomness()</span> → enshrined VRF precompile call', delay:600 },
+        { code:'game_flip', lines:[3,4], note:'<span class="kw">heads = (r % 2 == 0)</span> → <span class="ok">HEADS</span>',
+          action: async () => { gameState.textContent = '🎉 HEADS'; }, delay:500 },
+        { code:'game_flip', lines:[5], note:'tx success. <span class="ok">EOA signatures still 0 — Browser↔Relayer path can repeat indefinitely</span>', delay:600 },
+      ],
+    },
+  ],
+
+  withdraw: [
+    {
+      narr: '<strong>Attack scenario</strong>: an attacker with a stolen session key tries to drain the Hub through the Browser/Relayer path.',
+      meta: { signer:'skey', submitter:'relayer', gas:'relayer' },
+      stageInit: () => { clearLit(); actBrowser.classList.add('active','busy'); },
+      trace: [
+        { code:'hub_executeAsSession', lines:[6,7,8], stack:['Browser (attacker)'],
+          note:'Attacker signs a "withdraw(game, 0.07, attacker)" call with the session key',
+          action: async () => { await spawnOrb(actBrowser, actRelayer, 'env'); }, delay:500 },
+        { code:'hub_executeAsSession', lines:[0,1,2,3], stack:['Relayer','Hub'],
+          note:'Relayer wraps it in a tx → Hub.<span class="kw">executeAsSession(skey, Hub_addr, 0.07, withdraw_sel, ...)</span>',
+          action: async () => { await spawnOrb(actRelayer, actHub, 'tx'); }, delay:500 },
+        { code:'hub_executeAsSession', lines:[12,13,14], stack:['Relayer','Hub','SKM'],
+          note:'→ SKM.<span class="kw">canCall</span>(hub, skey, target=Hub_addr, withdraw_sel, 0.07)', delay:500 },
+        { code:'skm_canCall', lines:[6], status:'revert', stack:['Relayer','Hub','SKM'],
+          note:'check · <span class="kw">scope.gameAddr (0x…Coin) ≠ target (0xH…b9 = Hub)</span> → <span class="bad">return false ✗</span>',
+          action: async () => {
+            actHub.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}], {duration:300});
+          }, delay:700 },
+        { code:'hub_executeAsSession', lines:[14], status:'revert', stack:['Relayer','Hub'],
+          note:'<span class="bad">revert Unauthorized()</span> — the session key\'s scope is limited to CoinFlip; it cannot call the Hub itself. <span class="ok">Attack blocked.</span>', delay:700 },
+      ],
+    },
+    {
+      narr: 'Legitimate path — <strong>the EOA signs and submits directly</strong>. Browser and Relayer don\'t participate here (withdrawals are main-wallet only).',
+      meta: { signer:'eoa', submitter:'eoa', gas:'eoa' },
+      stageInit: () => { clearLit(); actEoa.classList.add('active','busy'); showSigToast('eoa'); },
+      stageFinish: () => { hideSigToast(); },
+      trace: [
+        { code:'hub_withdraw', lines:[0], stack:['EOA','Hub'],
+          note:'EOA directly signs and broadcasts Hub.<span class="kw">withdraw(game, 0.07, to=0xA1…d3)</span>', delay:800 },
+        { code:'hub_withdraw', lines:[1], note:'check <span class="kw">msg.sender == owner</span> — here msg.sender = EOA itself, so <span class="ok">✓</span>. (Through the Relayer path, msg.sender=Relayer and this would fail)', delay:700 },
+      ],
+    },
+    {
+      narr: 'The Hub empties the slot and sends <em>0.07 ETH</em> back to the EOA.',
+      meta: { signer:'eoa', submitter:'eoa', gas:'eoa' },
+      stageInit: () => { clearLit(); actHub.classList.add('active','busy'); actEoa.classList.add('active'); lit(conn1, tag1, 'transfer 0.07 ETH', true); },
+      trace: [
+        { code:'hub_withdraw', lines:[2], stack:['EOA','Hub'],
+          note:'check <span class="kw">balances[game] (0.07) ≥ amount (0.07)</span> → <span class="ok">✓</span>', delay:500 },
+        { code:'hub_withdraw', lines:[3], note:'<span class="kw">balances[game] -= 0.07</span> → <span class="val">0.00 ETH</span>',
+          action: async () => { hubCoinBal.textContent = '0.00'; }, delay:500 },
+        { code:'hub_withdraw', lines:[4,5,6], note:'<span class="kw">to.call{value:0.07}("")</span> — native ETH returned',
+          action: async () => { await spawnOrb(actHub, actEoa, 'eth'); await spawnOrb(actHub, actEoa, 'eth'); eoaBal.textContent = '9.97 ETH'; }, delay:200 },
+        { code:'hub_withdraw', lines:[7], note:'<span class="kw">emit Withdrawn</span> — withdrawal complete', delay:500 },
+      ],
+    },
+  ],
+};
+
+// ── Flow runner ──
+let currentFlow = 'onboard';
+let currentStep = -1;
+let playing = false;
+
+function renderDots() {
+  const steps = FLOWS[currentFlow].length;
+  dotProg.innerHTML = '';
+  for (let i = 0; i < steps; i++) {
+    const d = document.createElement('div');
+    d.className = 'd' + (i < currentStep ? ' done' : i === currentStep ? ' cur' : '');
+    dotProg.appendChild(d);
+  }
+  narrStep.textContent = `${Math.max(currentStep, 0)} / ${steps}`;
+}
+
+function resetStage(flow) {
+  clearLit();
+  currentFlow = flow;
+  currentStep = -1;
+  playing = false;
+  renderMeta(null, null, null);
+  if (flow === 'onboard') {
+    eoaBal.textContent = '10.00 ETH';
+    hubCoinBal.textContent = '0.00';
+    hubDrawBal.textContent = '0.00';
+    hideSkey();
+    browserKey.classList.remove('show');
+    browserState.textContent = 'no key';
+    relayerState.textContent = 'idle';
+    gameState.textContent = 'waiting';
+    gameIco.textContent = '🪙';
+    gameAddr.textContent = 'CoinFlip (0x…Coin)';
+    gameLabel.textContent = 'CoinFlipGame';
+  } else if (flow === 'play') {
+    eoaBal.textContent = '9.90 ETH';
+    hubCoinBal.textContent = '0.10';
+    hubDrawBal.textContent = '0.00';
+    setSkey('CoinFlip', 0, 0.05);
+    hideSkey();
+    browserKey.classList.add('show');
+    browserState.textContent = '🎫 active';
+    relayerState.textContent = 'idle';
+    gameState.textContent = 'waiting';
+    gameIco.textContent = '🪙';
+    gameAddr.textContent = 'CoinFlip (0x…Coin)';
+    gameLabel.textContent = 'CoinFlipGame';
+  } else {
+    eoaBal.textContent = '9.90 ETH';
+    hubCoinBal.textContent = '0.07';
+    hubDrawBal.textContent = '0.00';
+    setSkey('CoinFlip', 0.03, 0.05);
+    hideSkey();
+    browserKey.classList.add('show');
+    browserState.textContent = '🎫 active';
+    relayerState.textContent = 'idle';
+    gameState.textContent = 'n/a';
+  }
+  narrTxt.innerHTML = 'Press Play — Solidity executes line-by-line, and the values each line reads/writes appear in the LINE note below.';
+  renderDots();
+  resetCodePanel();
+  renderStack([]);
+  // preview first step's first micro-step code file in idle
+  const first = FLOWS[flow][0];
+  const firstMicro = first && first.trace && first.trace[0];
+  if (firstMicro) renderCode(firstMicro.code, [], 'idle');
+  renderNote('<span style="color:var(--tm);font-style:italic">idle — press Play</span>');
+}
+
+async function nextStep() {
+  const steps = FLOWS[currentFlow];
+  if (currentStep >= steps.length - 1) return;
+  currentStep++;
+  const s = steps[currentStep];
+  narrTxt.innerHTML = s.narr;
+  renderDots();
+  resetCodePanel();
+  if (s.meta) renderMeta(WHO[s.meta.signer], WHO[s.meta.submitter], WHO[s.meta.gas]);
+  if (s.stageInit) s.stageInit();
+  if (s.trace) {
+    for (const m of s.trace) {
+      if (m.stack) renderStack(m.stack);
+      renderCode(m.code, m.lines, m.status || 'executing');
+      renderNote(m.note, m.status);
+      if (m.action) await m.action();
+      await sleep(m.delay || 500);
+    }
+  } else if (s.run) {
+    await s.run();
+  }
+  if (s.stageFinish) s.stageFinish();
+}
+
+document.getElementById('stage-next').addEventListener('click', async () => {
+  if (playing) return;
+  await nextStep();
+});
+
+document.getElementById('stage-play').addEventListener('click', async () => {
+  if (playing) return;
+  playing = true;
+  const btn = document.getElementById('stage-play');
+  btn.disabled = true;
+  document.getElementById('stage-next').disabled = true;
+  while (currentStep < FLOWS[currentFlow].length - 1) {
+    await nextStep();
+    await sleep(800);
+  }
+  playing = false;
+  btn.disabled = false;
+  document.getElementById('stage-next').disabled = false;
+});
+
+document.getElementById('stage-reset').addEventListener('click', () => {
+  if (playing) return;
+  resetStage(currentFlow);
+});
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    if (playing) return;
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    resetStage(t.dataset.flow);
+  });
+});
+
+// init
+resetStage('onboard');
+</script>
+
+</body>
+</html>

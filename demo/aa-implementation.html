@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AA 구현 해부 — 어떻게 서명 없이 플레이가 가능한가</title>
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#09090b;--s1:#111114;--s2:#18181b;--s3:#1f1f23;--s4:#26262b;
+  --brd:#27272a;--brd2:#3f3f46;
+  --t:#fafafa;--td:#a1a1aa;--tm:#52525b;
+  --ac:#818cf8;--acd:rgba(129,140,248,.12);
+  --g:#34d399;--gd:rgba(52,211,153,.12);
+  --r:#f87171;--rd:rgba(248,113,113,.12);
+  --y:#fbbf24;--yd:rgba(251,191,36,.12);
+  --cy:#22d3ee;--cyd:rgba(34,211,238,.12);
+  --p:#c084fc;--pd:rgba(192,132,252,.12);
+  --o:#fb923c;--od:rgba(251,146,60,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t);font-family:'Geist',sans-serif;-webkit-font-smoothing:antialiased;line-height:1.55;overflow-x:hidden}
+.wrap{max-width:1200px;margin:0 auto;padding:48px 28px 120px}
+
+/* hero */
+.eyebrow{display:inline-block;font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--ac);background:var(--acd);padding:4px 10px;border-radius:12px;border:1px solid rgba(129,140,248,.25);margin-bottom:18px;letter-spacing:.06em}
+.hero{margin-bottom:80px;max-width:860px}
+h1{font-size:2.75rem;font-weight:700;letter-spacing:-.035em;line-height:1.08;margin-bottom:18px}
+h1 .a{color:var(--ac)} h1 .g{color:var(--g)} h1 .y{color:var(--y)} h1 .r{color:var(--r)} h1 .p{color:var(--p)}
+.lead{color:var(--td);font-size:1.05rem;line-height:1.7;max-width:720px}
+.lead strong{color:var(--t);font-weight:600}
+
+/* sections */
+section{margin-bottom:96px}
+.section-title{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
+.section-title h2{font-size:1.6rem;font-weight:700;letter-spacing:-.025em}
+.section-title .num{font-family:'Geist Mono',monospace;font-size:.72rem;color:var(--tm);letter-spacing:.1em}
+.section-sub{font-size:.92rem;color:var(--td);margin-bottom:36px;max-width:780px;line-height:1.65}
+.section-sub strong{color:var(--t)}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 1 — THE KEY TRICK (two keys side by side)
+   ═══════════════════════════════════════════════════════════════ */
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media (max-width:800px){.keys{grid-template-columns:1fr}}
+.keycard{background:var(--s1);border:1px solid var(--brd);border-radius:16px;padding:28px;position:relative;overflow:hidden}
+.keycard.eoa{border-color:rgba(251,191,36,.35)}
+.keycard.sess{border-color:rgba(52,211,153,.35)}
+.keycard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.keycard.eoa::before{background:linear-gradient(90deg,transparent,var(--y),transparent)}
+.keycard.sess::before{background:linear-gradient(90deg,transparent,var(--g),transparent)}
+.keycard h3{font-size:1.15rem;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.keycard.eoa h3{color:var(--y)}
+.keycard.sess h3{color:var(--g)}
+.keycard .kico{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:.9rem;font-weight:700}
+.keycard.eoa .kico{background:var(--yd);color:var(--y);border:1px solid rgba(251,191,36,.3)}
+.keycard.sess .kico{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.3)}
+.keycard .ksub{font-size:.8rem;color:var(--tm);font-family:'Geist Mono',monospace;margin-bottom:18px}
+.kmeta{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.kmeta .row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;background:var(--s2);border-radius:8px;font-size:.82rem}
+.kmeta .row .lbl{color:var(--tm);font-family:'Geist Mono',monospace;font-size:.72rem}
+.kmeta .row .val{color:var(--t);font-weight:500}
+.kmeta .row .val.mono{font-family:'Geist Mono',monospace;font-size:.76rem}
+.kmeta .row .val.g{color:var(--g)} .kmeta .row .val.r{color:var(--r)} .kmeta .row .val.y{color:var(--y)}
+.keycard p{color:var(--td);font-size:.88rem;margin-top:18px;line-height:1.65;padding-top:18px;border-top:1px solid var(--brd)}
+.keycard p strong{color:var(--t)}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 2 — CAST (4 contracts as cards)
+   ═══════════════════════════════════════════════════════════════ */
+.cast{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+@media (max-width:800px){.cast{grid-template-columns:1fr}}
+.role{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:22px;position:relative}
+.role .badge{font-family:'Geist Mono',monospace;font-size:.62rem;padding:3px 8px;border-radius:10px;letter-spacing:.06em;display:inline-block;margin-bottom:10px}
+.role.factory .badge{background:var(--pd);color:var(--p);border:1px solid rgba(192,132,252,.25)}
+.role.hub .badge{background:var(--acd);color:var(--ac);border:1px solid rgba(129,140,248,.25)}
+.role.skm .badge{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.25)}
+.role.reg .badge{background:var(--cyd);color:var(--cy);border:1px solid rgba(34,211,238,.25)}
+.role h3{font-size:1.05rem;font-weight:700;margin-bottom:6px}
+.role .oneliner{color:var(--td);font-size:.84rem;line-height:1.55;margin-bottom:14px}
+.role ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+.role li{font-family:'Geist Mono',monospace;font-size:.73rem;color:var(--tm);padding-left:14px;position:relative}
+.role li::before{content:'▸';position:absolute;left:0;color:var(--brd2)}
+.role li strong{color:var(--t);font-weight:500}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 3 / 4 — FLOWS (animated timelines)
+   ═══════════════════════════════════════════════════════════════ */
+.flow-wrap{background:var(--s1);border:1px solid var(--brd);border-radius:16px;padding:32px;position:relative}
+.flow-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+.flow-head h3{font-size:1.1rem;font-weight:700}
+.flow-head .sig-count{font-family:'Geist Mono',monospace;font-size:.75rem;padding:6px 12px;border-radius:10px}
+.flow-head .sig-count.one{background:var(--yd);color:var(--y);border:1px solid rgba(251,191,36,.3)}
+.flow-head .sig-count.zero{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.3)}
+.flow-head .play-btn{font-family:'Geist Mono',monospace;font-size:.72rem;background:var(--s3);border:1px solid var(--brd2);color:var(--t);padding:6px 14px;border-radius:8px;cursor:pointer;transition:all .15s}
+.flow-head .play-btn:hover{background:var(--s4);border-color:var(--ac)}
+
+.steps{display:flex;flex-direction:column;gap:0;position:relative}
+.step{display:grid;grid-template-columns:56px 1fr;gap:20px;padding:14px 0;opacity:.35;transition:opacity .4s}
+.step.active{opacity:1}
+.step.done{opacity:.65}
+.step:not(:last-child){border-bottom:1px dashed var(--brd)}
+.step .idx{display:flex;flex-direction:column;align-items:center;gap:8px}
+.step .num{width:32px;height:32px;border-radius:50%;background:var(--s3);border:1px solid var(--brd2);display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:.8rem;font-weight:600;color:var(--tm);transition:all .4s}
+.step.active .num{background:var(--ac);color:#09090b;border-color:var(--ac);box-shadow:0 0 0 4px var(--acd)}
+.step.done .num{background:var(--g);color:#09090b;border-color:var(--g)}
+.step .who{font-family:'Geist Mono',monospace;font-size:.62rem;letter-spacing:.05em;color:var(--tm);text-align:center;max-width:56px;line-height:1.3}
+.step.active .who, .step.done .who{color:var(--td)}
+.step .body{padding-top:4px}
+.step .action{font-size:.95rem;font-weight:600;margin-bottom:4px}
+.step .action .tag{font-family:'Geist Mono',monospace;font-size:.68rem;padding:2px 7px;border-radius:8px;background:var(--s3);color:var(--td);margin-left:8px;font-weight:500;letter-spacing:.04em}
+.step .action .tag.sig{background:var(--yd);color:var(--y)}
+.step .action .tag.nosig{background:var(--gd);color:var(--g)}
+.step .action .tag.chain{background:var(--acd);color:var(--ac)}
+.step .action .tag.local{background:var(--pd);color:var(--p)}
+.step .desc{font-size:.85rem;color:var(--td);line-height:1.6;margin-bottom:10px}
+.step .desc code{font-family:'Geist Mono',monospace;font-size:.78rem;background:var(--s2);padding:1px 6px;border-radius:4px;color:var(--ac)}
+.step .detail{font-family:'Geist Mono',monospace;font-size:.74rem;color:var(--tm);background:var(--s2);border:1px solid var(--brd);border-radius:8px;padding:10px 14px;white-space:pre;overflow-x:auto;line-height:1.55;display:none}
+.step.active .detail, .step.done .detail{display:block}
+
+/* signature gauge */
+.gauge{display:flex;gap:6px;margin-top:18px;padding:14px 16px;background:var(--s2);border-radius:10px;border:1px solid var(--brd);align-items:center;flex-wrap:wrap}
+.gauge .lbl{font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--tm);letter-spacing:.06em;margin-right:8px}
+.gauge .dots{display:flex;gap:4px}
+.gauge .dot{width:10px;height:10px;border-radius:50%;background:var(--s4);border:1px solid var(--brd2);transition:all .3s}
+.gauge .dot.wallet{background:var(--y);border-color:var(--y);box-shadow:0 0 8px var(--y)}
+.gauge .dot.session{background:var(--g);border-color:var(--g);box-shadow:0 0 8px var(--g)}
+.gauge .tally{margin-left:auto;font-family:'Geist Mono',monospace;font-size:.74rem;color:var(--t)}
+.gauge .tally .hl{color:var(--y)} .gauge .tally .hl.g{color:var(--g)}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 5 — SAFETY (4 rails)
+   ═══════════════════════════════════════════════════════════════ */
+.rails{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media (max-width:900px){.rails{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:500px){.rails{grid-template-columns:1fr}}
+.rail{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:20px}
+.rail .rtag{font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--r);background:var(--rd);border:1px solid rgba(248,113,113,.2);padding:3px 8px;border-radius:8px;display:inline-block;margin-bottom:10px;letter-spacing:.04em}
+.rail h4{font-size:.95rem;font-weight:600;margin-bottom:6px}
+.rail p{font-size:.8rem;color:var(--td);line-height:1.55;margin-bottom:10px}
+.rail .code{font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--tm);padding:6px 10px;background:var(--s2);border-radius:6px;white-space:pre;overflow-x:auto}
+.rail .code em{color:var(--r);font-style:normal}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 6 — vs 4337 table
+   ═══════════════════════════════════════════════════════════════ */
+.vs{display:grid;grid-template-columns:180px 1fr 1fr;background:var(--s1);border:1px solid var(--brd);border-radius:12px;overflow:hidden}
+.vs > div{padding:14px 18px;border-bottom:1px solid var(--brd);font-size:.85rem}
+.vs > div:nth-last-child(-n+3){border-bottom:none}
+.vs .h{background:var(--s2);font-family:'Geist Mono',monospace;font-size:.72rem;color:var(--tm);letter-spacing:.06em}
+.vs .h.ours{color:var(--ac)}
+.vs .h.other{color:var(--td)}
+.vs .dim{color:var(--tm);font-family:'Geist Mono',monospace;font-size:.75rem}
+.vs .val{color:var(--t)}
+.vs .val .mark{font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--g);margin-right:6px}
+.vs .val .mark.bad{color:var(--r)}
+
+/* ═══════════════════════════════════════════════════════════════
+   CODE TOGGLES
+   ═══════════════════════════════════════════════════════════════ */
+.code-toggle{margin-top:20px}
+.code-toggle summary{cursor:pointer;list-style:none;font-family:'Geist Mono',monospace;font-size:.76rem;color:var(--ac);padding:10px 14px;background:var(--s2);border:1px solid var(--brd);border-radius:8px;transition:all .15s;user-select:none}
+.code-toggle summary:hover{background:var(--s3);border-color:var(--ac)}
+.code-toggle summary::-webkit-details-marker{display:none}
+.code-toggle summary::before{content:'▸ ';color:var(--tm)}
+.code-toggle[open] summary::before{content:'▾ ';color:var(--ac)}
+.code-toggle pre{font-family:'Geist Mono',monospace;font-size:.75rem;color:var(--td);background:var(--s2);border:1px solid var(--brd);border-top:none;border-radius:0 0 8px 8px;padding:16px 18px;overflow-x:auto;line-height:1.65;white-space:pre}
+.code-toggle pre .com{color:var(--tm)}
+.code-toggle pre .kw{color:var(--p)}
+.code-toggle pre .fn{color:var(--ac)}
+.code-toggle pre .str{color:var(--g)}
+.code-toggle pre .hl{background:rgba(129,140,248,.08);display:block;padding:0 18px;margin:0 -18px}
+
+/* footer */
+.footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--brd);color:var(--tm);font-size:.78rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.footer a{color:var(--ac);text-decoration:none;font-family:'Geist Mono',monospace}
+.footer a:hover{color:var(--t)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="eyebrow">AA IMPLEMENTATION · DEEP DIVE</div>
+  <h1>어떻게 <span class="y">지갑 서명 없이</span><br>
+    게임이 <span class="g">플레이되는가</span>?</h1>
+  <p class="lead">
+    이 프로젝트는 <strong>EIP-4337을 쓰지 않습니다</strong>. EntryPoint도, Bundler도, UserOperation도 없습니다.
+    대신 <strong>3개의 컨트랙트</strong>와 <strong>브라우저에 저장된 임시 키</strong> 하나로 같은 UX를 만듭니다.
+    이 페이지는 그게 어떻게 가능한지 한 단계씩 해부합니다.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 1 — The key trick
+     ═══════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-title">
+    <span class="num">01</span>
+    <h2>핵심 트릭 — "세션키"는 지갑의 키가 아닙니다</h2>
+  </div>
+  <p class="section-sub">
+    "서명 없이"가 가능한 이유는 단순합니다. <strong>당신의 지갑 키는 서명하지 않지만, 브라우저가 만든 다른 키가 서명합니다.</strong>
+    이 다른 키를 <em>세션키</em>라고 부르고, 온체인에는 "이 세션키는 이 게임에만, N ETH까지만, T시까지만 허용"이라는 규칙이 기록됩니다.
+  </p>
+
+  <div class="keys">
+    <div class="keycard eoa">
+      <h3><span class="kico">EOA</span>당신의 지갑 키</h3>
+      <div class="ksub">MetaMask / Rabby / Ledger</div>
+      <div class="kmeta">
+        <div class="row"><span class="lbl">저장 위치</span><span class="val">지갑 앱 / 하드웨어</span></div>
+        <div class="row"><span class="lbl">수명</span><span class="val">영구 (당신의 자산)</span></div>
+        <div class="row"><span class="lbl">권한</span><span class="val y">무제한 (모든 자산)</span></div>
+        <div class="row"><span class="lbl">이 페이지에서 서명</span><span class="val">온보딩 <strong>1회만</strong></span></div>
+      </div>
+      <p>
+        <strong>단 한 번</strong>만 등장합니다. 게임 시작 전 "Hub에 입금 + 세션키 등록"이라는 한 트랜잭션에 서명하면 끝.
+        이후로는 지갑이 호출되지 않습니다.
+      </p>
+    </div>
+
+    <div class="keycard sess">
+      <h3><span class="kico">SK</span>세션키</h3>
+      <div class="ksub">crypto.getRandomValues() · localStorage</div>
+      <div class="kmeta">
+        <div class="row"><span class="lbl">저장 위치</span><span class="val">브라우저 localStorage</span></div>
+        <div class="row"><span class="lbl">수명</span><span class="val">탭 기준 수 분~수 시간</span></div>
+        <div class="row"><span class="lbl">권한</span><span class="val g">좁게 제한됨 (게임/한도/만료)</span></div>
+        <div class="row"><span class="lbl">이 페이지에서 서명</span><span class="val g">플레이할 때마다 <strong>매번</strong></span></div>
+      </div>
+      <p>
+        브라우저가 페이지 로드 시 <code>generatePrivateKey()</code>로 <strong>즉석에서 생성</strong>한 새 키입니다.
+        당신의 지갑과 아무 관계가 없습니다. 이 키가 털려도 손해는 "남은 세션 한도" 뿐입니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 2 — Cast of contracts
+     ═══════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-title">
+    <span class="num">02</span>
+    <h2>등장 컨트랙트 — 이 4개가 전부입니다</h2>
+  </div>
+  <p class="section-sub">
+    <strong>EntryPoint도, Paymaster도, Bundler도 없습니다</strong>. 아래 4개의 역할을 이해하면 나머지는 조립 문제입니다.
+  </p>
+
+  <div class="cast">
+    <div class="role factory">
+      <div class="badge">PREDEPLOY</div>
+      <h3>GameHubFactory</h3>
+      <p class="oneliner">유저별 Hub을 <strong>CREATE2</strong>로 결정적 배포하는 공장. 주소는 <code>owner</code>만으로 계산 가능 — 즉, Hub이 아직 배포되지 않았어도 주소는 이미 알 수 있음.</p>
+      <ul>
+        <li><strong>hubOf(owner)</strong> → 주소 계산 (배포 전에도)</li>
+        <li><strong>depositAndRegister(...)</strong> → 없으면 배포 + 입금 + 키 등록을 <strong>한 트랜잭션</strong>에</li>
+        <li><strong>depositAndRefill(...)</strong> → 세션 한도 충전을 한 번에</li>
+      </ul>
+    </div>
+
+    <div class="role hub">
+      <div class="badge">PER USER</div>
+      <h3>GameHubAccount (Hub)</h3>
+      <p class="oneliner">당신의 미니 스마트 계정. 게임별 잔액 슬롯을 들고 있고, <strong>executeAsSession()</strong>에서 서명 검증 + 스코프 검증 + 실행을 전부 수행.</p>
+      <ul>
+        <li><strong>balances[game]</strong> → 게임별 earmarked 잔액</li>
+        <li><strong>executeAsOwner(...)</strong> → EOA 직접 호출 경로</li>
+        <li><strong>executeAsSession(sig, ...)</strong> → 세션키 경로 (지갑 불필요)</li>
+      </ul>
+    </div>
+
+    <div class="role skm">
+      <div class="badge">PREDEPLOY</div>
+      <h3>SessionKeyManager</h3>
+      <p class="oneliner">각 Hub이 등록한 세션키의 <strong>스코프 레지스트리</strong>. 키 ↔ (게임, 잔여 캡, 만료, 허용 셀렉터) 매핑. <strong>canCall()</strong>은 pure view — 강제력은 Hub에 있음.</p>
+      <ul>
+        <li><strong>register(sk, scope)</strong> → Hub만 호출 가능 (<code>msg.sender</code> 검증)</li>
+        <li><strong>canCall(...)</strong> → 이 키가 지금 이 호출 허용? (view)</li>
+        <li><strong>consume(amount)</strong> → 실행 후 캡 차감</li>
+      </ul>
+    </div>
+
+    <div class="role reg">
+      <div class="badge">ALLOWLIST</div>
+      <h3>GameRegistry</h3>
+      <p class="oneliner">허용된 게임 컨트랙트 목록. Hub은 미등록 게임에는 입금도, 호출도 거부. 이 한 겹이 있어서 세션키를 "임의 컨트랙트로의 백도어"로 쓸 수 없음.</p>
+      <ul>
+        <li><strong>isRegistered(game)</strong> → 화이트리스트 조회</li>
+        <li>신규 게임은 거버넌스가 추가</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 3 — Onboarding flow (1 signature)
+     ═══════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-title">
+    <span class="num">03</span>
+    <h2>온보딩 플로우 — 지갑 서명 <span style="color:var(--y)">딱 1번</span></h2>
+  </div>
+  <p class="section-sub">
+    유저가 게임 페이지에 처음 들어왔을 때 일어나는 일. <strong>재생 버튼을 눌러 단계별로 따라가 보세요.</strong>
+  </p>
+
+  <div class="flow-wrap">
+    <div class="flow-head">
+      <h3>🎟 처음 플레이 — 입금 + 세션키 등록</h3>
+      <button class="play-btn" onclick="playFlow('onboard')">▶ 재생</button>
+      <div class="sig-count one">지갑 서명: 1회</div>
+    </div>
+
+    <div class="steps" id="onboard-steps">
+      <div class="step" data-step="0">
+        <div class="idx">
+          <div class="num">1</div><div class="who">BROWSER</div>
+        </div>
+        <div class="body">
+          <div class="action">세션키 즉석 생성 <span class="tag local">LOCAL</span></div>
+          <div class="desc">
+            페이지 JS가 <code>generatePrivateKey()</code>로 새로운 secp256k1 키쌍을 만들어 <code>localStorage</code>에 저장.
+            <strong>이 시점엔 지갑이 등장하지 않습니다.</strong>
+          </div>
+          <div class="detail">// 브라우저 내부, 지갑 API 호출 없음
+sessionKey  = generatePrivateKey()       // 0xabc...
+sessionAddr = privateKeyToAddress(sk)    // 0xSESSION
+localStorage.setItem('sk', sessionKey)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="1">
+        <div class="idx">
+          <div class="num">2</div><div class="who">BROWSER</div>
+        </div>
+        <div class="body">
+          <div class="action">스코프 정의 <span class="tag local">LOCAL</span></div>
+          <div class="desc">
+            "이 세션키로 뭘 허용할지" 범위를 짠다. 게임 주소, 잔여 한도, 만료, 허용 셀렉터.
+          </div>
+          <div class="detail">scope = {
+  gameAddr:     0xPONGY_BET,
+  spendingCap:  0.05 ETH,
+  expiry:       now + 1 hour,
+  selectors:    [playRound(uint8,uint256)]
+}</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="2">
+        <div class="idx">
+          <div class="num">3</div><div class="who">WALLET</div>
+        </div>
+        <div class="body">
+          <div class="action">지갑 서명 — 유일한 팝업 <span class="tag sig">SIGNATURE</span></div>
+          <div class="desc">
+            유저가 MetaMask에서 <strong>한 번</strong> 승인. 트랜잭션은 <code>factory.depositAndRegister(sessionAddr, scope)</code> + <code>value = 0.05 ETH</code>.
+          </div>
+          <div class="detail">factory.depositAndRegister(
+  sessionAddr,              // 세션키의 공개 주소
+  scope                     // 위에서 정의한 범위
+) { value: 0.05 ETH }       // 게임 슬롯으로 입금할 금액
+  ↑ 유저가 지갑에서 확인/서명 (팝업 1회)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="3">
+        <div class="idx">
+          <div class="num">4</div><div class="who">FACTORY</div>
+        </div>
+        <div class="body">
+          <div class="action">Hub 없으면 CREATE2 배포 <span class="tag chain">ON-CHAIN</span></div>
+          <div class="desc">
+            <code>hubOf(msg.sender)</code>에 코드가 없으면 <code>new GameHubAccount{salt}(...)</code>로 배포.
+            salt는 owner 주소이므로 주소가 결정적.
+          </div>
+          <div class="detail">hubAddr = hubOf(msg.sender)
+if (hubAddr.code.length == 0) {
+  new GameHubAccount{salt: owner}(
+    owner, sessionKeys, registry, factory
+  )                                       // → 같은 주소에 배포됨
+}</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="4">
+        <div class="idx">
+          <div class="num">5</div><div class="who">FACTORY → HUB</div>
+        </div>
+        <div class="body">
+          <div class="action">Hub이 입금을 슬롯에 기록 <span class="tag chain">ON-CHAIN</span></div>
+          <div class="desc">
+            Factory가 Hub의 <code>deposit(game)</code>을 <code>msg.value</code>와 함께 호출. Hub은 게임 등록 여부 확인 후 <code>balances[game] += msg.value</code>.
+          </div>
+          <div class="detail">hub.deposit{ value: 0.05 ETH }(PONGY_BET)
+  require(registry.isRegistered(PONGY_BET))
+  balances[PONGY_BET] += 0.05 ETH
+  emit Deposited(PONGY_BET, 0.05 ETH)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="5">
+        <div class="idx">
+          <div class="num">6</div><div class="who">HUB → SKM</div>
+        </div>
+        <div class="body">
+          <div class="action">세션키 등록 <span class="tag chain">ON-CHAIN</span></div>
+          <div class="desc">
+            Hub이 직접 <code>SessionKeyManager.register()</code> 호출. <strong>msg.sender가 Hub 자신</strong>이라 "Hub만 자기 키 등록 가능" 불변 조건이 유지됨.
+          </div>
+          <div class="detail">// Hub 내부에서 호출
+sessionKeys.register(sessionAddr, scope)
+  // SessionKeyManager 내부:
+  _scopes[msg.sender /*=hub*/][sessionAddr] = scope
+  _active[hub][sessionAddr] = true
+  emit SessionRegistered(hub, sessionAddr, ...)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="6">
+        <div class="idx">
+          <div class="num">✓</div><div class="who">READY</div>
+        </div>
+        <div class="body">
+          <div class="action">완료 — 이제 무서명 N판 가능 <span class="tag nosig">READY</span></div>
+          <div class="desc">
+            체인에 기록된 것: ① Hub 배포됨 ② <code>balances[PONGY_BET] = 0.05 ETH</code> ③ 세션키 스코프 등록.
+            브라우저에 저장된 것: <strong>세션키 private key</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gauge">
+      <span class="lbl">SIGNATURE LOG</span>
+      <div class="dots" id="onboard-dots"></div>
+      <div class="tally">지갑: <span class="hl" id="onboard-wallet-count">0</span> · 세션키: <span class="hl g" id="onboard-session-count">0</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 4 — Play flow (0 signatures)
+     ═══════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-title">
+    <span class="num">04</span>
+    <h2>플레이 플로우 — 지갑 서명 <span style="color:var(--g)">0회</span></h2>
+  </div>
+  <p class="section-sub">
+    이제부터는 유저가 버튼만 누르면 된다. 지갑은 조용히 있고, 세션키가 모든 서명을 담당.
+  </p>
+
+  <div class="flow-wrap">
+    <div class="flow-head">
+      <h3>🎲 한 판 — 베팅 → VRF → 결과</h3>
+      <button class="play-btn" onclick="playFlow('play')">▶ 재생</button>
+      <div class="sig-count zero">지갑 서명: 0회</div>
+    </div>
+
+    <div class="steps" id="play-steps">
+      <div class="step" data-step="0">
+        <div class="idx">
+          <div class="num">1</div><div class="who">BROWSER</div>
+        </div>
+        <div class="body">
+          <div class="action">유저 클릭 → digest 계산 <span class="tag local">LOCAL</span></div>
+          <div class="desc">
+            "Rock에 0.01 ETH 베팅" 버튼 클릭. 프론트가 Hub의 digest 포맷으로 메시지를 조립.
+          </div>
+          <div class="detail">call = abi.encodeCall(
+  pongyBet.playRound, (Choice.Rock, 0.01 ETH)
+)
+nonce = hub.sessionNonce(sessionAddr)
+digest = keccak256(
+  abi.encode(hub, chainId, sessionAddr,
+             game, value, keccak256(call), nonce)
+)
+digest = toEthSignedMessage(digest)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="1">
+        <div class="idx">
+          <div class="num">2</div><div class="who">BROWSER</div>
+        </div>
+        <div class="body">
+          <div class="action">세션키로 서명 <span class="tag nosig">NO WALLET</span></div>
+          <div class="desc">
+            <strong>지갑 팝업 없음.</strong> 페이지 JS가 localStorage의 세션키 private key로 직접 <code>ecsign(digest, sk)</code>.
+          </div>
+          <div class="detail">sig = secp256k1.sign(digest, sessionKey)
+// 지갑 API (eth_sign, personal_sign) 호출 없음.
+// viem 의 signMessage({ privateKey })</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="2">
+        <div class="idx">
+          <div class="num">3</div><div class="who">RELAY</div>
+        </div>
+        <div class="body">
+          <div class="action">누구든 제출 가능 <span class="tag chain">ON-CHAIN</span></div>
+          <div class="desc">
+            프론트엔드 자체, 별도 릴레이어, 게임 서버 — <strong>누가 보내든 상관없음</strong>.
+            서명만 유효하면 Hub이 받아들임. <em>가스리스 UX 여지는 여기서 나옴</em>.
+          </div>
+          <div class="detail">anyone.tx(
+  hub.executeAsSession(
+    sessionAddr, game, value, call, nonce, sig
+  )
+)
+// msg.sender는 아무 주소나 가능.
+// 검증은 전적으로 서명과 스코프에 의존.</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="3">
+        <div class="idx">
+          <div class="num">4</div><div class="who">HUB</div>
+        </div>
+        <div class="body">
+          <div class="action">검증 — 4개의 게이트 <span class="tag chain">ON-CHAIN</span></div>
+          <div class="desc">
+            Hub이 <em>자기 자신의 EntryPoint 역할</em>. 아래 중 하나라도 실패하면 revert.
+          </div>
+          <div class="detail">① nonce == sessionNonce[sk]          (재사용 방지)
+② ecrecover(digest, sig) == sk       (세션키 소유자 인증)
+③ sessionKeys.canCall(hub, sk,
+     game, selector, value)           (스코프 체크)
+④ balances[game] >= value            (잔액 확인)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="4">
+        <div class="idx">
+          <div class="num">5</div><div class="who">HUB</div>
+        </div>
+        <div class="body">
+          <div class="action">상태 갱신 + 게임 호출 <span class="tag chain">ON-CHAIN</span></div>
+          <div class="desc">
+            nonce 증가, 잔액 차감, 세션 캡 차감, 그리고 게임 컨트랙트로 call forward.
+          </div>
+          <div class="detail">sessionNonce[sk]   = nonce + 1
+balances[game]    -= value            // 0.01 ETH
+sessionKeys.consume(sk, value)        // 캡 차감
+
+game.call{ value }(call)              // 게임 컨트랙트 실행
+  → pongyBet.playRound(Rock, 0.01 ETH)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="5">
+        <div class="idx">
+          <div class="num">6</div><div class="who">GAME</div>
+        </div>
+        <div class="body">
+          <div class="action">Enshrined VRF 호출 <span class="tag chain">ON-CHAIN</span></div>
+          <div class="desc">
+            게임 컨트랙트가 프리디플로이 <code>0x42...f0</code>을 직접 호출. 한 블록 안에서 난수 획득, 즉시 결과 emit.
+          </div>
+          <div class="detail">randomness = IEnshrainedVRF(0x42...f0)
+               .getRandomness()         // pull-based
+dealerChoice = uint8(randomness % 3)
+outcome      = resolve(player, dealer)
+emit RoundPlayed(player, outcome, randomness)</div>
+        </div>
+      </div>
+
+      <div class="step" data-step="6">
+        <div class="idx">
+          <div class="num">↻</div><div class="who">LOOP</div>
+        </div>
+        <div class="body">
+          <div class="action">다음 판으로 — 다시 0 서명 <span class="tag nosig">REPEAT</span></div>
+          <div class="desc">
+            유저는 그냥 다시 클릭하면 된다. 세션키가 cap/만료 안에 있고 Hub에 잔고가 남아 있는 한 <strong>무한 반복</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gauge">
+      <span class="lbl">SIGNATURE LOG</span>
+      <div class="dots" id="play-dots"></div>
+      <div class="tally">지갑: <span class="hl" id="play-wallet-count">0</span> · 세션키: <span class="hl g" id="play-session-count">0</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 5 — Safety rails
+     ═══════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-title">
+    <span class="num">05</span>
+    <h2>세션키가 털렸을 때 — 피해가 제한되는 이유</h2>
+  </div>
+  <p class="section-sub">
+    세션키가 브라우저에 있다는 건 "상대적으로 안전하지 않은 키"라는 뜻이다. 그래서 <strong>4개의 게이트</strong>가 그 키의 권한을 사전에 좁힌다.
+    모두 <code>SessionKeyManager.canCall()</code> 한 함수 안에서 검증됨.
+  </p>
+
+  <div class="rails">
+    <div class="rail">
+      <div class="rtag">RAIL 1</div>
+      <h4>게임 화이트리스트</h4>
+      <p>이 세션키는 <em>딱 이 게임 컨트랙트</em>만 호출 가능. 다른 컨트랙트로는 호출 자체가 revert.</p>
+      <div class="code">if (s.gameAddr != gameAddr) <em>return false</em>;</div>
+    </div>
+    <div class="rail">
+      <div class="rtag">RAIL 2</div>
+      <h4>스펜딩 캡</h4>
+      <p>누적 사용액이 <code>spendingCap</code>을 넘으면 그 순간부터 거부. 매 실행마다 <code>consume()</code>으로 차감.</p>
+      <div class="code">if (value > s.spendingCap) <em>return false</em>;</div>
+    </div>
+    <div class="rail">
+      <div class="rtag">RAIL 3</div>
+      <h4>만료 시간</h4>
+      <p>등록 시 정한 unix timestamp를 지나면 키는 죽은 키. 유저가 탭을 닫은 뒤 긴 시간이 지나면 자동 무력화.</p>
+      <div class="code">if (s.expiry <= block.timestamp) <em>return false</em>;</div>
+    </div>
+    <div class="rail">
+      <div class="rtag">RAIL 4</div>
+      <h4>수동 revoke</h4>
+      <p>의심되면 EOA로 <code>hub.revokeSession(sk)</code> 한 번만 호출. 다음 블록부터 이 키는 영구히 무효.</p>
+      <div class="code">if (!_active[hub][sk]) <em>return false</em>;</div>
+    </div>
+  </div>
+
+  <p class="section-sub" style="margin-top:24px">
+    <strong>최악의 경우 손해:</strong> 현재 세션의 <em>남은 cap</em>. 지갑 내 다른 자산, 다른 게임 잔액, 다른 세션 — 전부 안전.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 6 — vs 4337
+     ═══════════════════════════════════════════════════════════════ -->
+<section>
+  <div class="section-title">
+    <span class="num">06</span>
+    <h2>왜 EIP-4337을 쓰지 않았는가</h2>
+  </div>
+  <p class="section-sub">
+    4337도 결국 "계정이 자기 서명을 검증한다"가 핵심이다. 게임 도메인에서는 그걸 표준 스펙보다 훨씬 얇게 구현할 수 있다.
+    <strong>Hub이 자기 자신의 EntryPoint 역할을 하므로, Bundler/EntryPoint/Paymaster 인프라가 필요 없다.</strong>
+  </p>
+
+  <div class="vs">
+    <div class="h"></div>
+    <div class="h ours">이 구현 (자체 AA)</div>
+    <div class="h other">EIP-4337</div>
+
+    <div class="dim">서명 검증 위치</div>
+    <div class="val"><span class="mark">✓</span> Hub의 <code>executeAsSession</code></div>
+    <div class="val"><span class="mark">✓</span> EntryPoint → Account.validateUserOp</div>
+
+    <div class="dim">필요 인프라</div>
+    <div class="val"><span class="mark">✓</span> 없음 (공용 mempool)</div>
+    <div class="val"><span class="mark bad">✗</span> Bundler, EntryPoint 배포</div>
+
+    <div class="dim">표준 호환</div>
+    <div class="val"><span class="mark bad">✗</span> 커스텀 digest</div>
+    <div class="val"><span class="mark">✓</span> UserOperation 표준</div>
+
+    <div class="dim">지갑 네이티브 지원</div>
+    <div class="val"><span class="mark bad">✗</span> 프론트가 직접 처리</div>
+    <div class="val"><span class="mark">✓</span> 점점 늘어나는 중</div>
+
+    <div class="dim">트랜잭션 제출자</div>
+    <div class="val"><span class="mark">✓</span> 아무나 (서명만 검증)</div>
+    <div class="val"><span class="mark">✓</span> Bundler가 묶어서 제출</div>
+
+    <div class="dim">가스 대납 (paymaster)</div>
+    <div class="val">백엔드가 직접 제출하면 자동 대납</div>
+    <div class="val">Paymaster 컨트랙트 필요</div>
+
+    <div class="dim">게임 도메인 최적화</div>
+    <div class="val"><span class="mark">✓</span> 게임별 잔액 슬롯, 스코프</div>
+    <div class="val">일반 계정 — 별도 모듈 필요</div>
+  </div>
+
+  <details class="code-toggle">
+    <summary>핵심 코드 보기 — executeAsSession()</summary>
+<pre><span class="com">// GameHubAccount.sol:113</span>
+<span class="kw">function</span> <span class="fn">executeAsSession</span>(
+  address sessionKey, address game, uint256 value,
+  bytes calldata data, uint256 nonce, bytes calldata signature
+) <span class="kw">external returns</span> (bytes memory) {
+<span class="hl">  <span class="com">// ① nonce 재사용 방지</span>
+  <span class="kw">if</span> (nonce != sessionNonce[sessionKey]) <span class="kw">revert</span> BadNonce();</span>
+
+  bytes32 digest = _digest(sessionKey, game, value, data, nonce);
+<span class="hl">  <span class="com">// ② 서명 ↔ 세션키 주소 매치 (Hub이 자기 자신의 EntryPoint 역할)</span>
+  address recovered = _recover(digest, signature);
+  <span class="kw">if</span> (recovered != sessionKey) <span class="kw">revert</span> InvalidSignature();</span>
+
+  bytes4 selector = data.length >= 4 ? bytes4(data[:4]) : bytes4(0);
+<span class="hl">  <span class="com">// ③ SessionKeyManager에 스코프 질의 (게임 / 만료 / cap / 셀렉터)</span>
+  <span class="kw">if</span> (!sessionKeys.canCall(<span class="kw">address</span>(<span class="kw">this</span>), sessionKey, game, selector, value)) {
+    <span class="kw">revert</span> Unauthorized();
+  }</span>
+<span class="hl">  <span class="com">// ④ 게임 잔액 확인</span>
+  <span class="kw">if</span> (balances[game] < value) <span class="kw">revert</span> InsufficientBalance();</span>
+
+  <span class="com">// 상태 갱신</span>
+  sessionNonce[sessionKey] = nonce + 1;
+  balances[game] -= value;
+  <span class="kw">if</span> (value > 0) sessionKeys.consume(sessionKey, value);
+
+  emit SessionExecuted(sessionKey, game, selector, value);
+  <span class="kw">return</span> _call(game, value, data);  <span class="com">// 게임 컨트랙트로 포워딩</span>
+}</pre>
+  </details>
+
+  <details class="code-toggle">
+    <summary>핵심 코드 보기 — SessionKeyManager.canCall() (4개 레일)</summary>
+<pre><span class="com">// SessionKeyManager.sol:82 — pure view, 변이 없음</span>
+<span class="kw">function</span> <span class="fn">canCall</span>(
+  address hub, address sessionKey,
+  address gameAddr, bytes4 selector, uint256 value
+) <span class="kw">external view returns</span> (bool) {
+<span class="hl">  <span class="kw">if</span> (!_active[hub][sessionKey]) <span class="kw">return false</span>;          <span class="com">// RAIL 4: revoke</span></span>
+  Scope storage s = _scopes[hub][sessionKey];
+<span class="hl">  <span class="kw">if</span> (s.gameAddr != gameAddr) <span class="kw">return false</span>;              <span class="com">// RAIL 1: 게임 화이트리스트</span></span>
+<span class="hl">  <span class="kw">if</span> (s.expiry != 0 && s.expiry <= block.timestamp)
+    <span class="kw">return false</span>;                                        <span class="com">// RAIL 3: 만료</span></span>
+<span class="hl">  <span class="kw">if</span> (value > s.spendingCap) <span class="kw">return false</span>;                <span class="com">// RAIL 2: 캡</span></span>
+  <span class="kw">if</span> (s.selectors.length > 0) {
+    bool match_;
+    <span class="kw">for</span> (uint256 i; i < s.selectors.length; ++i) {
+      <span class="kw">if</span> (s.selectors[i] == selector) { match_ = <span class="kw">true</span>; <span class="kw">break</span>; }
+    }
+    <span class="kw">if</span> (!match_) <span class="kw">return false</span>;                            <span class="com">// 셀렉터 허용</span>
+  }
+  <span class="kw">return true</span>;
+}</pre>
+  </details>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="footer">
+  <div>Enshrined VRF L2 · AA 구현 해부</div>
+  <div>
+    <a href="./session-accounts.html">← session-accounts</a> &nbsp;·&nbsp;
+    <a href="./aa-flow.html">aa-flow →</a>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATED FLOW — step-by-step with signature gauge
+   ═══════════════════════════════════════════════════════════════ */
+
+// which step triggers which kind of signature
+const SIG_MAP = {
+  onboard: [
+    null,       // step 1: browser gen (no sig)
+    null,       // step 2: scope define (no sig)
+    'wallet',   // step 3: WALLET signature ← the only one
+    null,       // step 4: create2 deploy (on-chain, no sig)
+    null,       // step 5: deposit
+    null,       // step 6: register
+    null        // step 7: ready
+  ],
+  play: [
+    null,       // step 1: digest calc
+    'session',  // step 2: SESSION KEY signature
+    null,       // step 3: relay
+    null,       // step 4: verify
+    null,       // step 5: state update
+    null,       // step 6: VRF
+    null        // step 7: loop
+  ]
+};
+
+function resetFlow(kind) {
+  const steps = document.querySelectorAll('#' + kind + '-steps .step');
+  steps.forEach(s => { s.classList.remove('active','done'); });
+  const dotsEl = document.getElementById(kind + '-dots');
+  dotsEl.innerHTML = '';
+  document.getElementById(kind + '-wallet-count').textContent = '0';
+  document.getElementById(kind + '-session-count').textContent = '0';
+}
+
+async function playFlow(kind) {
+  resetFlow(kind);
+  const steps = document.querySelectorAll('#' + kind + '-steps .step');
+  const sigs = SIG_MAP[kind];
+  const dotsEl = document.getElementById(kind + '-dots');
+  const wCountEl = document.getElementById(kind + '-wallet-count');
+  const sCountEl = document.getElementById(kind + '-session-count');
+  let walletCount = 0, sessionCount = 0;
+
+  for (let i = 0; i < steps.length; i++) {
+    // mark previous as done
+    if (i > 0) steps[i-1].classList.replace('active','done');
+    steps[i].classList.add('active');
+
+    // bump gauge
+    const sig = sigs[i];
+    if (sig) {
+      const dot = document.createElement('div');
+      dot.className = 'dot ' + sig;
+      dotsEl.appendChild(dot);
+      if (sig === 'wallet') { walletCount++; wCountEl.textContent = walletCount; }
+      else { sessionCount++; sCountEl.textContent = sessionCount; }
+    }
+
+    // scroll into view
+    steps[i].scrollIntoView({ behavior:'smooth', block:'center' });
+
+    await sleep(i === 0 ? 600 : 1400);
+  }
+  // final step → done
+  steps[steps.length-1].classList.replace('active','done');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Pre-mark step 0 as active so the user sees something before clicking play
+document.querySelectorAll('.steps').forEach(s => {
+  const first = s.querySelector('.step');
+  if (first) first.classList.add('active');
+});
+</script>
+</body>
+</html>

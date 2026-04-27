@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session Accounts — Enshrined VRF L2</title>
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#09090b;--s1:#111114;--s2:#18181b;--s3:#1f1f23;
+  --brd:#27272a;--brd2:#3f3f46;
+  --t:#fafafa;--td:#a1a1aa;--tm:#52525b;
+  --ac:#818cf8;--acd:rgba(129,140,248,.1);
+  --g:#34d399;--gd:rgba(52,211,153,.08);
+  --r:#f87171;--rd:rgba(248,113,113,.08);
+  --y:#fbbf24;--yd:rgba(251,191,36,.08);
+  --cy:#22d3ee;--cyd:rgba(34,211,238,.08);
+  --p:#c084fc;--pd:rgba(192,132,252,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t);font-family:'Geist',sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+.wrap{max-width:1200px;margin:0 auto;padding:64px 32px 96px}
+
+/* hero */
+.hero{margin-bottom:80px}
+.eyebrow{display:inline-block;font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--ac);background:var(--acd);padding:4px 10px;border-radius:12px;border:1px solid rgba(129,140,248,.2);margin-bottom:20px;letter-spacing:.05em}
+h1{font-size:3rem;font-weight:700;letter-spacing:-.04em;line-height:1.05;margin-bottom:18px}
+h1 .a{color:var(--ac)} h1 .g{color:var(--g)}
+.lead{font-size:1.05rem;color:var(--td);max-width:680px;line-height:1.65}
+.lead strong{color:var(--t);font-weight:600}
+
+/* section */
+section{margin-bottom:72px}
+h2{font-size:1.75rem;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
+h2 .num{color:var(--tm);font-family:'Geist Mono',monospace;font-size:1rem;font-weight:500;margin-right:12px;vertical-align:middle}
+.sub{font-size:.9rem;color:var(--td);margin-bottom:28px;max-width:720px}
+
+/* problem vs solution */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:24px}
+.card.bad{border-color:rgba(248,113,113,.3)}
+.card.good{border-color:rgba(52,211,153,.3)}
+.card h3{font-size:1rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card.bad h3{color:var(--r)} .card.good h3{color:var(--g)}
+.card .dot{width:8px;height:8px;border-radius:50%}
+.card.bad .dot{background:var(--r)} .card.good .dot{background:var(--g)}
+.seq{font-family:'Geist Mono',monospace;font-size:.78rem;color:var(--td);display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.seq .sig{color:var(--r)} .seq .sigok{color:var(--g)} .seq .act{color:var(--td)}
+.card p{font-size:.82rem;color:var(--td);margin-top:14px;line-height:1.6}
+
+/* architecture diagram */
+.arch{background:var(--s1);border:1px solid var(--brd);border-radius:16px;padding:40px 32px;position:relative}
+.layers{display:flex;flex-direction:column;gap:24px;align-items:center}
+.layer{width:100%;max-width:720px;padding:20px 24px;border:1px solid var(--brd);border-radius:10px;background:var(--s2);position:relative}
+.layer .label{font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--tm);letter-spacing:.08em;margin-bottom:6px}
+.layer .name{font-size:1.05rem;font-weight:600;margin-bottom:4px}
+.layer .meta{font-size:.78rem;color:var(--td)}
+.layer.eoa{border-color:rgba(251,191,36,.3)}
+.layer.eoa .name{color:var(--y)}
+.layer.hub{border-color:rgba(129,140,248,.3);background:var(--acd)}
+.layer.hub .name{color:var(--ac)}
+.sessions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.skey{background:var(--s3);border:1px solid var(--brd);border-radius:8px;padding:10px 12px}
+.skey .kname{font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--p);margin-bottom:2px}
+.skey .ktarget{font-size:.72rem;color:var(--td)}
+.skey .kscope{font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--tm);margin-top:4px}
+.arrow{font-family:'Geist Mono',monospace;color:var(--tm);font-size:.72rem;text-align:center}
+.arrow .sig-yes{color:var(--y)}
+.arrow .sig-no{color:var(--g)}
+
+/* flows */
+.flows{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.flow{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:22px;display:flex;flex-direction:column}
+.flow .tag{font-family:'Geist Mono',monospace;font-size:.6rem;padding:3px 8px;border-radius:10px;width:fit-content;margin-bottom:10px;letter-spacing:.05em}
+.flow.f1 .tag{background:var(--yd);color:var(--y);border:1px solid rgba(251,191,36,.2)}
+.flow.f2 .tag{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.2)}
+.flow.f3 .tag{background:var(--rd);color:var(--r);border:1px solid rgba(248,113,113,.2)}
+.flow h3{font-size:1.05rem;font-weight:600;margin-bottom:6px}
+.flow .note{font-size:.78rem;color:var(--td);margin-bottom:16px}
+.steps{display:flex;flex-direction:column;gap:0;font-family:'Geist Mono',monospace;font-size:.7rem;flex:1}
+.step{display:flex;gap:10px;padding:8px 0;border-top:1px dashed var(--brd)}
+.step:first-child{border-top:none}
+.step .n{color:var(--tm);flex-shrink:0;width:18px}
+.step .body{color:var(--td);line-height:1.5}
+.step .body .k{color:var(--ac)}
+.step .body .s{color:var(--g)}
+.step .body .r{color:var(--r)}
+.sigbar{margin-top:14px;padding:10px 12px;border-radius:8px;font-family:'Geist Mono',monospace;font-size:.68rem;display:flex;justify-content:space-between}
+.sigbar.yes{background:var(--yd);color:var(--y);border:1px solid rgba(251,191,36,.2)}
+.sigbar.no{background:var(--gd);color:var(--g);border:1px solid rgba(52,211,153,.2)}
+
+/* predeploys */
+.pre-table{background:var(--s1);border:1px solid var(--brd);border-radius:12px;overflow:hidden}
+.pre-row{display:grid;grid-template-columns:160px 220px 1fr 80px;padding:14px 20px;border-top:1px solid var(--brd);font-size:.82rem;align-items:center}
+.pre-row:first-child{border-top:none;background:var(--s2);font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--tm);letter-spacing:.06em}
+.pre-row .addr{font-family:'Geist Mono',monospace;font-size:.72rem;color:var(--p)}
+.pre-row .name{font-weight:600}
+.pre-row .role{color:var(--td);font-size:.78rem}
+.pre-row .phase{font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--tm);text-align:right}
+.pre-row .phase.p1{color:var(--g)}
+.pre-row .phase.p3{color:var(--y)}
+.pre-row .phase.p5{color:var(--tm)}
+
+/* decisions */
+.decisions{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.dec{background:var(--s1);border:1px solid var(--brd);border-radius:10px;padding:16px 18px;display:flex;gap:12px;align-items:flex-start}
+.dec .check{width:22px;height:22px;border-radius:50%;background:var(--gd);color:var(--g);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0;border:1px solid rgba(52,211,153,.25)}
+.dec .body h4{font-size:.88rem;font-weight:600;margin-bottom:2px}
+.dec .body p{font-size:.75rem;color:var(--td);line-height:1.5}
+
+/* open q */
+.oq{display:flex;flex-direction:column;gap:8px}
+.q{background:var(--s1);border:1px solid var(--brd);border-radius:8px;padding:12px 16px;display:flex;gap:14px;align-items:center}
+.q .qn{font-family:'Geist Mono',monospace;font-size:.65rem;color:var(--tm);background:var(--s2);border-radius:4px;padding:3px 7px;flex-shrink:0}
+.q .qt{font-size:.82rem;color:var(--t)}
+.q .qs{margin-left:auto;font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--td);background:var(--s3);padding:3px 7px;border-radius:4px}
+
+/* footer */
+.footer{margin-top:96px;padding-top:24px;border-top:1px solid var(--brd);display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:.7rem;color:var(--tm)}
+
+@media (max-width: 900px){
+  .compare,.flows,.decisions{grid-template-columns:1fr}
+  .pre-row{grid-template-columns:1fr;gap:4px}
+  h1{font-size:2.2rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HERO -->
+<div class="hero">
+  <span class="eyebrow">SESSION ACCOUNTS · DRAFT v0.1</span>
+  <h1><span class="a">한 번 서명</span>하면, <span class="g">게임 내내 무서명</span>.</h1>
+  <p class="lead">enshrined-vrf L2에 세션 계정을 내장해, 유저가 <strong>입금할 때만 서명</strong>하고 게임을 플레이하는 동안에는 <strong>팝업 없이</strong> 진행하도록 합니다. VRF 기반 게임의 몰입감을 지키는 것이 목표입니다.</p>
+</div>
+
+<!-- 1. PROBLEM vs SOLUTION -->
+<section>
+  <h2><span class="num">01</span>문제와 해결</h2>
+  <p class="sub">기존 지갑은 매 액션마다 서명을 요구합니다. 게임에선 치명적입니다.</p>
+  <div class="compare">
+    <div class="card bad">
+      <h3><span class="dot"></span>현재: 매 액션마다 서명</h3>
+      <div class="seq">
+        <div><span class="sig">🔐 sign</span> → <span class="act">move()</span></div>
+        <div><span class="sig">🔐 sign</span> → <span class="act">attack()</span></div>
+        <div><span class="sig">🔐 sign</span> → <span class="act">drawRandom()</span></div>
+        <div><span class="sig">🔐 sign</span> → <span class="act">bet()</span></div>
+        <div><span class="sig">🔐 sign</span> → <span class="act">move()</span> ...</div>
+      </div>
+      <p>팝업이 게임 흐름을 끊고, 유저는 곧 피로해집니다. 온체인 게임이 성장하지 못하는 주요 이유.</p>
+    </div>
+    <div class="card good">
+      <h3><span class="dot"></span>Session Accounts: 입금 시 1회</h3>
+      <div class="seq">
+        <div><span class="sigok">🔐 sign</span> → <span class="act">deposit + register session</span></div>
+        <div><span class="act">· move()</span></div>
+        <div><span class="act">· attack()</span></div>
+        <div><span class="act">· drawRandom()</span></div>
+        <div><span class="act">· bet() ... (모두 서명 없음)</span></div>
+      </div>
+      <p>세션키가 정해진 게임·한도·기간 안에서 유저를 대신해 서명합니다. 유저는 그 존재를 의식하지 않습니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 2. ARCHITECTURE -->
+<section>
+  <h2><span class="num">02</span>3계층 계정 모델</h2>
+  <p class="sub">메인 EOA는 자산을 지키고, Hub는 게임 잔고를 관리하며, 세션키는 게임별 스코프 안에서만 작동합니다.</p>
+  <div class="arch">
+    <div class="layers">
+      <div class="layer eoa">
+        <div class="label">LAYER 1 · FULL CUSTODY</div>
+        <div class="name">EOA (메인 지갑)</div>
+        <div class="meta">유저의 실제 지갑. 큰 잔고 보관. 서명 권한 풀셋.</div>
+      </div>
+      <div class="arrow">│<br>▼ <span class="sig-yes">deposit + register (서명 1회)</span></div>
+      <div class="layer hub">
+        <div class="label">LAYER 2 · PER-USER SMART ACCOUNT</div>
+        <div class="name">GameHub Account</div>
+        <div class="meta">유저당 1개. 게임별 잔고 슬롯. 세션키 서명 검증. CREATE2 결정적 주소.</div>
+        <div class="sessions">
+          <div class="skey">
+            <div class="kname">SessionKey_A</div>
+            <div class="ktarget">→ Game A 컨트랙트</div>
+            <div class="kscope">cap 1 ETH · 24h</div>
+          </div>
+          <div class="skey">
+            <div class="kname">SessionKey_B</div>
+            <div class="ktarget">→ Game B 컨트랙트</div>
+            <div class="kscope">cap 0.5 ETH · 6h</div>
+          </div>
+          <div class="skey">
+            <div class="kname">SessionKey_C</div>
+            <div class="ktarget">→ Game C 컨트랙트</div>
+            <div class="kscope">cap 2 ETH · 12h</div>
+          </div>
+        </div>
+      </div>
+      <div class="arrow">│<br>▼ <span class="sig-no">session key signs (유저 서명 없음)</span></div>
+      <div class="layer">
+        <div class="label">LAYER 3 · GAME CONTRACTS</div>
+        <div class="name">Registered Games (Game A, B, C, ...)</div>
+        <div class="meta">GameRegistry 화이트리스트에 등록된 컨트랙트만 세션키로 호출 가능. 모두 EnshrainedVRF 공유.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. FLOWS -->
+<section>
+  <h2><span class="num">03</span>세 가지 트랜잭션 흐름</h2>
+  <p class="sub">서명이 필요한 순간은 입금과 출금뿐. 플레이는 무서명.</p>
+  <div class="flows">
+    <div class="flow f1">
+      <span class="tag">FLOW · DEPOSIT</span>
+      <h3>입금 + 세션 등록</h3>
+      <p class="note">유저가 처음으로 게임을 시작할 때의 단일 트랜잭션.</p>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><span class="body">EOA가 <span class="k">GameHubFactory.depositAndRegister</span> 호출</span></div>
+        <div class="step"><span class="n">2</span><span class="body">Hub 미존재 시 <span class="s">CREATE2</span>로 배포</span></div>
+        <div class="step"><span class="n">3</span><span class="body">Hub의 <span class="s">balances[gameAddr]</span> += X</span></div>
+        <div class="step"><span class="n">4</span><span class="body">SessionKeyManager에 <span class="k">(hub, key, scope)</span> 등록</span></div>
+      </div>
+      <div class="sigbar yes"><span>🔐 signs</span><span>EOA × 1</span></div>
+    </div>
+    <div class="flow f2">
+      <span class="tag">FLOW · PLAY</span>
+      <h3>게임 플레이</h3>
+      <p class="note">매 턴마다 실행. 유저에겐 서명 팝업이 뜨지 않음.</p>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><span class="body">클라이언트가 <span class="k">세션키</span>로 tx 서명</span></div>
+        <div class="step"><span class="n">2</span><span class="body">Hub의 <span class="s">validateTransaction</span> 실행</span></div>
+        <div class="step"><span class="n">3</span><span class="body">SessionKeyManager가 <span class="s">scope · cap · expiry</span> 검증</span></div>
+        <div class="step"><span class="n">4</span><span class="body">GameRegistry로 target 화이트리스트 확인</span></div>
+        <div class="step"><span class="n">5</span><span class="body">게임 컨트랙트 호출 → <span class="k">EnshrainedVRF</span> 등 사용</span></div>
+      </div>
+      <div class="sigbar no"><span>✓ no popup</span><span>session × ∞</span></div>
+    </div>
+    <div class="flow f3">
+      <span class="tag">FLOW · WITHDRAW</span>
+      <h3>출금</h3>
+      <p class="note">자금을 EOA로 되돌릴 때만 메인키 서명 필요.</p>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><span class="body">EOA가 <span class="k">Hub.withdraw</span> 호출</span></div>
+        <div class="step"><span class="n">2</span><span class="body">Hub: <span class="r">require(msg.sender == owner)</span></span></div>
+        <div class="step"><span class="n">3</span><span class="body">세션키는 출금 권한 없음</span></div>
+        <div class="step"><span class="n">4</span><span class="body">(선택) 챌린지 기간 후 정산</span></div>
+      </div>
+      <div class="sigbar yes"><span>🔐 signs</span><span>EOA × 1</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. PREDEPLOYS -->
+<section>
+  <h2><span class="num">04</span>L2 Predeploys</h2>
+  <p class="sub">VRF와 마찬가지로, 세션 계정 인프라도 L2에 enshrine됩니다. 게임 개발자는 import만으로 사용.</p>
+  <div class="pre-table">
+    <div class="pre-row">
+      <div>ADDRESS</div><div>NAME</div><div>ROLE</div><div>PHASE</div>
+    </div>
+    <div class="pre-row">
+      <div class="addr">0x42...F0</div>
+      <div class="name">EnshrainedVRF</div>
+      <div class="role">모든 게임이 공유하는 온체인 무작위성 소스 (이미 존재)</div>
+      <div class="phase p5">SHIPPED</div>
+    </div>
+    <div class="pre-row">
+      <div class="addr">0x42...A0</div>
+      <div class="name">GameHubFactory</div>
+      <div class="role">EOA당 Hub 계정을 CREATE2로 결정적 생성 · 조회</div>
+      <div class="phase p1">PHASE 1</div>
+    </div>
+    <div class="pre-row">
+      <div class="addr">0x42...A1</div>
+      <div class="name">SessionKeyManager</div>
+      <div class="role">세션키 등록 · 폐기 · 범위/한도/만료 검증</div>
+      <div class="phase p1">PHASE 1</div>
+    </div>
+    <div class="pre-row">
+      <div class="addr">0x42...A2</div>
+      <div class="name">GameRegistry</div>
+      <div class="role">세션키가 호출 가능한 게임 컨트랙트 화이트리스트</div>
+      <div class="phase p1">PHASE 1</div>
+    </div>
+    <div class="pre-row">
+      <div class="addr">0x42...A3</div>
+      <div class="name">GamePaymaster</div>
+      <div class="role">(선택) 게임사가 유저의 가스비를 대납</div>
+      <div class="phase p3">PHASE 3</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. LOCKED DECISIONS -->
+<section>
+  <h2><span class="num">05</span>확정된 설계</h2>
+  <p class="sub">이번 문서에서 고정. 변경 시 문서를 먼저 수정.</p>
+  <div class="decisions">
+    <div class="dec"><div class="check">✓</div><div class="body"><h4>3계층 계정 모델</h4><p>EOA → GameHub → SessionKeys.</p></div></div>
+    <div class="dec"><div class="check">✓</div><div class="body"><h4>Hub는 유저당 1개</h4><p>게임당이 아닌 유저당. 잔고는 Hub 내부 슬롯으로 격리.</p></div></div>
+    <div class="dec"><div class="check">✓</div><div class="body"><h4>GameRegistry 게이팅</h4><p>등록된 게임 컨트랙트만 세션키로 호출 가능.</p></div></div>
+    <div class="dec"><div class="check">✓</div><div class="body"><h4>세션키는 출금 불가</h4><p>출금은 오직 메인 EOA 서명으로만.</p></div></div>
+    <div class="dec"><div class="check">✓</div><div class="body"><h4>컨트랙트 우선 구현</h4><p>Solidity 프로토타입으로 semantics 확정 후 op-geth로 enshrine.</p></div></div>
+    <div class="dec"><div class="check">✓</div><div class="body"><h4>VRF 재사용</h4><p>별도 추가 없이 기존 EnshrainedVRF를 게임이 공유.</p></div></div>
+  </div>
+</section>
+
+<!-- 6. OPEN QUESTIONS -->
+<section>
+  <h2><span class="num">06</span>미정 항목</h2>
+  <p class="sub">Phase 1 착수 전 확정이 필요한 질문들.</p>
+  <div class="oq">
+    <div class="q"><span class="qn">Q1</span><span class="qt">세션키 서명 방식 — ECDSA만? passkey(secp256r1) 포함?</span><span class="qs">SDK · 가스</span></div>
+    <div class="q"><span class="qn">Q2</span><span class="qt">출금 챌린지 기간 — 없음 / 고정 / Hub마다 설정?</span><span class="qs">보안 · UX</span></div>
+    <div class="q"><span class="qn">Q3</span><span class="qt">Paymaster를 Phase 1에 넣을지, 이후로 미룰지</span><span class="qs">범위</span></div>
+    <div class="q"><span class="qn">Q4</span><span class="qt">세션키 스코프 — 게임당 / 멀티게임 / 셀렉터 레벨까지?</span><span class="qs">스키마</span></div>
+    <div class="q"><span class="qn">Q5</span><span class="qt">게임 컨트랙트가 자체 세션키 폐기 가능? (부정행위 대응)</span><span class="qs">신뢰 모델</span></div>
+    <div class="q"><span class="qn">Q6</span><span class="qt">EIP-7702로 기존 EOA를 Hub로 delegate 가능하게?</span><span class="qs">호환성</span></div>
+    <div class="q"><span class="qn">Q7</span><span class="qt">세션키 nonce — 순차 / 2D(RIP-7712 스타일)?</span><span class="qs">병렬 전송</span></div>
+    <div class="q"><span class="qn">Q8</span><span class="qt">세션키 오프체인 저장 — 브라우저 로컬 / passkey 파생?</span><span class="qs">보안 경계</span></div>
+  </div>
+</section>
+
+<div class="footer">
+  <div>docs/session-accounts.md · v0.1 · 2026-04-20</div>
+  <div>enshrined-vrf · gaming L2</div>
+</div>
+
+</div>
+</body>
+</html>
