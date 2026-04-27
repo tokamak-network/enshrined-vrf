@@ -1,50 +1,80 @@
-/* Tokamak Arcade — hand-drawn sticker-book design system.
-   Tokamak Network's primary color is a vivid blue; the brand elements (logo tile,
-   primary CTA, chips) lead with --tk-blue while game-specific cards keep their
-   pastel accents for playful variety. */
+/* Tokamak Arcade — GAMES.GG-inspired dark game-platform design system.
+   Deep navy canvas, Tokamak Network brand-blue primary, edge-to-edge artwork.
+   See DESIGN.md for the full rationale. Variable names are preserved from
+   the previous Base-light system so every per-game page keeps working —
+   only the values change. */
 :root {
-  /* Surfaces — a slightly cooler cream to pair with blue. */
-  --cream:       #F3F6FF;
-  --paper:       #FFFFFF;
-  --paper-2:     #E9EEFC;
+  /* Canvas + surfaces — dark first */
+  --cream:       #0B0F17;   /* page background (legacy var name; now dark) */
+  --paper:       #131927;   /* card / panel surface 1 */
+  --paper-2:     #1B2336;   /* hover / elevated / code blocks */
 
-  /* Ink shifted toward Tokamak's navy to harmonise with the blue primary. */
-  --ink:         #0E1740;
-  --ink-soft:    #3B4677;
-  --ink-faint:   #8A94BF;
+  /* Ink — light text on dark canvas */
+  --ink:         #FFFFFF;
+  --ink-soft:    #A8B0C0;
+  --ink-faint:   #6B7280;
 
-  /* Tokamak brand blue (primary) */
-  --tk-blue:     #1F6FEB;   /* vivid Tokamak Network blue */
-  --tk-blue-deep:#0B52C8;
-  --tk-blue-ink: #0A1B45;   /* for text on blue surfaces, if needed */
+  /* Brand primary — Tokamak Network blue (#2A72E5 from the official symbol).
+     Variable name is preserved across pages; values are now the real brand. */
+  --tk-blue:     #2A72E5;
+  --tk-blue-deep:#1A56B8;
+  --tk-blue-ink: #FFFFFF;
 
-  /* Pastel family — every game picks one as its signature */
-  --pink:        #FFB3D9;
-  --pink-deep:   #FF7AB8;
-  --mint:        #B5EAD7;
-  --mint-deep:   #5FCFA4;
-  --butter:      #FFE29A;
-  --butter-deep: #FFC94D;
-  --sky:         #B5DFF5;
-  --sky-deep:    #5FB8E6;
-  --lavender:    #D7B5F5;
-  --lavender-deep:#A67DE8;
-  --coral:       #FFB5A7;
-  --coral-deep:  #FF8471;
-  --grass:       #C8E6A0;
-  --grass-deep:  #8EBD4D;
+  /* Per-game accents — saturated, vibrant on dark */
+  --pink:        #FF6B9F;
+  --pink-deep:   #E84A82;
+  --mint:        #62E6A8;
+  --mint-deep:   #2EBE82;
+  --butter:      #FFD466;
+  --butter-deep: #E0B040;
+  --sky:         #6FA8FF;
+  --sky-deep:    #4A82E0;
+  --lavender:    #B69BFF;
+  --lavender-deep:#9072E8;
+  --coral:       #FF8866;
+  --coral-deep:  #E06548;
+  --grass:       #8AAE5A;
+  --grass-deep:  #6B8E40;
 
-  /* Defaults for card shadow / stroke */
-  --stroke: 3px;
-  --radius-lg: 28px;
-  --radius-md: 18px;
-  --radius-sm: 12px;
-  --shadow-offset-x: 6px;
-  --shadow-offset-y: 6px;
+  /* States — semantic green stays for wins/live indicators (decoupled from
+     primary so that the brand color can change without breaking UX signals). */
+  --error:       #FF4D5E;
+  --warn:        #FFC857;
+  --success:     #00CC66;
+  --success-deep:#00A653;
 
-  /* Game accents (overridden per-page) */
+  /* Borders */
+  --line-1:      rgba(255, 255, 255, 0.06);
+  --line-2:      rgba(255, 255, 255, 0.12);
+  --line-3:      rgba(255, 255, 255, 0.20);
+
+  /* Glow — primary (blue) for CTAs/focus, success (green) for win states. */
+  --glow:         rgba(42, 114, 229, 0.30);
+  --glow-soft:    rgba(42, 114, 229, 0.12);
+  --success-glow: rgba(0, 204, 102, 0.30);
+
+  /* Shape — sharp on UI, generous on big visual blocks */
+  --stroke: 1px;
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-md: 8px;
+  --radius-sm: 4px;
+
+  /* Legacy offset-shadow tokens kept so game pages don't break. */
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 0px;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 12px 48px rgba(0, 0, 0, 0.60);
+
+  /* Defaults for game accent overrides */
   --accent:      var(--tk-blue);
   --accent-deep: var(--tk-blue-deep);
+
+  /* Typography stack */
+  --font-sans:  -apple-system, "system-ui", "Pretendard", "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+  --font-mono:  "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -52,236 +82,282 @@
 html, body {
   background: var(--cream);
   color: var(--ink);
-  font-family: "Nunito", "Pretendard", -apple-system, system-ui, sans-serif;
-  font-weight: 600;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 16px;
   min-height: 100vh;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  /* Soft Tokamak-blue tinted halos behind a sparkled grid of doodle marks. */
-  background-image:
-    radial-gradient(circle at 10% 14%, rgba(31,111,235,0.18) 0, transparent 26%),
-    radial-gradient(circle at 92% 18%, rgba(181,234,215,0.32) 0, transparent 22%),
-    radial-gradient(circle at 12% 86%, rgba(181,223,245,0.38) 0, transparent 24%),
-    radial-gradient(circle at 86% 90%, rgba(31,111,235,0.14) 0, transparent 26%),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><g fill='none' stroke='%230E1740' stroke-width='1.8' stroke-linecap='round' opacity='0.07'><path d='M20 30 l4 -4 M22 26 l0 6 M20 30 l6 0'/><path d='M130 50 q4 -6 8 0 q-4 6 -8 0'/><path d='M40 120 l3 0 l-1 -3 l-2 3 z' fill='%230E1740'/><path d='M110 130 c0 -5 8 -5 8 0 c0 5 -8 5 -8 0'/><path d='M80 80 l3 -3 M80 80 l-3 3 M80 80 l3 3 M80 80 l-3 -3'/></g></svg>");
-  background-attachment: fixed;
-  padding: 28px 20px 96px;
+  padding: 28px 32px 96px;
 }
 
 /* ---------- Typography ---------- */
 .display {
-  font-family: "Fredoka", "Nunito", system-ui, sans-serif;
-  font-weight: 700; letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
-h1, h2, h3 { font-family: "Fredoka", "Nunito", system-ui, sans-serif; font-weight: 700; }
-code, .mono {
-  font-family: "JetBrains Mono", "Menlo", monospace;
-  font-weight: 500;
-  background: rgba(43,33,57,0.06);
-  padding: 2px 7px; border-radius: 6px;
+h1, h2, h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   color: var(--ink);
 }
-a { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--accent-deep); }
-a:hover { text-decoration-color: var(--ink); }
+h1 { font-size: clamp(40px, 7vw, 80px); line-height: 1.05; letter-spacing: -0.025em; }
+h2 { font-size: clamp(24px, 3vw, 36px); }
+h3 { font-size: 20px; line-height: 1.25; letter-spacing: -0.015em; }
+
+p { color: var(--ink-soft); }
+
+code, .mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  background: var(--paper-2);
+  padding: 1px 6px; border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 0.9em;
+}
+
+.kw,
+.tokamak-hero h1 .chip,
+h1 .chip, h2 .chip {
+  display: inline; padding: 0; border: 0; background: transparent;
+  transform: none; box-shadow: none; margin: 0;
+  color: var(--tk-blue);
+}
+
+a {
+  color: var(--tk-blue);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+a:hover { color: var(--tk-blue-deep); text-decoration: underline; text-underline-offset: 3px; }
+
 button { font: inherit; cursor: pointer; }
+
+::selection { background: var(--glow); color: var(--ink); }
 
 /* ---------- Top bar ---------- */
 .tokamak-topbar {
-  max-width: 1100px; margin: 0 auto 28px;
+  max-width: 1280px; margin: 0 auto 56px;
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; flex-wrap: wrap;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-1);
+  padding-bottom: 16px;
 }
 .tokamak-brand {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   text-decoration: none; color: var(--ink);
 }
+.tokamak-brand:hover { text-decoration: none; color: var(--ink); }
 .tokamak-brand .logo {
-  width: 52px; height: 52px; border-radius: 14px;
-  background: #FFFFFF;
-  border: var(--stroke) solid var(--ink);
+  width: 32px; height: 32px;
   display: grid; place-items: center;
-  box-shadow: 4px 4px 0 var(--ink);
-  transform: rotate(-4deg);
-  transition: transform 0.2s ease;
-  padding: 8px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
-.tokamak-brand:hover .logo { transform: rotate(2deg) scale(1.05); }
+.tokamak-brand:hover .logo {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
 .tokamak-brand .logo-img {
   width: 100%; height: 100%; object-fit: contain;
   display: block;
+  filter: brightness(0) invert(1);  /* white symbol on dark canvas */
 }
 .tokamak-brand .title {
-  font-family: "Fredoka", sans-serif; font-weight: 600;
-  font-size: 20px; letter-spacing: -0.01em;
+  font-family: var(--font-sans); font-weight: 500;
+  font-size: 16px; letter-spacing: -0.005em;
+  color: var(--ink);
 }
 .tokamak-brand .title b { font-weight: 700; }
 
-.tokamak-topbar-right { display: flex; gap: 12px; align-items: center; }
+.tokamak-topbar-right { display: flex; gap: 8px; align-items: center; }
 
+/* VRF status pill */
 .vrf-pill {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border-radius: 999px;
-  background: var(--paper); border: 2px solid var(--ink);
-  box-shadow: 3px 3px 0 var(--ink);
-  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600;
+  padding: 7px 12px; border-radius: var(--radius-md);
+  background: var(--paper);
+  border: 1px solid var(--line-1);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
   color: var(--ink-soft);
+  letter-spacing: 0.02em;
 }
 .vrf-pill .dot {
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--ink-faint);
-  box-shadow: 0 0 0 3px rgba(154,145,171,0.25);
 }
-.vrf-pill.ok    .dot { background: var(--mint-deep);    box-shadow: 0 0 0 3px rgba(95,207,164,0.35); }
-.vrf-pill.stale .dot { background: var(--butter-deep);  box-shadow: 0 0 0 3px rgba(255,201,77,0.35); }
-.vrf-pill.err   .dot { background: var(--coral-deep);   box-shadow: 0 0 0 3px rgba(255,132,113,0.35); }
+.vrf-pill.ok    .dot { background: var(--success); box-shadow: 0 0 0 3px var(--glow-soft); }
+.vrf-pill.stale .dot { background: var(--warn); }
+.vrf-pill.err   .dot { background: var(--error); }
 
-/* KO / EN language toggle */
+/* Language toggle */
 .lang-toggle {
-  display: inline-flex; padding: 0; border: 2.5px solid var(--ink);
-  background: var(--paper); border-radius: 999px;
-  box-shadow: 3px 3px 0 var(--ink);
+  display: inline-flex; padding: 2px;
+  background: var(--paper);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-md);
   overflow: hidden; cursor: pointer;
-  font-family: "Fredoka", sans-serif; font-size: 14px; font-weight: 700;
-  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em;
 }
-.lang-toggle:hover  { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
-.lang-toggle:active { transform: translate(2px,2px);  box-shadow: 1px 1px 0 var(--ink); }
 .lang-toggle .lang-opt {
-  padding: 9px 14px; color: var(--ink-soft);
-  letter-spacing: 0.08em; pointer-events: none;
+  padding: 6px 12px;
+  color: var(--ink-soft);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
   transition: background 0.15s ease, color 0.15s ease;
+  text-transform: uppercase;
 }
-.lang-toggle .lang-opt + .lang-opt { border-left: 2.5px solid var(--ink); }
-.lang-toggle .lang-opt.active { background: var(--butter); color: var(--ink); }
+.lang-toggle .lang-opt + .lang-opt { margin-left: 2px; }
+.lang-toggle .lang-opt.active {
+  background: var(--tk-blue); color: var(--tk-blue-ink);
+}
 
-/* ---------- Buttons — chunky pill with offset shadow ---------- */
+/* ---------- Buttons ---------- */
 .tokamak-btn {
-  appearance: none; border: var(--stroke) solid var(--ink);
-  padding: 12px 22px; border-radius: 999px;
-  background: var(--paper); color: var(--ink);
-  font-family: "Fredoka", sans-serif; font-weight: 600;
-  font-size: 15px; letter-spacing: 0.01em;
-  box-shadow: 4px 4px 0 var(--ink);
-  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+  appearance: none;
+  border: 1px solid var(--line-2);
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans); font-weight: 600;
+  font-size: 14px; letter-spacing: 0.005em;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
   display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
 }
-.tokamak-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 5px 5px 0 var(--ink);
-}
-.tokamak-btn:active {
-  transform: translate(3px, 3px);
-  box-shadow: 1px 1px 0 var(--ink);
-}
+.tokamak-btn:hover { background: var(--paper-2); color: var(--ink); border-color: var(--line-3); }
+.tokamak-btn:active { transform: translateY(1px); }
 .tokamak-btn:disabled {
-  opacity: 0.55; cursor: not-allowed;
-  transform: none; box-shadow: 4px 4px 0 var(--ink);
+  opacity: 0.5; cursor: not-allowed;
 }
-.tokamak-btn.primary { background: var(--accent); }
-.tokamak-btn.primary:hover { background: var(--accent-deep); color: var(--paper); }
-.tokamak-btn.ghost   { background: transparent; }
-.tokamak-btn.small   { padding: 8px 14px; font-size: 13px; box-shadow: 3px 3px 0 var(--ink); }
-.tokamak-btn.small:hover  { box-shadow: 4px 4px 0 var(--ink); }
-.tokamak-btn.small:active { box-shadow: 1px 1px 0 var(--ink); }
+.tokamak-btn.primary {
+  background: var(--tk-blue); color: var(--tk-blue-ink);
+  border-color: var(--tk-blue);
+}
+.tokamak-btn.primary:hover {
+  background: var(--tk-blue-deep); color: var(--tk-blue-ink);
+  border-color: var(--tk-blue-deep);
+  box-shadow: 0 0 0 4px var(--glow-soft);
+}
+.tokamak-btn.ghost {
+  background: transparent;
+  border-color: var(--line-2);
+}
+.tokamak-btn.ghost:hover { background: rgba(255, 255, 255, 0.04); border-color: var(--line-3); }
+.tokamak-btn.small {
+  padding: 7px 14px; font-size: 12.5px;
+}
 
-/* ---------- Hero ---------- */
+/* ---------- Hero (legacy) ---------- */
 .tokamak-hero {
-  max-width: 1100px; margin: 12px auto 44px;
-  text-align: center; padding: 28px 16px 8px;
+  max-width: 1280px; margin: 12px auto 64px;
+  padding: 28px 0 8px;
   position: relative;
 }
 .tokamak-hero .eyebrow {
   display: inline-block;
-  background: var(--mint); color: var(--ink);
-  border: 2px solid var(--ink);
-  padding: 6px 14px; border-radius: 999px;
-  font-family: "Fredoka", sans-serif; font-size: 13px;
-  box-shadow: 3px 3px 0 var(--ink);
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--ink-soft);
   margin-bottom: 18px;
-  transform: rotate(-2deg);
 }
 .tokamak-hero h1 {
-  font-size: clamp(38px, 6vw, 68px);
+  font-size: clamp(40px, 7vw, 80px);
   line-height: 1.05;
   letter-spacing: -0.025em;
+  font-weight: 600;
+  max-width: 18ch;
 }
-.tokamak-hero h1 .chip {
-  display: inline-block;
-  padding: 0 14px; border-radius: 18px;
-  border: var(--stroke) solid var(--ink);
-  background: var(--butter);
-  transform: rotate(-2deg);
-  box-shadow: 5px 5px 0 var(--ink);
-  margin: 0 4px;
-}
-.tokamak-hero h1 .chip.b { background: var(--pink); transform: rotate(2deg); }
-.tokamak-hero h1 .chip.c { background: var(--sky);  transform: rotate(-1deg); }
 .tokamak-hero p {
-  margin: 20px auto 0; max-width: 620px;
-  color: var(--ink-soft); font-size: 17px; font-weight: 500;
+  margin: 24px 0 0;
+  max-width: 620px;
+  color: var(--ink-soft);
+  font-size: 17px; font-weight: 400;
+  line-height: 1.55;
 }
 
-/* ---------- Game grid (hub) ---------- */
+/* ---------- Game grid (hub fallback / per-game lists) ---------- */
 .tokamak-grid {
-  max-width: 1100px; margin: 0 auto;
-  display: grid; gap: 26px;
+  max-width: 1280px; margin: 0 auto;
+  display: grid; gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
 .tokamak-card {
-  position: relative; overflow: visible;
+  position: relative;
   background: var(--paper); color: var(--ink);
-  border: var(--stroke) solid var(--ink);
+  border: 1px solid var(--line-1);
   border-radius: var(--radius-lg);
-  padding: 22px 22px 20px;
-  box-shadow: var(--shadow-offset-x) var(--shadow-offset-y) 0 var(--ink);
-  display: flex; flex-direction: column; gap: 14px;
-  min-height: 300px;
+  padding: 0;
+  display: flex; flex-direction: column;
+  min-height: 320px;
   text-decoration: none;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  overflow: hidden;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
 }
 .tokamak-card:hover {
-  transform: translate(-3px, -3px);
-  box-shadow: 9px 9px 0 var(--ink);
+  background: var(--paper-2);
+  border-color: var(--line-2);
+  transform: translateY(-3px);
   text-decoration: none;
+  color: var(--ink);
 }
 .tokamak-card .mascot-holder {
-  height: 120px; display: grid; place-items: center;
-  background: var(--accent);
-  border: var(--stroke) solid var(--ink);
-  border-radius: var(--radius-md);
-  margin-bottom: 4px;
+  height: 200px;
+  display: grid; place-items: center;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%),
+    var(--accent);
   position: relative; overflow: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 }
-.tokamak-card .mascot-holder::before {
+.tokamak-card .mascot-holder::after {
   content: ""; position: absolute; inset: 0;
-  background-image:
-    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.55) 0 6px, transparent 7px),
-    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.45) 0 4px, transparent 5px),
-    radial-gradient(circle at 65% 25%, rgba(255,255,255,0.35) 0 3px, transparent 4px);
+  background: radial-gradient(circle at 75% 25%, rgba(255, 255, 255, 0.18), transparent 60%);
+  pointer-events: none;
 }
 .tokamak-card .mascot-holder svg { position: relative; z-index: 1; }
 .tokamak-card h3 {
-  font-size: 24px; display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  display: flex; align-items: center; justify-content: space-between;
   gap: 8px;
+  padding: 18px 20px 0;
 }
 .tokamak-card h3 .badge {
-  font-family: "Fredoka", sans-serif; font-size: 12px; font-weight: 500;
-  background: var(--ink); color: var(--paper);
-  padding: 4px 10px; border-radius: 999px;
-  letter-spacing: 0.03em; text-transform: uppercase;
+  font-family: var(--font-sans); font-size: 10px; font-weight: 700;
+  background: var(--paper-2); color: var(--ink-soft);
+  padding: 4px 8px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line-1);
+  letter-spacing: 0.06em; text-transform: uppercase;
 }
 .tokamak-card .desc {
-  color: var(--ink-soft); font-size: 14px; flex: 1; font-weight: 500;
+  color: var(--ink-soft); font-size: 13.5px; flex: 1;
+  font-family: var(--font-sans); font-weight: 400;
+  line-height: 1.55;
+  padding: 8px 20px 16px;
 }
 .tokamak-card .go {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: "Fredoka", sans-serif; color: var(--ink);
-  font-weight: 600; font-size: 14px;
+  font-family: var(--font-sans); color: var(--tk-blue);
+  font-weight: 700; font-size: 12.5px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 0 20px 18px;
 }
-.tokamak-card .go svg { transition: transform 0.15s ease; }
+.tokamak-card .go svg { transition: transform 0.18s ease; }
+.tokamak-card .go svg path { stroke: var(--tk-blue); }
 .tokamak-card:hover .go svg { transform: translateX(4px); }
 
 /* Per-card accent tinting */
@@ -298,31 +374,46 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-direction: column; gap: 24px;
 }
 .tokamak-shell-head {
-  display: flex; align-items: center; gap: 16px;
+  display: flex; align-items: center; gap: 18px;
   padding: 6px 2px;
 }
 .tokamak-shell-head .mascot {
-  width: 76px; height: 76px; border-radius: 22px;
+  width: 64px; height: 64px;
+  border-radius: var(--radius-md);
   background: var(--accent);
-  border: var(--stroke) solid var(--ink);
-  box-shadow: 4px 4px 0 var(--ink);
   display: grid; place-items: center;
   flex-shrink: 0;
-  transform: rotate(-4deg);
 }
-.tokamak-shell-head h2 { font-size: 34px; letter-spacing: -0.02em; }
-.tokamak-shell-head .lead { color: var(--ink-soft); font-size: 15px; font-weight: 500; margin-top: 4px; }
-.tokamak-shell-head .lead code { font-size: 12px; }
+.tokamak-shell-head h2 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+}
+.tokamak-shell-head .lead {
+  color: var(--ink-soft); font-size: 15px;
+  font-family: var(--font-sans); font-weight: 400;
+  margin-top: 4px; line-height: 1.5;
+}
+.tokamak-shell-head .lead code { font-size: 13px; }
 
 .tokamak-panel {
   background: var(--paper); color: var(--ink);
-  border: var(--stroke) solid var(--ink);
+  border: 1px solid var(--line-1);
   border-radius: var(--radius-lg);
   padding: 28px;
-  box-shadow: var(--shadow-offset-x) var(--shadow-offset-y) 0 var(--ink);
 }
 .tokamak-panel.paper-2 { background: var(--paper-2); }
-.tokamak-panel.accent  { background: var(--accent); }
+.tokamak-panel.accent {
+  background: var(--accent); color: var(--tk-blue-ink);
+  border-color: transparent;
+}
+.tokamak-panel.dark {
+  background: #050810; color: #fff;
+  border-color: var(--line-1);
+}
+.tokamak-panel.dark p { color: rgba(255, 255, 255, 0.7); }
+.tokamak-panel.dark code { background: rgba(255, 255, 255, 0.08); color: #fff; }
 
 /* Rows */
 .tokamak-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -331,92 +422,287 @@ button { font: inherit; cursor: pointer; }
 
 /* Key-value */
 .kv {
-  font-family: "Fredoka", sans-serif; font-size: 14px;
-  color: var(--ink-soft); font-weight: 500;
+  font-family: var(--font-sans); font-size: 12px;
+  color: var(--ink-soft); font-weight: 600;
   display: inline-flex; align-items: center; gap: 6px;
+  letter-spacing: 0.05em; text-transform: uppercase;
 }
-.kv b { color: var(--ink); font-weight: 700; }
+.kv b { color: var(--ink); font-weight: 700; text-transform: none; letter-spacing: 0; }
 
 /* Hex / code blocks */
 .hex-block {
-  font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 500;
-  color: var(--ink); word-break: break-all; line-height: 1.6;
-  background: var(--paper-2); border: 2px dashed var(--ink-faint);
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 400;
+  color: var(--ink-soft); word-break: break-all; line-height: 1.7;
+  background: var(--paper-2);
+  border: 1px solid var(--line-1);
   padding: 12px 14px; border-radius: var(--radius-sm);
 }
 
 /* History list */
 .tokamak-history {
-  margin-top: 6px; display: flex; flex-direction: column; gap: 8px;
+  margin-top: 6px; display: flex; flex-direction: column; gap: 6px;
   max-height: 220px; overflow-y: auto;
 }
 .tokamak-history .item {
   display: flex; justify-content: space-between; gap: 12px;
-  padding: 10px 14px; border-radius: 999px;
-  background: var(--paper); border: 2px solid var(--ink);
-  font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 500;
-  box-shadow: 2px 2px 0 var(--ink);
+  padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--paper-2);
+  border: 1px solid var(--line-1);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 400;
+  color: var(--ink-soft);
 }
-.tokamak-history .item.win  { background: var(--mint); }
-.tokamak-history .item.lose { background: var(--coral); }
+.tokamak-history .item.win  {
+  background: rgba(0, 204, 102, 0.08);
+  border-color: rgba(0, 204, 102, 0.32);
+  color: var(--ink);
+}
+.tokamak-history .item.lose {
+  background: rgba(255, 77, 94, 0.08);
+  border-color: rgba(255, 77, 94, 0.30);
+  color: var(--ink);
+}
 
 /* Result banner */
 .tokamak-result {
-  text-align: center; padding: 20px 18px;
+  text-align: center; padding: 24px 18px;
   border-radius: var(--radius-md);
-  border: var(--stroke) solid var(--ink);
+  border: 1px solid var(--line-1);
   background: var(--paper-2);
-  box-shadow: 4px 4px 0 var(--ink);
-  font-family: "Fredoka", sans-serif;
+  font-family: var(--font-sans);
   font-size: 22px; font-weight: 600;
-  min-height: 72px;
+  letter-spacing: -0.01em;
+  min-height: 76px;
   display: grid; place-items: center;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
-.tokamak-result.win  { background: var(--mint); }
-.tokamak-result.lose { background: var(--coral); }
+.tokamak-result.win  {
+  background: rgba(0, 204, 102, 0.10);
+  border-color: rgba(0, 204, 102, 0.40);
+  color: var(--success-deep);
+}
+.tokamak-result.lose {
+  background: rgba(255, 77, 94, 0.08);
+  border-color: rgba(255, 77, 94, 0.32);
+  color: var(--error);
+}
 .tokamak-result small {
-  display: block; font-size: 13px; color: var(--ink-soft); font-weight: 500; margin-top: 4px;
+  display: block; font-size: 12px; color: var(--ink-soft); font-weight: 600;
+  font-family: var(--font-sans); margin-top: 6px;
+  letter-spacing: 0.05em; text-transform: uppercase;
 }
 
 /* Footer */
 .tokamak-footer {
-  max-width: 1100px; margin: 60px auto 0;
-  text-align: center; color: var(--ink-soft);
-  font-size: 13px; font-weight: 500;
-  padding: 14px 20px; border-radius: var(--radius-md);
-  background: var(--paper); border: 2px dashed var(--ink-soft);
+  max-width: 1280px; margin: 60px auto 0;
+  text-align: center; color: var(--ink-faint);
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 20px;
+  border-top: 1px solid var(--line-1);
 }
 .tokamak-footer code { font-size: 12px; }
 
 /* Back link */
 .tokamak-back {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: "Fredoka", sans-serif; font-size: 14px; color: var(--ink-soft);
-  text-decoration: none; margin-bottom: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  transition: color 0.15s ease;
 }
-.tokamak-back:hover { color: var(--ink); text-decoration: none; }
+.tokamak-back:hover { color: var(--tk-blue); text-decoration: none; }
 
 /* ---------- Animations ---------- */
 @keyframes tokamak-wobble {
-  0%,100% { transform: rotate(-4deg); }
-  50%     { transform: rotate(4deg); }
+  0%,100% { transform: rotate(-2deg); }
+  50%     { transform: rotate(2deg); }
 }
 @keyframes tokamak-spin   { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
-@keyframes tokamak-pop    { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
-@keyframes tokamak-shake  { 0%,100% { transform: translateX(0) rotate(-2deg); } 25% { transform: translateX(-6px) rotate(2deg); } 75% { transform: translateX(6px) rotate(-2deg); } }
-@keyframes tokamak-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes tokamak-sparkle{ 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes tokamak-pop    { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tokamak-shake  { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@keyframes tokamak-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes tokamak-sparkle{ 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes tokamak-pulse  { 0%,100% { box-shadow: 0 0 0 0 var(--glow); } 50% { box-shadow: 0 0 0 6px transparent; } }
 
-.wobble   { animation: tokamak-wobble 0.9s ease-in-out infinite; }
-.bounce   { animation: tokamak-bounce 1.2s ease-in-out infinite; }
-.sparkle  { animation: tokamak-sparkle 1.4s ease-in-out infinite; }
+.wobble   { animation: tokamak-wobble 1s ease-in-out infinite; }
+.bounce   { animation: tokamak-bounce 1.4s ease-in-out infinite; }
+.sparkle  { animation: tokamak-sparkle 1.6s ease-in-out infinite; }
 .rolling  { animation: tokamak-shake 0.22s ease-in-out infinite; }
-.popping  { animation: tokamak-pop 0.45s ease-out; }
+.popping  { animation: tokamak-pop 0.4s ease-out; }
+.pulse    { animation: tokamak-pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wobble, .bounce, .sparkle, .rolling, .popping, .pulse { animation: none; }
+}
+
+/* Utility — hide scrollbars (used on carousel rows) */
+.scroll-row {
+  display: flex; gap: 16px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 32px;
+  padding: 4px 32px 12px;
+  margin: 0 -32px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 56px), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 56px), transparent 100%);
+}
+.scroll-row::-webkit-scrollbar { display: none; }
+.scroll-row > * { scroll-snap-align: start; flex-shrink: 0; }
 
 /* Mobile */
 @media (max-width: 640px) {
-  .tokamak-shell-head h2 { font-size: 28px; }
-  .tokamak-panel { padding: 20px; }
-  :root { --shadow-offset-x: 4px; --shadow-offset-y: 4px; }
+  body { padding: 20px 16px 64px; }
+  .tokamak-shell-head h2 { font-size: 26px; }
+  .tokamak-panel { padding: 22px; }
+  .tokamak-topbar { margin-bottom: 32px; }
+  .scroll-row {
+    scroll-padding: 0 16px;
+    padding: 4px 16px 12px;
+    margin: 0 -16px;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 32px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 32px), transparent 100%);
+  }
+}
+
+/* ============================================================
+   Left rail (DEX-style sidebar) — mounted via shared/sidebar.js
+   ============================================================
+   Pages that mount the sidebar get `tk-has-sidebar` on <body>.
+   That class drives the body offset and a sticky topbar so the
+   IA stays visible across scroll. Per-page CSS does not need to
+   know about the sidebar — it just keeps using its existing
+   max-width centering inside the now-narrower body.
+   ============================================================ */
+
+.tk-sb {
+  position: fixed; top: 0; left: 0;
+  width: 240px; height: 100vh;
+  background: rgba(11, 15, 23, 0.96);
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  border-right: 1px solid var(--line-1);
+  padding: 22px 14px 18px;
+  display: flex; flex-direction: column;
+  z-index: 60;
+}
+
+.tk-sb-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 8px 24px;
+  text-decoration: none; color: var(--ink);
+}
+.tk-sb-brand:hover { text-decoration: none; color: var(--ink); }
+.tk-sb-mark {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  transition: transform 0.15s ease;
+}
+.tk-sb-brand:hover .tk-sb-mark { transform: translateY(-1px); }
+.tk-sb-name {
+  font-family: var(--font-sans);
+  font-size: 15.5px; font-weight: 500; letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.tk-sb-name b { font-weight: 700; }
+
+.tk-sb-nav {
+  flex: 1;
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 4px;
+}
+.tk-sb-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 14px; font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+}
+.tk-sb-link svg { flex-shrink: 0; opacity: 0.85; transition: opacity 0.15s ease; }
+.tk-sb-link:hover {
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+}
+.tk-sb-link:hover svg { opacity: 1; }
+.tk-sb-link.active {
+  background: var(--paper);
+  color: var(--tk-blue);
+  box-shadow: inset 3px 0 0 var(--tk-blue);
+}
+.tk-sb-link.active svg { opacity: 1; }
+.tk-sb-link.active svg [stroke] { stroke: var(--tk-blue); }
+.tk-sb-link[aria-disabled="true"] {
+  cursor: default; opacity: 0.55;
+}
+.tk-sb-link[aria-disabled="true"]:hover {
+  background: transparent; color: var(--ink-soft);
+}
+.tk-sb-link[aria-disabled="true"]:hover svg { opacity: 0.85; }
+.tk-sb-soon {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-faint);
+  background: var(--paper-2);
+  border: 1px solid var(--line-1);
+  padding: 2px 6px; border-radius: var(--radius-sm);
+}
+
+.tk-sb-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px 0;
+  border-top: 1px solid var(--line-1);
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+.tk-sb-foot-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+
+/* ---- Body layout when sidebar is mounted ---- */
+/* Each page styles its own topbar (sticky / blur / border) — the sidebar
+   only owns the body offset, so per-page padding rules stay valid. */
+body.tk-has-sidebar { margin-left: 240px; }
+
+/* Collapse the rail to icon-only on medium screens. */
+@media (max-width: 1024px) {
+  .tk-sb { width: 64px; padding: 22px 8px 18px; }
+  .tk-sb-brand { padding: 4px 0 24px; justify-content: center; }
+  .tk-sb-name,
+  .tk-sb-link span:not(.tk-sb-soon),
+  .tk-sb-soon,
+  .tk-sb-foot { display: none; }
+  .tk-sb-link { justify-content: center; padding: 10px 0; }
+  body.tk-has-sidebar { margin-left: 64px; }
+}
+
+/* Hide entirely on narrow screens — per-game pages still have their
+   `← 게임 목록으로` back link as fallback navigation. */
+@media (max-width: 720px) {
+  .tk-sb { display: none; }
+  body.tk-has-sidebar { margin-left: 0; }
+}
+
+/* When the sidebar provides the back-to-Play link via "Play",
+   the per-page `← 게임 목록으로` becomes redundant on desktop.
+   Keep it on mobile (≤720px) where the sidebar is hidden. */
+body.tk-has-sidebar .tokamak-back { display: none; }
+@media (max-width: 720px) {
+  body.tk-has-sidebar .tokamak-back { display: inline-flex; }
 }

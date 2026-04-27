@@ -6,75 +6,514 @@
 <title data-i18n="hub.title">Games · Tokamak Arcade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared/tokamak.css">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokamak.css?v=arcade-4">
 <style>
+  body {
+    padding: 16px 0 0;
+    background:
+      radial-gradient(900px 480px at 90% -10%, rgba(42, 114, 229, 0.07), transparent 70%),
+      radial-gradient(700px 460px at -10% 25%, rgba(111, 168, 255, 0.05), transparent 70%),
+      var(--cream);
+    background-attachment: fixed;
+  }
+  body > #topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(11, 15, 23, 0.85);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    padding: 0 32px;
+  }
+  body > #topbar .tokamak-topbar { margin: 0 auto; }
+  main { padding: 0 32px; }
+
+  /* ========== Header ========== */
   .games-header {
-    max-width: 1100px; margin: 12px auto 32px;
-    display: flex; flex-direction: column; gap: 10px; padding: 0 6px;
+    max-width: 1280px; margin: 28px auto 32px;
+    display: flex; flex-direction: column; gap: 14px;
   }
+  .games-header .crumb {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-sans);
+    font-size: 11.5px; font-weight: 700;
+    color: var(--ink-soft);
+    text-decoration: none;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    transition: color 0.15s ease;
+    align-self: flex-start;
+  }
+  .games-header .crumb:hover { color: var(--tk-blue); text-decoration: none; }
   .games-header .eyebrow {
-    display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
-    background: var(--mint); border: 2px solid var(--ink);
-    box-shadow: 3px 3px 0 var(--ink);
-    padding: 6px 14px; border-radius: 999px;
-    font-family: "Fredoka", sans-serif; font-size: 13px;
-    transform: rotate(-1.5deg);
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px;
+    background: rgba(42, 114, 229, 0.06);
+    border: 1px solid rgba(42, 114, 229, 0.30);
+    border-radius: 100px;
+    font-family: var(--font-sans);
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--tk-blue);
+    align-self: flex-start;
   }
-  .games-header h1 { font-size: clamp(30px, 4.2vw, 46px); letter-spacing: -0.02em; }
-  .games-header p { color: var(--ink-soft); font-size: 16px; font-weight: 500; max-width: 620px; }
+  .games-header .eyebrow .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--tk-blue);
+    box-shadow: 0 0 0 4px var(--glow);
+    animation: tokamak-pulse 2.4s ease-in-out infinite;
+  }
+  .games-header h1 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: clamp(36px, 5.6vw, 64px);
+    letter-spacing: -0.025em;
+    line-height: 1.0;
+    max-width: 18ch;
+  }
+  .games-header p {
+    font-family: var(--font-sans);
+    color: var(--ink-soft);
+    font-size: 16px; font-weight: 400;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  /* ========== Featured banner ========== */
+  .featured-banner {
+    max-width: 1280px; margin: 0 auto 56px;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--line-1);
+    padding: 44px 48px;
+    background:
+      radial-gradient(640px 360px at 90% 100%, rgba(42, 114, 229, 0.20), transparent 65%),
+      linear-gradient(160deg, #131927 0%, #0B0F17 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) 200px;
+    gap: 32px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .featured-banner::after {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--line-1) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-1) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(circle at 80% 80%, #000 30%, transparent 75%);
+    pointer-events: none; opacity: 0.4;
+  }
+  .featured-banner > * { position: relative; z-index: 1; }
+  .featured-banner .pin {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    background: rgba(42, 114, 229, 0.12);
+    border: 1px solid rgba(42, 114, 229, 0.30);
+    font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    color: var(--tk-blue);
+    margin-bottom: 18px;
+  }
+  .featured-banner h2 {
+    font-size: clamp(28px, 3.6vw, 40px);
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .featured-banner p {
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    max-width: 56ch;
+    margin-bottom: 22px;
+  }
+  .featured-banner .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-primary, .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 22px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-sans);
+    font-weight: 700; font-size: 13.5px;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  }
+  .btn-primary {
+    background: var(--tk-blue); color: var(--tk-blue-ink);
+    border: 1px solid var(--tk-blue);
+  }
+  .btn-primary:hover {
+    background: var(--tk-blue-deep); border-color: var(--tk-blue-deep);
+    color: var(--tk-blue-ink); text-decoration: none;
+    box-shadow: 0 0 0 5px var(--glow-soft);
+  }
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--line-2); color: var(--ink);
+  }
+  .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--line-3); color: var(--ink); text-decoration: none; }
+
+  .featured-banner .visual {
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 55%),
+      linear-gradient(180deg, var(--tk-blue) 0%, var(--tk-blue-deep) 100%);
+    border: 1px solid rgba(42, 114, 229, 0.40);
+    display: grid; place-items: center;
+    transform: rotate(-3deg);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 40px rgba(42, 114, 229, 0.18);
+  }
+  .featured-banner .visual svg { transform: scale(1.4); filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4)); }
+
+  @media (max-width: 820px) {
+    .featured-banner { grid-template-columns: 1fr; padding: 32px 24px; }
+    .featured-banner .visual { max-width: 200px; justify-self: start; }
+  }
+
+  /* ========== Filter chips ========== */
+  .filter-bar {
+    max-width: 1280px; margin: 0 auto 24px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-bar .label {
+    font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-right: 8px;
+  }
+  .chip {
+    appearance: none; cursor: pointer;
+    padding: 9px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--line-1);
+    background: var(--paper);
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-weight: 600; font-size: 12.5px;
+    letter-spacing: 0.01em;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .chip:hover { background: var(--paper-2); color: var(--ink); border-color: var(--line-2); }
+  .chip.active {
+    background: var(--tk-blue); color: var(--tk-blue-ink);
+    border-color: var(--tk-blue);
+  }
+  .chip .count {
+    font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 600;
+    opacity: 0.65;
+  }
+
+  /* ========== Game grid ========== */
+  .grid-section {
+    max-width: 1280px; margin: 0 auto 64px;
+  }
+  .grid-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 18px; gap: 12px;
+  }
+  .grid-head h2 {
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--ink);
+  }
+  .grid-head .stat {
+    font-family: var(--font-mono);
+    font-size: 11px; color: var(--ink-faint);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .arcade-grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .gcard {
+    position: relative;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--line-1);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    text-decoration: none;
+    display: flex; flex-direction: column;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  }
+  .gcard:hover {
+    background: var(--paper-2);
+    border-color: var(--line-2);
+    transform: translateY(-3px);
+    color: var(--ink); text-decoration: none;
+  }
+  .gcard .art {
+    aspect-ratio: 16 / 11;
+    display: grid; place-items: center;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.30) 100%),
+      var(--accent);
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(0,0,0,0.20);
+  }
+  .gcard .art::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 75% 25%, rgba(255,255,255,0.20), transparent 60%);
+    pointer-events: none;
+  }
+  .gcard .art svg {
+    position: relative; z-index: 1;
+    transform: scale(1.55);
+    transition: transform 0.25s ease;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.25));
+  }
+  .gcard:hover .art svg { transform: scale(1.7); }
+  .gcard .art .pin {
+    position: absolute; top: 12px; left: 12px;
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    color: rgba(11, 15, 23, 0.9);
+    background: rgba(255, 255, 255, 0.92);
+    padding: 4px 8px; border-radius: var(--radius-sm);
+  }
+  .gcard .body {
+    padding: 18px 20px 20px;
+    display: flex; flex-direction: column; gap: 6px;
+    flex: 1;
+  }
+  .gcard .body h3 {
+    font-size: 18px; font-weight: 700;
+    letter-spacing: -0.015em;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+  }
+  .gcard .body h3 .badge {
+    font-family: var(--font-sans); font-size: 9.5px; font-weight: 700;
+    background: var(--paper-2); color: var(--ink-soft);
+    padding: 4px 8px; border-radius: var(--radius-sm);
+    border: 1px solid var(--line-1);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .gcard .meta {
+    font-family: var(--font-mono);
+    color: var(--ink-faint);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .gcard .desc {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    line-height: 1.55;
+    flex: 1;
+  }
+  .gcard .go {
+    margin-top: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-sans); color: var(--tk-blue);
+    font-weight: 700; font-size: 12px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .gcard:hover .go { color: var(--tk-blue-deep); }
+  .gcard .go::after { content: "→"; transition: transform 0.18s ease; }
+  .gcard:hover .go::after { transform: translateX(4px); }
+
+  /* Soon cards have a subtle disabled overlay */
+  .gcard.soon {
+    cursor: default;
+  }
+  .gcard.soon:hover { transform: none; }
+  .gcard.soon .art {
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 12px, transparent 12px 24px),
+      var(--accent);
+  }
+  .gcard.soon .art .pin {
+    background: rgba(11, 15, 23, 0.65);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .gcard.soon .go { color: var(--ink-faint); }
+  .gcard.soon .go::after { content: ""; }
+
+  /* Per-card accent */
+  .gcard.flip    { --accent: var(--butter); }
+  .gcard.dice    { --accent: var(--pink); }
+  .gcard.plinko  { --accent: var(--sky); }
+  .gcard.lottery { --accent: var(--lavender); }
+  .gcard.janken  { --accent: var(--tk-blue); }
+  .gcard.pongy   { --accent: var(--coral); }
+  .gcard.mint-soon     { --accent: var(--mint); }
+  .gcard.sky-soon      { --accent: var(--sky); }
+  .gcard.coral-soon    { --accent: var(--coral); }
+  .gcard.lavender-soon { --accent: var(--lavender); }
+
+  /* ========== Footer ========== */
+  .site-footer {
+    max-width: 1280px; margin: 32px auto 24px;
+    padding: 32px 0 16px;
+    border-top: 1px solid var(--line-1);
+    text-align: center;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 820px) {
+    main { padding: 0 16px; }
+    body > #topbar { padding: 0 16px; }
+    .games-header { margin: 16px auto 24px; }
+  }
 </style>
 </head>
 <body>
   <div id="topbar"></div>
 
-  <header class="games-header">
-    <a class="tokamak-back" href="../index.html" data-i18n="common.back.landing">← 랜딩으로</a>
-    <span class="eyebrow" data-i18n="hub.eyebrow">✦ pick your game</span>
-    <h1 data-i18n="hub.h1">어떤 걸로 한번 놀아볼까요?</h1>
-    <p data-i18n-html="hub.lede">
-      모든 게임은 L2 컨트랙트가 <code>VRF.getRandomness()</code>를 직접 호출해
-      단일 트랜잭션에서 결과가 정해집니다. 오라클 · 콜백 · 중앙 서버 없음.
-    </p>
-  </header>
+  <main>
+    <header class="games-header">
+      <a class="crumb" href="../index.html" data-i18n="common.back.landing">← 랜딩으로</a>
+      <span class="eyebrow">
+        <span class="live-dot"></span>
+        <span data-i18n="hub.eyebrow">Pick your game</span>
+      </span>
+      <h1 data-i18n="hub.h1">어떤 걸로 한번 놀아볼까요?</h1>
+      <p data-i18n-html="hub.lede">
+        모든 게임은 L2 컨트랙트가 <code>VRF.getRandomness()</code>를 직접 호출해
+        단일 트랜잭션에서 결과가 정해집니다. 오라클 · 콜백 · 중앙 서버 없음.
+      </p>
+    </header>
 
-  <main class="tokamak-grid" id="grid"></main>
+    <!-- Featured banner -->
+    <section class="featured-banner">
+      <div>
+        <span class="pin">★ Featured · DeFi</span>
+        <h2>Jankenman</h2>
+        <p>
+          가위바위보 + 룰렛 + LP 풀. 단일 VRF 호출로 상대 손과 배율이 결정되고,
+          AA 세션키로 라운드마다 지갑 서명 없이 즉시 플레이됩니다.
+        </p>
+        <div class="ctas">
+          <a class="btn-primary" href="../jankenman/index.html">Play now <span aria-hidden="true">→</span></a>
+          <a class="btn-ghost"   href="https://enshrined-vrf-docs.vercel.app/" target="_blank" rel="noopener">How it works</a>
+        </div>
+      </div>
+      <div class="visual" aria-hidden="true" id="featuredVisual"></div>
+    </section>
+
+    <!-- Filter chips -->
+    <div class="filter-bar" id="filterBar">
+      <span class="label">Filter</span>
+    </div>
+
+    <!-- Game grid -->
+    <section class="grid-section">
+      <div class="grid-head">
+        <h2 data-i18n="hub.allGames">All games</h2>
+        <span class="stat" id="gridStat">6 titles</span>
+      </div>
+      <div class="arcade-grid" id="grid"></div>
+    </section>
+
+    <footer class="site-footer">
+      Backed by Tokamak Network · Tokamak Arcade — an Enshrined VRF demo
+    </footer>
+  </main>
 
   <script type="module">
     import { mountTokamakTopbar } from '../shared/topbar.js';
     import { t, applyI18n } from '../shared/lang.js';
-    import {
-      moonMascot, catMascot, cloudMascot, unicornMascot, pongyMascot, jankenMascot, arrow,
-    } from '../shared/mascots.js';
+    import { jankenMascot } from '../shared/mascots.js';
 
     mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../index.html' });
+    document.getElementById('featuredVisual').innerHTML = jankenMascot({ size: 130 });
 
-    // Game list — descriptions + play-now label resolve via i18n each render.
     const GAMES = [
-      { href: '../flip/index.html',      cls: 'flip',    name: 'Coin Flip', badge: 'VRF',  descKey: 'games.flip.desc',    mascot: moonMascot({ size: 92 }) },
-      { href: '../dice/index.html',      cls: 'dice',    name: 'Dice Roll', badge: 'VRF',  descKey: 'games.dice.desc',    mascot: catMascot({ size: 92 }) },
-      { href: '../plinko/index.html',    cls: 'plinko',  name: 'Plinko',    badge: 'VRF',  descKey: 'games.plinko.desc',  mascot: cloudMascot({ size: 92 }) },
-      { href: '../lottery/index.html',   cls: 'lottery', name: 'Lottery',   badge: 'VRF',  descKey: 'games.lottery.desc', mascot: unicornMascot({ size: 92 }) },
-      { href: '../jankenman/index.html', cls: 'janken',  name: 'Jankenman', badge: 'DeFi', descKey: 'games.janken.desc',  mascot: jankenMascot({ size: 92 }) },
-      { href: '../../game/index.html',   cls: 'pongy',   name: 'Pongy',     badge: 'USDC', descKey: 'games.pongy.desc',   mascot: pongyMascot({ size: 92 }) },
+      { href: '../jankenman/index.html', cls: 'janken',  name: 'Jankenman', pin: 'Featured', badge: 'DeFi',  meta: 'RPS · LP pool · session keys', tags: ['featured','vrf','defi','session'], descKey: 'games.janken.desc',  mascot: jankenMascot   },
     ];
 
-    const grid = document.getElementById('grid');
-    function renderGrid() {
-      grid.innerHTML = '';
-      for (const g of GAMES) {
-        const a = document.createElement('a');
-        a.className = `tokamak-card ${g.cls}`;
-        a.href = g.href;
-        a.innerHTML = `
-          <div class="mascot-holder">${g.mascot}</div>
-          <h3>${g.name} <span class="badge">${g.badge}</span></h3>
-          <div class="desc">${t(g.descKey)}</div>
-          <span class="go">${t('common.playnow')} ${arrow()}</span>
-        `;
-        grid.appendChild(a);
-      }
+    const SOON = [
+      { cls: 'mint-soon',     name: 'Bracket Brawl', meta: 'tournament · vrf', desc: '단일 VRF 호출로 64인 토너먼트 대진을 결정.',     tags: ['soon'] },
+      { cls: 'sky-soon',      name: 'L2 Karts',      meta: 'race · vrf',       desc: '랜덤 트랙 + 랜덤 부스트, 한 라운드 한 결과.',    tags: ['soon'] },
+      { cls: 'coral-soon',    name: 'Mystery Box',   meta: 'loot · vrf',       desc: '균등 분포 검증 가능한 가챠. 풀이 100% 온체인.', tags: ['soon'] },
+      { cls: 'lavender-soon', name: 'Word Wager',    meta: 'puzzle · vrf',     desc: 'VRF로 매일 매치 시드. 같은 시드 → 같은 게임판.', tags: ['soon'] },
+    ];
+
+    const FILTERS = [
+      { key: 'all',       label: 'All',          test: () => true },
+      { key: 'featured',  label: 'Featured',     test: (g) => g.tags?.includes('featured') },
+      { key: 'vrf',       label: 'VRF demos',    test: (g) => g.tags?.includes('vrf') },
+      { key: 'defi',      label: 'DeFi',         test: (g) => g.tags?.includes('defi') },
+      { key: 'usdc',      label: 'Stablecoin',   test: (g) => g.tags?.includes('usdc') },
+      { key: 'session',   label: 'Session keys', test: (g) => g.tags?.includes('session') },
+      { key: 'soon',      label: 'Coming soon',  test: (g) => g.tags?.includes('soon'), soonOnly: true },
+    ];
+
+    let activeFilter = 'all';
+    function counts(key) {
+      const f = FILTERS.find((x) => x.key === key);
+      const all = key === 'soon' ? SOON : key === 'all' ? [...GAMES, ...SOON] : GAMES;
+      return all.filter(f.test).length;
     }
+
+    function renderFilters() {
+      const bar = document.getElementById('filterBar');
+      bar.innerHTML = '<span class="label">Filter</span>' +
+        FILTERS.map((f) => `
+          <button class="chip ${f.key === activeFilter ? 'active' : ''}" data-key="${f.key}">
+            ${f.label} <span class="count">${counts(f.key)}</span>
+          </button>`).join('');
+      bar.querySelectorAll('.chip').forEach((b) => {
+        b.addEventListener('click', () => {
+          activeFilter = b.dataset.key;
+          renderFilters(); renderGrid();
+        });
+      });
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      const f = FILTERS.find((x) => x.key === activeFilter);
+      const liveCards = activeFilter === 'soon' ? [] : GAMES.filter(f.test);
+      const soonCards = (activeFilter === 'all' || activeFilter === 'soon') ? SOON : [];
+      const total = liveCards.length + soonCards.length;
+      document.getElementById('gridStat').textContent = `${total} titles`;
+      document.getElementById('grid').className = 'arcade-grid';
+
+      grid.innerHTML = [
+        ...liveCards.map((g) => `
+          <a class="gcard ${g.cls}" href="${g.href}">
+            <div class="art">
+              <span class="pin">${g.pin}</span>
+              ${g.mascot({ size: 110 })}
+            </div>
+            <div class="body">
+              <h3>${g.name} <span class="badge">${g.badge}</span></h3>
+              <div class="meta">${g.meta}</div>
+              <div class="desc">${t(g.descKey)}</div>
+              <span class="go">${t('common.playnow')}</span>
+            </div>
+          </a>`),
+        ...soonCards.map((s) => `
+          <div class="gcard soon ${s.cls}">
+            <div class="art">
+              <span class="pin">Soon</span>
+            </div>
+            <div class="body">
+              <h3>${s.name} <span class="badge">soon</span></h3>
+              <div class="meta">${s.meta}</div>
+              <div class="desc">${s.desc}</div>
+              <span class="go">in development</span>
+            </div>
+          </div>`),
+      ].join('');
+    }
+
+    // Honor #anchor on first load (e.g. /games/#vrf from category cards)
+    const hash = window.location.hash.replace('#', '');
+    if (hash && FILTERS.some((f) => f.key === hash)) activeFilter = hash;
+
+    renderFilters();
     renderGrid();
     document.addEventListener('tokamak:langchange', renderGrid);
     applyI18n();

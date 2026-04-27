@@ -4,13 +4,19 @@ import { mountVrfStatus } from './vrf-status.js';
 import { t, mountLangToggle } from './lang.js';
 import { TOKAMAK_SYMBOL_DATA_URI } from './brand.js';
 
-export function mountTokamakTopbar(root, { hubHref = '../index.html' } = {}) {
+export function mountTokamakTopbar(root, { hubHref = '../index.html', brand = true } = {}) {
+  // When the sidebar is mounted it owns the brand mark, so callers pass
+  // brand:false to keep the topbar a status-only strip (VRF + lang + connect).
+  const brandHTML = brand
+    ? `<a class="tokamak-brand" href="${hubHref}">
+         <span class="logo"><img src="${TOKAMAK_SYMBOL_DATA_URI}" alt="Tokamak Network" class="logo-img"></span>
+         <span class="title">Tokamak <b>Arcade</b></span>
+       </a>`
+    : `<span class="tokamak-topbar-spacer" aria-hidden="true"></span>`;
+
   root.innerHTML = `
     <div class="tokamak-topbar">
-      <a class="tokamak-brand" href="${hubHref}">
-        <span class="logo"><img src="${TOKAMAK_SYMBOL_DATA_URI}" alt="Tokamak Network" class="logo-img"></span>
-        <span class="title">Tokamak <b>Arcade</b></span>
-      </a>
+      ${brandHTML}
       <div class="tokamak-topbar-right">
         <div id="tokamak-vrf-slot"></div>
         <div id="tokamak-lang-slot"></div>

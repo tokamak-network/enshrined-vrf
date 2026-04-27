@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared/tokamak.css?v=7">
+<link rel="stylesheet" href="../shared/tokamak.css?v=arcade-6">
 <style>
   :root { --accent: var(--tk-blue); --accent-deep: var(--tk-blue-deep); }
 
@@ -658,6 +658,7 @@
 </style>
 </head>
 <body>
+  <aside id="sidebar"></aside>
   <div id="topbar"></div>
 
   <div class="dfi-shell">
@@ -989,13 +990,15 @@ import {
   createWalletClient, http, getAddress,
 } from 'https://esm.sh/viem@2.21.0';
 import { generatePrivateKey, privateKeyToAccount } from 'https://esm.sh/viem@2.21.0/accounts';
-import { mountTokamakTopbar } from '../shared/topbar.js';
+import { mountTokamakTopbar } from '../shared/topbar.js?v=arcade-6';
+import { mountTokamakSidebar } from '../shared/sidebar.js?v=arcade-6';
 import { t, applyI18n } from '../shared/lang.js';
 import { pub, wallet, account, connect, anvil } from '../shared/wallet.js';
 import { CONFIG } from '../shared/config.js';
 import { jankenMascot } from '../shared/mascots.js';
 
-mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../games/index.html' });
+mountTokamakSidebar(document.getElementById('sidebar'), { active: 'play' });
+mountTokamakTopbar(document.getElementById('topbar'), { hubHref: '../games/index.html', brand: false });
 document.getElementById('mascot').innerHTML = jankenMascot({ size: 44 });
 document.getElementById('contract-addr').textContent =
   CONFIG.jankenman ? `${CONFIG.jankenman.slice(0, 6)}…${CONFIG.jankenman.slice(-4)}` : 'not deployed';
