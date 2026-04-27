@@ -3,7 +3,7 @@
 // with freshly deployed addresses on every run. Copy this to config.js
 // if you are wiring the arcade to your own deployment instead.
 export const CONFIG = {
-  chainId:     13374,
+  chainId:     31337,
   rpc:         'http://localhost:8545',
   vrfAddress:  '0x42000000000000000000000000000000000000f0',
   flip:        '0x0000000000000000000000000000000000000000',

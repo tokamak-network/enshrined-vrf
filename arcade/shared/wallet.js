@@ -28,46 +28,35 @@ async function currentChainId() {
 async function ensureOnDevnet() {
   if ((await currentChainId()).toLowerCase() === CHAIN_HEX) return;
 
-  // Try to switch first — succeeds if the user has already added the network
-  // (possibly under a different name, e.g. "Tokamak Sandbox").
+  // wallet_addEthereumChain bundles add + auto-switch in one popup, and is
+  // a no-op when the chain is already registered. Calling switch first on an
+  // unknown chain produces the "Unrecognized chain ID" error, so always add
+  // first.
   try {
+    await window.ethereum.request({
+      method: 'wallet_addEthereumChain',
+      params: [{
+        chainId: CHAIN_HEX,
+        chainName: anvil.name,
+        rpcUrls: [CONFIG.rpc],
+        nativeCurrency: anvil.nativeCurrency,
+      }],
+    });
+  } catch (err) {
+    if (err?.code === 4001) throw err; // user rejected
+    // Some wallets refuse add for an already-registered chain — fall back to switch.
     await window.ethereum.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: CHAIN_HEX }],
     });
-  } catch (err) {
-    // 4902 = unrecognized chain; add it. Some wallets bundle add+switch; others don't.
-    if (err?.code !== 4902 && !/Unrecognized chain/i.test(err?.message || '')) throw err;
-    try {
-      await window.ethereum.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: CHAIN_HEX,
-          chainName: anvil.name,
-          rpcUrls: [CONFIG.rpc],
-          nativeCurrency: anvil.nativeCurrency,
-        }],
-      });
-    } catch (addErr) {
-      // MetaMask refuses to add a duplicate network when an existing entry
-      // (e.g. "Tokamak Sandbox") already points to the same chainId + RPC.
-      // That's fine — the network is already there; just switch to it.
-      if (!/same RPC endpoint|existing network/i.test(addErr?.message || '')) throw addErr;
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: CHAIN_HEX }],
-      });
-    }
   }
 
-  // Verify (and retry switch if add didn't auto-activate).
+  // Some wallets add without auto-switching. Confirm and switch if needed.
   if ((await currentChainId()).toLowerCase() !== CHAIN_HEX) {
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: CHAIN_HEX }],
-      });
-    } catch { /* user rejected — surface a clear error below */ }
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: CHAIN_HEX }],
+    });
   }
   if ((await currentChainId()).toLowerCase() !== CHAIN_HEX) {
     throw new Error(
