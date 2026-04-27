@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #F6F3EC;
+        font-family: 'Newsreader', 'Source Serif 4', Georgia, serif;
+        color: #17233A;
+      }
+
+      /* ---------- scene shell ---------- */
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        background: #F6F3EC;
+        padding: 96px 140px 160px;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+      .scene-header {
+        display: flex;
+        align-items: baseline;
+        gap: 28px;
+      }
+      .scene-number {
+        font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+        font-size: 20px;
+        letter-spacing: 0.32em;
+        color: #5A6472;
+        text-transform: uppercase;
+        padding-top: 4px;
+      }
+      .scene-rule {
+        flex: 1;
+        height: 1px;
+        background: #C9C3B4;
+        transform-origin: left center;
+      }
+      .scene-title {
+        font-family: 'Newsreader', Georgia, serif;
+        font-size: 84px;
+        font-weight: 500;
+        line-height: 1.02;
+        color: #17233A;
+        margin-top: 20px;
+        letter-spacing: -0.012em;
+      }
+      .scene-title em {
+        color: #1B3A8A;
+        font-style: italic;
+        font-weight: 500;
+      }
+      .scene-subtitle {
+        font-family: 'Newsreader', Georgia, serif;
+        font-style: italic;
+        font-size: 30px;
+        line-height: 1.42;
+        color: #5A6472;
+        margin-top: 20px;
+        max-width: 1240px;
+      }
+      .scene-body {
+        flex: 1;
+        margin-top: 48px;
+        position: relative;
+      }
+
+      /* ---------- caption band ---------- */
+      .caption-band {
+        position: absolute;
+        left: 140px;
+        right: 140px;
+        bottom: 70px;
+        min-height: 36px;
+        font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+        font-size: 22px;
+        letter-spacing: 0.01em;
+        color: #2A3649;
+        line-height: 1.4;
+      }
+      .caption-band::before {
+        content: "▸";
+        color: #1B3A8A;
+        margin-right: 14px;
+      }
+      .caption-group { opacity: 0; }
+
+      /* ---------- shared primitives ---------- */
+      .mono { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; }
+      .accent { color: #1B3A8A; }
+      .risk { color: #C9322B; }
+
+      /* ---------- Scene 1: requirements grid ---------- */
+      .s1-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 28px;
+        width: 1640px;
+        height: 560px;
+        margin-top: 20px;
+      }
+      .req-card {
+        border: 1px solid #1A2740;
+        padding: 44px 48px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: #F6F3EC;
+        position: relative;
+      }
+      .req-card .req-num {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 16px;
+        letter-spacing: 0.3em;
+        color: #5A6472;
+      }
+      .req-card .req-label {
+        font-family: 'Newsreader', serif;
+        font-size: 56px;
+        font-weight: 500;
+        color: #17233A;
+        letter-spacing: -0.01em;
+      }
+      .req-card .req-desc {
+        font-family: 'Newsreader', serif;
+        font-style: italic;
+        font-size: 26px;
+        color: #5A6472;
+        line-height: 1.35;
+        max-width: 600px;
+      }
+      .req-card .req-rule {
+        position: absolute;
+        top: 44px;
+        right: 48px;
+        width: 48px;
+        height: 1px;
+        background: #1B3A8A;
+      }
+
+      /* ---------- Scene 2: three tools ---------- */
+      .s2-row {
+        display: flex;
+        gap: 36px;
+        margin-top: 12px;
+      }
+      .tool-card {
+        flex: 1;
+        border: 1px solid #1A2740;
+        padding: 42px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        position: relative;
+        min-height: 420px;
+      }
+      .tool-card .tool-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.28em;
+        color: #5A6472;
+      }
+      .tool-card .tool-name {
+        font-family: 'Newsreader', serif;
+        font-size: 74px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: #17233A;
+      }
+      .tool-card .tool-desc {
+        font-family: 'Newsreader', serif;
+        font-size: 24px;
+        line-height: 1.4;
+        color: #2A3649;
+      }
+      .tool-card.primary { background: #EEE7D6; }
+      .tool-card.primary .tool-tag { color: #1B3A8A; }
+      .s2-footnote {
+        margin-top: 34px;
+        font-family: 'Newsreader', serif;
+        font-style: italic;
+        font-size: 22px;
+        color: #5A6472;
+      }
+
+      /* ---------- Scene 3: L1 vs L2 ---------- */
+      .s3-split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        margin-top: 12px;
+        height: 560px;
+      }
+      .s3-panel {
+        border: 1px solid #1A2740;
+        padding: 48px;
+        display: flex;
+        flex-direction: column;
+      }
+      .s3-panel h3 {
+        font-family: 'Newsreader', serif;
+        font-size: 56px;
+        font-weight: 500;
+        margin-bottom: 10px;
+      }
+      .s3-panel .p-sub {
+        font-family: 'Newsreader', serif;
+        font-style: italic;
+        font-size: 22px;
+        color: #5A6472;
+        margin-bottom: 30px;
+      }
+      .validators {
+        display: grid;
+        grid-template-columns: repeat(20, 1fr);
+        gap: 8px;
+        flex: 1;
+        align-content: center;
+      }
+      .validators div {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #2A3649;
+      }
+      .sequencer-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+      }
+      .sequencer-circle {
+        width: 160px;
+        height: 160px;
+        border: 2px solid #1B3A8A;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.2em;
+        color: #1B3A8A;
+        text-transform: uppercase;
+      }
+      .sequencer-label {
+        font-family: 'Newsreader', serif;
+        font-style: italic;
+        font-size: 26px;
+        color: #2A3649;
+      }
+
+      /* ---------- Scene 4: oracle flow ---------- */
+      .s4-flow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 30px;
+        margin-top: 40px;
+        height: 280px;
+      }
+      .flow-box {
+        border: 1px solid #1A2740;
+        padding: 36px 52px;
+        font-family: 'Newsreader', serif;
+        font-size: 40px;
+        color: #17233A;
+        min-width: 320px;
+        text-align: center;
+        background: #F6F3EC;
+      }
+      .flow-box .bx-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.24em;
+        color: #5A6472;
+        display: block;
+        margin-top: 8px;
+      }
+      .flow-arrows {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        color: #5A6472;
+        width: 280px;
+      }
+      .flow-arrow {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        gap: 10px;
+      }
+      .flow-arrow .line {
+        flex: 1;
+        height: 1px;
+        background: #1A2740;
+      }
+      .s4-limits {
+        display: flex;
+        justify-content: center;
+        gap: 80px;
+        margin-top: 50px;
+      }
+      .limit-item {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 22px;
+        color: #2A3649;
+        letter-spacing: 0.02em;
+      }
+      .limit-item::before {
+        content: "—";
+        color: #C9322B;
+        margin-right: 12px;
+        font-weight: bold;
+      }
+
+      /* ---------- Scene 5: enshrined risk ---------- */
+      .s5-wrap {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 50px;
+        margin-top: 12px;
+      }
+      .s5-diagram {
+        border: 1px solid #1A2740;
+        padding: 44px;
+        background: #F6F3EC;
+        position: relative;
+      }
+      .s5-diagram h4 {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.3em;
+        color: #5A6472;
+        margin-bottom: 20px;
+      }
+      .seq-l2 {
+        border: 1px dashed #1A2740;
+        padding: 40px;
+        font-family: 'Newsreader', serif;
+        font-size: 30px;
+        color: #17233A;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        align-items: flex-start;
+      }
+      .seq-l2 .inside-vrf {
+        border: 1px solid #1B3A8A;
+        padding: 18px 28px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 20px;
+        color: #1B3A8A;
+        letter-spacing: 0.08em;
+      }
+      .seq-l2 .seq-key {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        color: #C9322B;
+      }
+      .s5-risk {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 30px;
+      }
+      .risk-line {
+        font-family: 'Newsreader', serif;
+        font-size: 32px;
+        color: #17233A;
+        line-height: 1.4;
+      }
+      .risk-line .risk-tag {
+        display: inline-block;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.25em;
+        color: #C9322B;
+        padding: 4px 10px;
+        border: 1px solid #C9322B;
+        margin-right: 14px;
+        vertical-align: middle;
+      }
+
+      /* ---------- Scene 6: three isolation approaches ---------- */
+      .iso-row {
+        display: flex;
+        gap: 28px;
+        margin-top: 12px;
+      }
+      .iso-card {
+        flex: 1;
+        border: 1px solid #1A2740;
+        padding: 36px 36px 44px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-height: 460px;
+      }
+      .iso-card .iso-sym {
+        height: 80px;
+        display: flex;
+        align-items: center;
+      }
+      .iso-card .iso-name {
+        font-family: 'Newsreader', serif;
+        font-size: 64px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .iso-card .iso-fn {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.25em;
+        color: #5A6472;
+      }
+      .iso-card .iso-desc {
+        font-family: 'Newsreader', serif;
+        font-size: 22px;
+        line-height: 1.4;
+        color: #2A3649;
+      }
+
+      /* ---------- Scene 7: limits overlay ---------- */
+      .limits-row {
+        display: flex;
+        gap: 28px;
+        margin-top: 12px;
+      }
+      .limit-card {
+        flex: 1;
+        border: 1px solid #1A2740;
+        padding: 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        min-height: 460px;
+      }
+      .limit-card .lc-top {
+        font-family: 'Newsreader', serif;
+        font-size: 54px;
+        font-weight: 500;
+        color: #17233A;
+      }
+      .limit-card .lc-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.25em;
+        color: #5A6472;
+      }
+      .limit-card .lc-divider {
+        height: 1px;
+        background: #C9322B;
+        width: 100%;
+      }
+      .limit-card .lc-issue {
+        font-family: 'Newsreader', serif;
+        font-size: 24px;
+        line-height: 1.4;
+        color: #2A3649;
+      }
+      .limit-card .lc-issue strong {
+        color: #C9322B;
+        font-weight: 600;
+        font-style: italic;
+      }
+
+      /* ---------- Scene 8: TEE inside sequencer ---------- */
+      .s8-wrap {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 50px;
+        margin-top: 12px;
+      }
+      .s8-diagram {
+        border: 1px solid #1A2740;
+        padding: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .seq-outer {
+        border: 1px dashed #1A2740;
+        padding: 60px 50px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        align-items: center;
+      }
+      .seq-outer .seq-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.3em;
+        color: #5A6472;
+      }
+      .tee-enclave {
+        border: 2px solid #1B3A8A;
+        padding: 36px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        background: #EEE7D6;
+      }
+      .tee-enclave .tee-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.28em;
+        color: #1B3A8A;
+      }
+      .tee-enclave .tee-vrf {
+        font-family: 'Newsreader', serif;
+        font-size: 50px;
+        font-weight: 500;
+        color: #1B3A8A;
+      }
+      .tee-enclave .tee-sk {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        color: #17233A;
+      }
+      .s8-wins {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 28px;
+      }
+      .win-item {
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+      }
+      .win-item .win-bullet {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.2em;
+        color: #1B3A8A;
+        min-width: 30px;
+      }
+      .win-item .win-text {
+        font-family: 'Newsreader', serif;
+        font-size: 30px;
+        line-height: 1.4;
+        color: #17233A;
+      }
+      .win-item .win-text em {
+        font-style: italic;
+        color: #1B3A8A;
+      }
+
+      /* ---------- Scene 9: attestation flow ---------- */
+      .s9-flow {
+        margin-top: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+      .s9-stage {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+      }
+      .s9-node {
+        border: 1px solid #1A2740;
+        padding: 24px 30px;
+        background: #F6F3EC;
+        min-width: 260px;
+      }
+      .s9-node.enclave { border: 2px solid #1B3A8A; background: #EEE7D6; }
+      .s9-node.onchain { border: 1px solid #1A2740; background: #EEE7D6; }
+      .s9-node .n-top {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.28em;
+        color: #5A6472;
+        margin-bottom: 8px;
+      }
+      .s9-node.enclave .n-top { color: #1B3A8A; }
+      .s9-node .n-body {
+        font-family: 'Newsreader', serif;
+        font-size: 28px;
+        color: #17233A;
+        font-weight: 500;
+      }
+      .s9-arrow {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.2em;
+        color: #5A6472;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        min-width: 150px;
+      }
+      .s9-arrow .line {
+        width: 100%;
+        height: 1px;
+        background: #1A2740;
+      }
+      .attest-quote {
+        font-family: 'Newsreader', serif;
+        font-style: italic;
+        font-size: 26px;
+        color: #17233A;
+        padding-left: 34px;
+        border-left: 2px solid #1B3A8A;
+        max-width: 1240px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="150"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- ============ narration audio ============ -->
+      <audio id="a1" class="clip" data-start="0.5"     data-duration="15.125" data-track-index="20" src="assets/s1.wav"></audio>
+      <audio id="a2" class="clip" data-start="16.225"  data-duration="20.651" data-track-index="20" src="assets/s2.wav"></audio>
+      <audio id="a3" class="clip" data-start="37.476"  data-duration="15.019" data-track-index="20" src="assets/s3.wav"></audio>
+      <audio id="a4" class="clip" data-start="53.095"  data-duration="13.824" data-track-index="20" src="assets/s4.wav"></audio>
+      <audio id="a5" class="clip" data-start="67.519"  data-duration="14.080" data-track-index="20" src="assets/s5.wav"></audio>
+      <audio id="a6" class="clip" data-start="82.199"  data-duration="17.088" data-track-index="20" src="assets/s6.wav"></audio>
+      <audio id="a7" class="clip" data-start="99.887"  data-duration="18.027" data-track-index="20" src="assets/s7.wav"></audio>
+      <audio id="a8" class="clip" data-start="118.514" data-duration="13.483" data-track-index="20" src="assets/s8.wav"></audio>
+      <audio id="a9" class="clip" data-start="132.597" data-duration="16.405" data-track-index="20" src="assets/s9.wav"></audio>
+
+      <!-- ============ Scene 1 ============ -->
+      <div id="sc1" class="clip scene s1" data-start="0" data-duration="16.125" data-track-index="1">
+        <div class="scene-header">
+          <div class="scene-number s1-num">§ 01 — Goals</div>
+          <div class="scene-rule s1-rule"></div>
+        </div>
+        <h1 class="scene-title s1-title">Four requirements for <em>onchain randomness</em></h1>
+        <p class="scene-subtitle s1-sub">Any usable source of randomness on a blockchain must satisfy all four at once.</p>
+
+        <div class="scene-body">
+          <div class="s1-grid">
+            <div class="req-card rc1">
+              <div>
+                <div class="req-num">01</div>
+                <div class="req-label">Unbiasable</div>
+              </div>
+              <div class="req-desc">No participant — not even the operator — can tilt the outcome to their advantage.</div>
+              <div class="req-rule"></div>
+            </div>
+            <div class="req-card rc2">
+              <div>
+                <div class="req-num">02</div>
+                <div class="req-label">Reliable</div>
+              </div>
+              <div class="req-desc">The value is produced at the promised time, even under adverse conditions.</div>
+              <div class="req-rule"></div>
+            </div>
+            <div class="req-card rc3">
+              <div>
+                <div class="req-num">03</div>
+                <div class="req-label">Verifiable</div>
+              </div>
+              <div class="req-desc">Anyone can check the result against a public algorithm or cryptographic proof.</div>
+              <div class="req-rule"></div>
+            </div>
+            <div class="req-card rc4">
+              <div>
+                <div class="req-num">04</div>
+                <div class="req-label">Unpredictable</div>
+              </div>
+              <div class="req-desc">No one learns the value ahead of time — or they could front-run for profit.</div>
+              <div class="req-rule"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s1-c1" class="caption-group">Four requirements: unbiasable, reliable, verifiable, unpredictable.</span>
+          <span id="s1-c2" class="caption-group" style="position:absolute; left:34px;">Every usable source of onchain randomness must satisfy all four.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 2 ============ -->
+      <div id="sc2" class="clip scene s2" data-start="15.725" data-duration="22.051" data-track-index="2">
+        <div class="scene-header">
+          <div class="scene-number s2-num">§ 02 — L1 Randomness</div>
+          <div class="scene-rule s2-rule"></div>
+        </div>
+        <h1 class="scene-title s2-title">Three cryptographic <em>building blocks</em></h1>
+        <p class="scene-subtitle s2-sub">L1 chains compose these three primitives in different ways, depending on consensus design.</p>
+
+        <div class="scene-body">
+          <div class="s2-row">
+            <div class="tool-card primary t1">
+              <div class="tool-tag">PRIMITIVE · PRIMARY</div>
+              <div class="tool-name">VRF</div>
+              <div class="tool-desc">A secret-key holder produces a pseudo-random value. Anyone can verify it with the public key. Same input → same output.</div>
+            </div>
+            <div class="tool-card primary t2">
+              <div class="tool-tag">PROTOCOL · PRIMARY</div>
+              <div class="tool-name">DKG</div>
+              <div class="tool-desc">Distributed key generation splits one secret across many participants. A threshold must cooperate to use the key.</div>
+            </div>
+            <div class="tool-card t3">
+              <div class="tool-tag">SIGNATURE · SUPPORTING</div>
+              <div class="tool-name">BLS</div>
+              <div class="tool-desc">Signatures aggregate into one. This makes threshold signing efficient — the supporting tool for DKG.</div>
+            </div>
+          </div>
+          <div class="s2-footnote t-foot">VRF and DKG are the primary building blocks. BLS is what makes threshold signing practical.</div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s2-c1" class="caption-group">L1 chains compose VRF, DKG and BLS signatures to build randomness.</span>
+          <span id="s2-c2" class="caption-group" style="position:absolute; left:34px;">VRF and DKG are primary. BLS makes threshold signing efficient.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 3 ============ -->
+      <div id="sc3" class="clip scene s3" data-start="36.976" data-duration="16.419" data-track-index="3">
+        <div class="scene-header">
+          <div class="scene-number s3-num">§ 03 — L2 Randomness</div>
+          <div class="scene-rule s3-rule"></div>
+        </div>
+        <h1 class="scene-title s3-title">On L2, the <em>validator structure</em> is different</h1>
+        <p class="scene-subtitle s3-sub">Techniques that rely on broad participation no longer hold when one actor sequences transactions.</p>
+
+        <div class="scene-body">
+          <div class="s3-split">
+            <div class="s3-panel p1">
+              <h3>L1</h3>
+              <div class="p-sub">Hundreds of independent validators</div>
+              <div class="validators" id="s3-validators">
+                <!-- dots generated below or static here -->
+              </div>
+            </div>
+            <div class="s3-panel p2">
+              <h3>L2</h3>
+              <div class="p-sub">Often a single sequencer</div>
+              <div class="sequencer-wrap">
+                <div class="sequencer-circle">SEQUENCER</div>
+                <div class="sequencer-label">one operator — or a small group</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s3-c1" class="caption-group">L1 has many validators. Most L2s run one sequencer, or a few operators.</span>
+          <span id="s3-c2" class="caption-group" style="position:absolute; left:34px;">The anti-collusion assumption that makes DKG safe no longer holds.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 4 ============ -->
+      <div id="sc4" class="clip scene s4" data-start="52.595" data-duration="15.224" data-track-index="4">
+        <div class="scene-header">
+          <div class="scene-number s4-num">§ 04 — External Oracles</div>
+          <div class="scene-rule s4-rule"></div>
+        </div>
+        <h1 class="scene-title s4-title">L2s often rely on <em>Chainlink VRF</em></h1>
+        <p class="scene-subtitle s4-sub">When in-protocol randomness is hard, L2s outsource it to an external oracle network.</p>
+
+        <div class="scene-body">
+          <div class="s4-flow">
+            <div class="flow-box fb-l2">
+              L2
+              <span class="bx-sub">application / sequencer</span>
+            </div>
+            <div class="flow-arrows fa">
+              <div class="flow-arrow"><span>request</span><div class="line"></div><span>→</span></div>
+              <div class="flow-arrow"><span>←</span><div class="line"></div><span>response</span></div>
+            </div>
+            <div class="flow-box fb-oracle">
+              Chainlink VRF
+              <span class="bx-sub">external oracle network</span>
+            </div>
+          </div>
+          <div class="s4-limits">
+            <div class="limit-item li1">latency from round-trip</div>
+            <div class="limit-item li2">per-call fees</div>
+            <div class="limit-item li3">external dependency</div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s4-c1" class="caption-group">Many L2s depend on Chainlink VRF for randomness.</span>
+          <span id="s4-c2" class="caption-group" style="position:absolute; left:34px;">Cost: request-response latency, fees, and an outside dependency.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 5 ============ -->
+      <div id="sc5" class="clip scene s5" data-start="67.019" data-duration="15.080" data-track-index="5">
+        <div class="scene-header">
+          <div class="scene-number s5-num">§ 05 — Enshrined VRF</div>
+          <div class="scene-rule s5-rule"></div>
+        </div>
+        <h1 class="scene-title s5-title">Building VRF <em>directly into the L2</em></h1>
+        <p class="scene-subtitle s5-sub">Removes the request / response delay and reduces fees — but introduces a new trust problem.</p>
+
+        <div class="scene-body">
+          <div class="s5-wrap">
+            <div class="s5-diagram">
+              <h4>L2 WITH ENSHRINED VRF</h4>
+              <div class="seq-l2 s5-seq">
+                <div>Sequencer</div>
+                <div class="inside-vrf">VRF inside protocol</div>
+                <div class="seq-key">◆ holds sk (the secret key)</div>
+              </div>
+            </div>
+            <div class="s5-risk">
+              <div class="risk-line rl1"><span class="risk-tag">RISK</span>Learn the random value <em>before</em> anyone else.</div>
+              <div class="risk-line rl2"><span class="risk-tag">RISK</span>Reorder transactions for private advantage.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s5-c1" class="caption-group">Enshrined VRF removes oracle round-trip and fees.</span>
+          <span id="s5-c2" class="caption-group" style="position:absolute; left:34px;">But a sequencer holding sk can see the value early and reorder transactions.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 6 ============ -->
+      <div id="sc6" class="clip scene s6" data-start="81.699" data-duration="18.088" data-track-index="6">
+        <div class="scene-header">
+          <div class="scene-number s6-num">§ 06 — Isolating the Secret Key</div>
+          <div class="scene-rule s6-rule"></div>
+        </div>
+        <h1 class="scene-title s6-title">Three ways to <em>isolate the key</em></h1>
+        <p class="scene-subtitle s6-sub">The goal: generate randomness safely even when the sequencer must not learn the secret.</p>
+
+        <div class="scene-body">
+          <div class="iso-row">
+            <div class="iso-card ic1">
+              <div class="iso-sym">
+                <svg width="74" height="74" viewBox="0 0 74 74" fill="none" stroke="#1B3A8A" stroke-width="1.6"><rect x="10" y="18" width="54" height="44" /><rect x="22" y="28" width="30" height="24" /><line x1="22" y1="40" x2="52" y2="40"/><line x1="37" y1="28" x2="37" y2="52"/></svg>
+              </div>
+              <div class="iso-fn">APPROACH · HARDWARE</div>
+              <div class="iso-name">TEE</div>
+              <div class="iso-desc">A hardware-isolated enclave. The VRF key is created and used inside. Even the operator cannot read it.</div>
+            </div>
+            <div class="iso-card ic2">
+              <div class="iso-sym">
+                <svg width="74" height="74" viewBox="0 0 74 74" fill="none" stroke="#1B3A8A" stroke-width="1.6"><circle cx="37" cy="37" r="26"/><line x1="37" y1="16" x2="37" y2="37"/><line x1="37" y1="37" x2="54" y2="44"/></svg>
+              </div>
+              <div class="iso-fn">APPROACH · SEQUENTIAL COMPUTATION</div>
+              <div class="iso-name">VDF</div>
+              <div class="iso-desc">A function that must be computed step by step. The output only appears after real time has passed.</div>
+            </div>
+            <div class="iso-card ic3">
+              <div class="iso-sym">
+                <svg width="74" height="74" viewBox="0 0 74 74" fill="none" stroke="#1B3A8A" stroke-width="1.6"><path d="M6 44 Q18 30 30 44 T54 44 T78 44"/><path d="M6 54 Q18 40 30 54 T54 54 T78 54" stroke-opacity="0.5"/></svg>
+              </div>
+              <div class="iso-fn">APPROACH · EXTERNAL BEACON</div>
+              <div class="iso-name">drand</div>
+              <div class="iso-desc">Decentralized randomness beacon. The sequencer cannot access the beacon's secret key.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s6-c1" class="caption-group">Three approaches to keep sk away from the sequencer.</span>
+          <span id="s6-c2" class="caption-group" style="position:absolute; left:34px;">TEE enclave, sequential VDF, or an external beacon like drand.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 7 ============ -->
+      <div id="sc7" class="clip scene s7" data-start="99.387" data-duration="19.027" data-track-index="7">
+        <div class="scene-header">
+          <div class="scene-number s7-num">§ 07 — Trade-offs</div>
+          <div class="scene-rule s7-rule"></div>
+        </div>
+        <h1 class="scene-title s7-title">Each approach has a <em>limit</em></h1>
+        <p class="scene-subtitle s7-sub">No option is free — the question is which cost fits an L2 with fast block production.</p>
+
+        <div class="scene-body">
+          <div class="limits-row">
+            <div class="limit-card lc1">
+              <div class="lc-tag">TEE</div>
+              <div class="lc-top">Trusts the hardware.</div>
+              <div class="lc-divider"></div>
+              <div class="lc-issue">You depend on the <strong>manufacturer</strong> to build the enclave correctly and keep its root keys safe.</div>
+            </div>
+            <div class="limit-card lc2">
+              <div class="lc-tag">VDF</div>
+              <div class="lc-top">ASICs. Delay.</div>
+              <div class="lc-divider"></div>
+              <div class="lc-issue">Specialised <strong>hardware</strong> may compute faster than expected — and the extra time hurts <strong>fast finality</strong>.</div>
+            </div>
+            <div class="limit-card lc3">
+              <div class="lc-tag">BEACON</div>
+              <div class="lc-top">Fixed schedule.</div>
+              <div class="lc-divider"></div>
+              <div class="lc-issue">drand outputs every <strong>30 seconds</strong> — which may not match an L2 block cadence.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s7-c1" class="caption-group">TEE trusts hardware. VDFs face ASICs and add latency.</span>
+          <span id="s7-c2" class="caption-group" style="position:absolute; left:34px;">Beacons run on fixed schedules that may not match L2 block time.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 8 ============ -->
+      <div id="sc8" class="clip scene s8" data-start="118.014" data-duration="14.883" data-track-index="8">
+        <div class="scene-header">
+          <div class="scene-number s8-num">§ 08 — TEE-based Enshrined VRF</div>
+          <div class="scene-rule s8-rule"></div>
+        </div>
+        <h1 class="scene-title s8-title">TEE fits <em>fast L2s</em> best</h1>
+        <p class="scene-subtitle s8-sub">No extra operators. No external dependency. No added latency.</p>
+
+        <div class="scene-body">
+          <div class="s8-wrap">
+            <div class="s8-diagram">
+              <div class="seq-outer s8-seq">
+                <div class="seq-label">SEQUENCER</div>
+                <div class="tee-enclave s8-tee">
+                  <div class="tee-tag">TEE · HARDWARE ENCLAVE</div>
+                  <div class="tee-vrf">VRF</div>
+                  <div class="tee-sk">sk stays inside</div>
+                </div>
+              </div>
+            </div>
+            <div class="s8-wins">
+              <div class="win-item w1"><span class="win-bullet">01</span><span class="win-text">No changes to consensus — lives <em>inside</em> the sequencer.</span></div>
+              <div class="win-item w2"><span class="win-bullet">02</span><span class="win-text">VRF computes <em>immediately</em> — fast blocks are preserved.</span></div>
+              <div class="win-item w3"><span class="win-bullet">03</span><span class="win-text">No external network — <em>no added dependency</em>.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s8-c1" class="caption-group">TEE lives inside the sequencer — no extra operators, no external dependency.</span>
+          <span id="s8-c2" class="caption-group" style="position:absolute; left:34px;">VRF computes instantly inside the enclave. Fast finality stays intact.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 9 ============ -->
+      <div id="sc9" class="clip scene s9" data-start="132.097" data-duration="17.405" data-track-index="9">
+        <div class="scene-header">
+          <div class="scene-number s9-num">§ 09 — Generation Proof</div>
+          <div class="scene-rule s9-rule"></div>
+        </div>
+        <h1 class="scene-title s9-title">Proving the key was born inside the <em>enclave</em></h1>
+        <p class="scene-subtitle s9-sub">An attestation report ties the public key to verified VRF code inside a genuine TEE.</p>
+
+        <div class="scene-body">
+          <div class="attest-quote s9-quote">
+            “This public key <span class="mono accent">pk</span> was created inside the isolated enclave by <span class="accent">verified VRF code</span> — signed with the hardware maker's root key.”
+          </div>
+
+          <div class="s9-flow">
+            <div class="s9-stage">
+              <div class="s9-node enclave sn1">
+                <div class="n-top">TEE ENCLAVE</div>
+                <div class="n-body">generates (sk, pk)</div>
+              </div>
+              <div class="s9-arrow sa1"><span>ISSUES</span><div class="line"></div></div>
+              <div class="s9-node sn2">
+                <div class="n-top">ATTESTATION REPORT</div>
+                <div class="n-body">pk · signed by root_key</div>
+              </div>
+              <div class="s9-arrow sa2"><span>REGISTER</span><div class="line"></div></div>
+              <div class="s9-node onchain sn3">
+                <div class="n-top">ONCHAIN</div>
+                <div class="n-body">anyone can verify</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s9-c1" class="caption-group">TEE issues an attestation report signed by the hardware maker's root key.</span>
+          <span id="s9-c2" class="caption-group" style="position:absolute; left:34px;">Register it onchain — anyone can verify the key's provenance.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- generate validator dots (static, deterministic) -->
+    <script>
+      (function () {
+        var host = document.getElementById("s3-validators");
+        if (host) {
+          var n = 180;
+          var html = "";
+          for (var i = 0; i < n; i++) html += "<div></div>";
+          host.innerHTML = html;
+        }
+      })();
+    </script>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      // ============================================================
+      // Scene crossfade pattern:
+      //   - each scene starts at opacity 0 and fades to 1 over 0.5s
+      //   - outgoing scene fades to 0 over 0.4s in the overlap window
+      //   - scenes overlap 0.4s at boundaries
+      //   - final scene also fades to black at the very end
+      // ============================================================
+
+      var scenes = [
+        { id: "#sc1", start: 0,       dur: 16.125 },
+        { id: "#sc2", start: 15.725,  dur: 22.051 },
+        { id: "#sc3", start: 36.976,  dur: 16.419 },
+        { id: "#sc4", start: 52.595,  dur: 15.224 },
+        { id: "#sc5", start: 67.019,  dur: 15.080 },
+        { id: "#sc6", start: 81.699,  dur: 18.088 },
+        { id: "#sc7", start: 99.387,  dur: 19.027 },
+        { id: "#sc8", start: 118.014, dur: 14.883 },
+        { id: "#sc9", start: 132.097, dur: 17.405 },
+      ];
+
+      scenes.forEach(function (s, i) {
+        tl.from(s.id, { opacity: 0, duration: 0.55, ease: "sine.inOut" }, s.start);
+      });
+
+      // ============================================================
+      // Scene 1 — requirements
+      // ============================================================
+      var s1t = 0;
+      tl.from(".s1-num",      { y: -12, opacity: 0, duration: 0.5, ease: "power2.out" }, s1t + 0.2);
+      tl.from(".s1-rule",     { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out" }, s1t + 0.3);
+      tl.from(".s1-title",    { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s1t + 0.4);
+      tl.from(".s1-sub",      { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s1t + 0.9);
+      tl.from(".req-card",    { y: 32, opacity: 0, duration: 0.6, stagger: 0.18, ease: "power3.out" }, s1t + 1.2);
+      tl.from(".req-card .req-rule", { scaleX: 0, opacity: 0, duration: 0.6, stagger: 0.18, ease: "power2.out", transformOrigin: "left center" }, s1t + 1.6);
+
+      // ============================================================
+      // Scene 2 — L1 primitives
+      // ============================================================
+      var s2t = 15.725;
+      tl.from(".s2-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s2t + 0.7);
+      tl.from(".s2-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s2t + 0.8);
+      tl.from(".s2-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s2t + 0.9);
+      tl.from(".s2-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s2t + 1.4);
+      tl.from(".tool-card",{ y: 40, opacity: 0, duration: 0.7, stagger: 0.22, ease: "power3.out" }, s2t + 1.7);
+      tl.from(".t-foot",   { y: 14, opacity: 0, duration: 0.6, ease: "sine.out" }, s2t + 3.0);
+
+      // ============================================================
+      // Scene 3 — L1 vs L2
+      // ============================================================
+      var s3t = 36.976;
+      tl.from(".s3-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s3t + 0.7);
+      tl.from(".s3-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s3t + 0.8);
+      tl.from(".s3-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s3t + 0.9);
+      tl.from(".s3-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s3t + 1.4);
+      tl.from(".s3-panel.p1", { x: -40, opacity: 0, duration: 0.7, ease: "power3.out" }, s3t + 1.7);
+      tl.from(".s3-panel.p2", { x: 40,  opacity: 0, duration: 0.7, ease: "power3.out" }, s3t + 1.9);
+      tl.from("#s3-validators div", { opacity: 0, duration: 0.02, stagger: { amount: 1.2, from: "random" }, ease: "none" }, s3t + 2.4);
+      tl.from(".sequencer-circle",  { scale: 0.7, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "center" }, s3t + 3.0);
+      tl.from(".sequencer-label",   { y: 14, opacity: 0, duration: 0.5, ease: "sine.out" }, s3t + 3.5);
+
+      // ============================================================
+      // Scene 4 — Chainlink flow
+      // ============================================================
+      var s4t = 52.595;
+      tl.from(".s4-num",    { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s4t + 0.7);
+      tl.from(".s4-rule",   { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s4t + 0.8);
+      tl.from(".s4-title",  { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s4t + 0.9);
+      tl.from(".s4-sub",    { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s4t + 1.4);
+      tl.from(".fb-l2",     { x: -40, opacity: 0, duration: 0.7, ease: "power3.out" }, s4t + 1.8);
+      tl.from(".fb-oracle", { x: 40,  opacity: 0, duration: 0.7, ease: "power3.out" }, s4t + 2.0);
+      tl.from(".fa .flow-arrow:nth-child(1) .line", { scaleX: 0, opacity: 0, duration: 0.6, ease: "power2.out", transformOrigin: "left center" }, s4t + 2.3);
+      tl.from(".fa .flow-arrow:nth-child(2) .line", { scaleX: 0, opacity: 0, duration: 0.6, ease: "power2.out", transformOrigin: "right center" }, s4t + 2.6);
+      tl.from(".limit-item", { y: 16, opacity: 0, duration: 0.5, stagger: 0.18, ease: "power2.out" }, s4t + 3.3);
+
+      // ============================================================
+      // Scene 5 — enshrined + risks
+      // ============================================================
+      var s5t = 67.019;
+      tl.from(".s5-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s5t + 0.7);
+      tl.from(".s5-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s5t + 0.8);
+      tl.from(".s5-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s5t + 0.9);
+      tl.from(".s5-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s5t + 1.4);
+      tl.from(".s5-seq",   { y: 24, opacity: 0, duration: 0.6, ease: "power3.out" }, s5t + 1.8);
+      tl.from(".inside-vrf", { scale: 0.9, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "left center" }, s5t + 2.2);
+      tl.from(".seq-key",  { x: -12, opacity: 0, duration: 0.5, ease: "power2.out" }, s5t + 2.6);
+      tl.from(".rl1",      { x: 16, opacity: 0, duration: 0.6, ease: "power3.out" }, s5t + 3.0);
+      tl.from(".rl2",      { x: 16, opacity: 0, duration: 0.6, ease: "power3.out" }, s5t + 3.6);
+
+      // ============================================================
+      // Scene 6 — three isolation options
+      // ============================================================
+      var s6t = 81.699;
+      tl.from(".s6-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s6t + 0.7);
+      tl.from(".s6-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s6t + 0.8);
+      tl.from(".s6-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s6t + 0.9);
+      tl.from(".s6-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s6t + 1.4);
+      tl.from(".iso-card", { y: 40, opacity: 0, duration: 0.7, stagger: 0.22, ease: "power3.out" }, s6t + 1.8);
+      tl.from(".iso-card .iso-sym svg", { scale: 0.8, opacity: 0, duration: 0.6, stagger: 0.22, ease: "power2.out", transformOrigin: "center" }, s6t + 2.3);
+
+      // ============================================================
+      // Scene 7 — limits overlay
+      // ============================================================
+      var s7t = 99.387;
+      tl.from(".s7-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s7t + 0.7);
+      tl.from(".s7-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s7t + 0.8);
+      tl.from(".s7-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s7t + 0.9);
+      tl.from(".s7-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s7t + 1.4);
+      tl.from(".limit-card", { y: 40, opacity: 0, duration: 0.7, stagger: 0.2, ease: "power3.out" }, s7t + 1.8);
+      tl.from(".limit-card .lc-divider", { scaleX: 0, opacity: 0, duration: 0.5, stagger: 0.2, ease: "power2.out", transformOrigin: "left center" }, s7t + 2.8);
+      tl.from(".limit-card .lc-issue", { y: 12, opacity: 0, duration: 0.5, stagger: 0.2, ease: "sine.out" }, s7t + 3.2);
+
+      // ============================================================
+      // Scene 8 — TEE-based solution
+      // ============================================================
+      var s8t = 118.014;
+      tl.from(".s8-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s8t + 0.5);
+      tl.from(".s8-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s8t + 0.6);
+      tl.from(".s8-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s8t + 0.7);
+      tl.from(".s8-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s8t + 1.2);
+      tl.from(".s8-seq",   { scale: 0.9, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "center" }, s8t + 1.6);
+      tl.from(".s8-tee",   { scale: 0.85, opacity: 0, duration: 0.7, ease: "power3.out", transformOrigin: "center" }, s8t + 2.2);
+      tl.from(".win-item", { x: 18, opacity: 0, duration: 0.55, stagger: 0.24, ease: "power3.out" }, s8t + 2.5);
+
+      // ============================================================
+      // Scene 9 — attestation flow (final)
+      // ============================================================
+      var s9t = 132.097;
+      tl.from(".s9-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s9t + 0.5);
+      tl.from(".s9-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s9t + 0.6);
+      tl.from(".s9-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s9t + 0.7);
+      tl.from(".s9-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s9t + 1.2);
+      tl.from(".s9-quote", { x: -16, opacity: 0, duration: 0.8, ease: "power3.out" }, s9t + 1.6);
+      tl.from(".sn1",      { x: -30, opacity: 0, duration: 0.6, ease: "power3.out" }, s9t + 2.6);
+      tl.from(".sa1 .line",{ scaleX: 0, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "left center" }, s9t + 3.1);
+      tl.from(".sa1 span", { opacity: 0, duration: 0.4, ease: "sine.out" }, s9t + 3.3);
+      tl.from(".sn2",      { y: 20, opacity: 0, duration: 0.6, ease: "power3.out" }, s9t + 3.5);
+      tl.from(".sa2 .line",{ scaleX: 0, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "left center" }, s9t + 4.0);
+      tl.from(".sa2 span", { opacity: 0, duration: 0.4, ease: "sine.out" }, s9t + 4.2);
+      tl.from(".sn3",      { x: 30, opacity: 0, duration: 0.6, ease: "power3.out" }, s9t + 4.4);
+
+      // final gentle fade to canvas
+      tl.to("#sc9", { opacity: 0, duration: 1.2, ease: "sine.inOut" }, s9t + 15.0);
+
+      // ============================================================
+      // Captions — 2 groups per scene, synced to narration phrasing
+      // ============================================================
+      var captionGroups = [
+        // scene-start offsets (add to scene.start); g1-in, g1-out, g2-in, g2-out
+        { scene: 0, g1: "#s1-c1", g2: "#s1-c2", g1in: 0.6,  g1out: 7.5,  g2in: 7.5,  g2out: 15.6 },
+        { scene: 1, g1: "#s2-c1", g2: "#s2-c2", g1in: 0.6,  g1out: 10.0, g2in: 10.0, g2out: 21.5 },
+        { scene: 2, g1: "#s3-c1", g2: "#s3-c2", g1in: 0.6,  g1out: 8.5,  g2in: 8.5,  g2out: 15.8 },
+        { scene: 3, g1: "#s4-c1", g2: "#s4-c2", g1in: 0.6,  g1out: 6.5,  g2in: 6.5,  g2out: 14.8 },
+        { scene: 4, g1: "#s5-c1", g2: "#s5-c2", g1in: 0.6,  g1out: 6.5,  g2in: 6.5,  g2out: 14.6 },
+        { scene: 5, g1: "#s6-c1", g2: "#s6-c2", g1in: 0.6,  g1out: 8.5,  g2in: 8.5,  g2out: 17.6 },
+        { scene: 6, g1: "#s7-c1", g2: "#s7-c2", g1in: 0.6,  g1out: 9.0,  g2in: 9.0,  g2out: 18.6 },
+        { scene: 7, g1: "#s8-c1", g2: "#s8-c2", g1in: 0.6,  g1out: 7.0,  g2in: 7.0,  g2out: 14.4 },
+        { scene: 8, g1: "#s9-c1", g2: "#s9-c2", g1in: 0.6,  g1out: 8.5,  g2in: 8.5,  g2out: 17.0 },
+      ];
+      captionGroups.forEach(function (c) {
+        var s = scenes[c.scene].start;
+        tl.fromTo(c.g1, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "sine.out" }, s + c.g1in);
+        tl.to(c.g1,  { opacity: 0, duration: 0.3, ease: "sine.in" }, s + c.g1out);
+        tl.set(c.g1, { opacity: 0, visibility: "hidden" }, s + c.g1out + 0.31);
+        tl.fromTo(c.g2, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "sine.out" }, s + c.g2in);
+        tl.to(c.g2,  { opacity: 0, duration: 0.3, ease: "sine.in" }, s + c.g2out);
+        tl.set(c.g2, { opacity: 0, visibility: "hidden" }, s + c.g2out + 0.31);
+      });
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

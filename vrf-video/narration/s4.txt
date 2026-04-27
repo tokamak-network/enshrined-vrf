@@ -1,0 +1,1 @@
+Because strong in-protocol randomness is hard on L2, many chains depend on external oracles like Chainlink V R F. This adds request response delay, per-call fees, and an outside dependency on the oracle network.

@@ -1,0 +1,1 @@
+If V R F is built directly into the L2, the delay and fees disappear. But a new problem appears. If a single sequencer holds the secret key, it can see the random value early, and reorder transactions to its own advantage.

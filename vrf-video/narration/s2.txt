@@ -1,0 +1,1 @@
+Layer one chains combine three cryptographic tools. A V R F lets a key holder produce a verifiable random value. D K G splits a secret across many participants, requiring a threshold to use it. B L S signatures can be aggregated, making threshold signing efficient. V R F and D K G are the primary building blocks.

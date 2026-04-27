@@ -1,0 +1,1 @@
+Onchain randomness must meet four requirements. It must be unbiasable — no one can tilt the outcome. Reliable — it produces a value at the promised time. Verifiable — anyone can check the result. And unpredictable — no one learns it before reveal.

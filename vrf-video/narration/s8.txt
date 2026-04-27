@@ -1,0 +1,1 @@
+T E E fits L2 best. It lives inside the sequencer, requires no extra operators, and adds no external dependency. The V R F computes instantly inside the enclave. Fast finality is preserved.

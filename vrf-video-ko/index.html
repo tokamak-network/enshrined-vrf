@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600&family=Noto+Sans+KR:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,500;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #F6F3EC;
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        color: #17233A;
+      }
+
+      /* ---------- scene shell ---------- */
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        background: #F6F3EC;
+        padding: 96px 140px 160px;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+      .scene-header {
+        display: flex;
+        align-items: baseline;
+        gap: 28px;
+      }
+      .scene-number {
+        font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+        font-size: 20px;
+        letter-spacing: 0.22em;
+        color: #5A6472;
+        text-transform: uppercase;
+        padding-top: 4px;
+      }
+      .scene-rule {
+        flex: 1;
+        height: 1px;
+        background: #C9C3B4;
+        transform-origin: left center;
+      }
+      .scene-title {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 82px;
+        font-weight: 500;
+        line-height: 1.12;
+        color: #17233A;
+        margin-top: 20px;
+        letter-spacing: -0.01em;
+      }
+      .scene-title em {
+        color: #1B3A8A;
+        font-style: italic;
+        font-weight: 500;
+      }
+      .scene-subtitle {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 28px;
+        line-height: 1.5;
+        color: #5A6472;
+        margin-top: 20px;
+        max-width: 1380px;
+      }
+      .scene-body {
+        flex: 1;
+        margin-top: 48px;
+        position: relative;
+      }
+
+      /* ---------- caption band ---------- */
+      .caption-band {
+        position: absolute;
+        left: 140px;
+        right: 140px;
+        bottom: 68px;
+        min-height: 40px;
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 24px;
+        letter-spacing: 0.005em;
+        color: #2A3649;
+        line-height: 1.45;
+      }
+      .caption-band::before {
+        content: "▸";
+        color: #1B3A8A;
+        margin-right: 14px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .caption-group { opacity: 0; }
+
+      /* ---------- shared primitives ---------- */
+      .mono { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; }
+      .accent { color: #1B3A8A; }
+      .risk { color: #C9322B; }
+
+      /* ---------- Scene 1: requirements grid ---------- */
+      .s1-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 28px;
+        width: 1640px;
+        height: 560px;
+        margin-top: 20px;
+      }
+      .req-card {
+        border: 1px solid #1A2740;
+        padding: 44px 48px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: #F6F3EC;
+        position: relative;
+      }
+      .req-card .req-num {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.3em;
+        color: #5A6472;
+      }
+      .req-card .req-label {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 52px;
+        font-weight: 600;
+        color: #17233A;
+        letter-spacing: -0.01em;
+        margin-top: 6px;
+      }
+      .req-card .req-desc {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 22px;
+        color: #5A6472;
+        line-height: 1.5;
+        max-width: 620px;
+      }
+      .req-card .req-rule {
+        position: absolute;
+        top: 44px;
+        right: 48px;
+        width: 48px;
+        height: 1px;
+        background: #1B3A8A;
+      }
+
+      /* ---------- Scene 2: three tools ---------- */
+      .s2-row {
+        display: flex;
+        gap: 36px;
+        margin-top: 12px;
+      }
+      .tool-card {
+        flex: 1;
+        border: 1px solid #1A2740;
+        padding: 42px 38px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        position: relative;
+        min-height: 420px;
+      }
+      .tool-card .tool-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.24em;
+        color: #5A6472;
+      }
+      .tool-card .tool-name {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 72px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: #17233A;
+      }
+      .tool-card .tool-desc {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 22px;
+        line-height: 1.5;
+        color: #2A3649;
+      }
+      .tool-card.primary { background: #EEE7D6; }
+      .tool-card.primary .tool-tag { color: #1B3A8A; }
+      .s2-footnote {
+        margin-top: 32px;
+        font-family: 'Noto Serif KR', serif;
+        font-size: 22px;
+        color: #5A6472;
+      }
+
+      /* ---------- Scene 3: L1 vs L2 ---------- */
+      .s3-split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        margin-top: 12px;
+        height: 560px;
+      }
+      .s3-panel {
+        border: 1px solid #1A2740;
+        padding: 48px;
+        display: flex;
+        flex-direction: column;
+      }
+      .s3-panel h3 {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 58px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+      .s3-panel .p-sub {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 22px;
+        color: #5A6472;
+        margin-bottom: 30px;
+      }
+      .validators {
+        display: grid;
+        grid-template-columns: repeat(20, 1fr);
+        gap: 8px;
+        flex: 1;
+        align-content: center;
+      }
+      .validators div {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #2A3649;
+      }
+      .sequencer-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+      }
+      .sequencer-circle {
+        width: 160px;
+        height: 160px;
+        border: 2px solid #1B3A8A;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 20px;
+        letter-spacing: 0.12em;
+        color: #1B3A8A;
+      }
+      .sequencer-label {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 24px;
+        color: #2A3649;
+      }
+
+      /* ---------- Scene 4: oracle flow ---------- */
+      .s4-flow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 30px;
+        margin-top: 40px;
+        height: 280px;
+      }
+      .flow-box {
+        border: 1px solid #1A2740;
+        padding: 36px 52px;
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 40px;
+        color: #17233A;
+        min-width: 320px;
+        text-align: center;
+        background: #F6F3EC;
+      }
+      .flow-box .bx-sub {
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 17px;
+        letter-spacing: 0.05em;
+        color: #5A6472;
+        display: block;
+        margin-top: 8px;
+      }
+      .flow-arrows {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 20px;
+        color: #5A6472;
+        width: 280px;
+      }
+      .flow-arrow {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        gap: 10px;
+      }
+      .flow-arrow .line {
+        flex: 1;
+        height: 1px;
+        background: #1A2740;
+      }
+      .s4-limits {
+        display: flex;
+        justify-content: center;
+        gap: 80px;
+        margin-top: 50px;
+      }
+      .limit-item {
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 22px;
+        color: #2A3649;
+        letter-spacing: 0.01em;
+      }
+      .limit-item::before {
+        content: "—";
+        color: #C9322B;
+        margin-right: 12px;
+        font-weight: bold;
+      }
+
+      /* ---------- Scene 5: enshrined risk ---------- */
+      .s5-wrap {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 50px;
+        margin-top: 12px;
+      }
+      .s5-diagram {
+        border: 1px solid #1A2740;
+        padding: 44px;
+        background: #F6F3EC;
+        position: relative;
+      }
+      .s5-diagram h4 {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.24em;
+        color: #5A6472;
+        margin-bottom: 20px;
+      }
+      .seq-l2 {
+        border: 1px dashed #1A2740;
+        padding: 40px;
+        font-family: 'Noto Serif KR', serif;
+        font-size: 30px;
+        color: #17233A;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        align-items: flex-start;
+      }
+      .seq-l2 .inside-vrf {
+        border: 1px solid #1B3A8A;
+        padding: 14px 26px;
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 26px;
+        color: #1B3A8A;
+        letter-spacing: 0.02em;
+      }
+      .seq-l2 .seq-key {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 20px;
+        color: #C9322B;
+      }
+      .s5-risk {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 28px;
+      }
+      .risk-line {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 28px;
+        color: #17233A;
+        line-height: 1.5;
+      }
+      .risk-line .risk-tag {
+        display: inline-block;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.24em;
+        color: #C9322B;
+        padding: 4px 10px;
+        border: 1px solid #C9322B;
+        margin-right: 14px;
+        vertical-align: middle;
+      }
+      .risk-line em {
+        color: #C9322B;
+        font-style: italic;
+        font-weight: 600;
+      }
+
+      /* ---------- Scene 6: three isolation approaches ---------- */
+      .iso-row {
+        display: flex;
+        gap: 28px;
+        margin-top: 12px;
+      }
+      .iso-card {
+        flex: 1;
+        border: 1px solid #1A2740;
+        padding: 36px 36px 44px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-height: 460px;
+      }
+      .iso-card .iso-sym {
+        height: 80px;
+        display: flex;
+        align-items: center;
+      }
+      .iso-card .iso-name {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 60px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .iso-card .iso-fn {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        color: #5A6472;
+      }
+      .iso-card .iso-desc {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 21px;
+        line-height: 1.55;
+        color: #2A3649;
+      }
+
+      /* ---------- Scene 7: limits overlay ---------- */
+      .limits-row {
+        display: flex;
+        gap: 28px;
+        margin-top: 12px;
+      }
+      .limit-card {
+        flex: 1;
+        border: 1px solid #1A2740;
+        padding: 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        min-height: 460px;
+      }
+      .limit-card .lc-top {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 48px;
+        font-weight: 500;
+        color: #17233A;
+      }
+      .limit-card .lc-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.25em;
+        color: #5A6472;
+      }
+      .limit-card .lc-divider {
+        height: 1px;
+        background: #C9322B;
+        width: 100%;
+      }
+      .limit-card .lc-issue {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 22px;
+        line-height: 1.55;
+        color: #2A3649;
+      }
+      .limit-card .lc-issue strong {
+        color: #C9322B;
+        font-weight: 600;
+      }
+
+      /* ---------- Scene 8: TEE inside sequencer ---------- */
+      .s8-wrap {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 50px;
+        margin-top: 12px;
+      }
+      .s8-diagram {
+        border: 1px solid #1A2740;
+        padding: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .seq-outer {
+        border: 1px dashed #1A2740;
+        padding: 60px 50px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        align-items: center;
+      }
+      .seq-outer .seq-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.28em;
+        color: #5A6472;
+      }
+      .tee-enclave {
+        border: 2px solid #1B3A8A;
+        padding: 36px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        background: #EEE7D6;
+      }
+      .tee-enclave .tee-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        color: #1B3A8A;
+      }
+      .tee-enclave .tee-vrf {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 50px;
+        font-weight: 500;
+        color: #1B3A8A;
+      }
+      .tee-enclave .tee-sk {
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 18px;
+        color: #17233A;
+      }
+      .s8-wins {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 26px;
+      }
+      .win-item {
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+      }
+      .win-item .win-bullet {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.2em;
+        color: #1B3A8A;
+        min-width: 30px;
+      }
+      .win-item .win-text {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 28px;
+        line-height: 1.5;
+        color: #17233A;
+      }
+      .win-item .win-text em {
+        font-style: italic;
+        color: #1B3A8A;
+      }
+
+      /* ---------- Scene 9: attestation flow ---------- */
+      .s9-flow {
+        margin-top: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+      .s9-stage {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+      }
+      .s9-node {
+        border: 1px solid #1A2740;
+        padding: 22px 28px;
+        background: #F6F3EC;
+        min-width: 280px;
+      }
+      .s9-node.enclave { border: 2px solid #1B3A8A; background: #EEE7D6; }
+      .s9-node.onchain { border: 1px solid #1A2740; background: #EEE7D6; }
+      .s9-node .n-top {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        color: #5A6472;
+        margin-bottom: 6px;
+      }
+      .s9-node.enclave .n-top { color: #1B3A8A; }
+      .s9-node .n-body {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 26px;
+        color: #17233A;
+        font-weight: 500;
+      }
+      .s9-arrow {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.2em;
+        color: #5A6472;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        min-width: 150px;
+      }
+      .s9-arrow .line {
+        width: 100%;
+        height: 1px;
+        background: #1A2740;
+      }
+      .attest-quote {
+        font-family: 'Noto Serif KR', serif;
+        font-style: normal;
+        font-size: 26px;
+        color: #17233A;
+        padding-left: 32px;
+        border-left: 2px solid #1B3A8A;
+        max-width: 1360px;
+        line-height: 1.55;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="155"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- ============ narration audio ============ -->
+      <audio id="a1" class="clip" data-start="0.5"      data-duration="20.527" data-track-index="20" src="assets/s1.wav"></audio>
+      <audio id="a2" class="clip" data-start="21.627"   data-duration="23.198" data-track-index="20" src="assets/s2.wav"></audio>
+      <audio id="a3" class="clip" data-start="45.425"   data-duration="14.664" data-track-index="20" src="assets/s3.wav"></audio>
+      <audio id="a4" class="clip" data-start="60.689"   data-duration="12.634" data-track-index="20" src="assets/s4.wav"></audio>
+      <audio id="a5" class="clip" data-start="73.923"   data-duration="13.911" data-track-index="20" src="assets/s5.wav"></audio>
+      <audio id="a6" class="clip" data-start="88.434"   data-duration="15.058" data-track-index="20" src="assets/s6.wav"></audio>
+      <audio id="a7" class="clip" data-start="104.092"  data-duration="17.068" data-track-index="20" src="assets/s7.wav"></audio>
+      <audio id="a8" class="clip" data-start="121.760"  data-duration="13.179" data-track-index="20" src="assets/s8.wav"></audio>
+      <audio id="a9" class="clip" data-start="135.539"  data-duration="17.928" data-track-index="20" src="assets/s9.wav"></audio>
+
+      <!-- ============ Scene 1 ============ -->
+      <div id="sc1" class="clip scene s1" data-start="0" data-duration="21.527" data-track-index="1">
+        <div class="scene-header">
+          <div class="scene-number s1-num">§ 01 · 요건</div>
+          <div class="scene-rule s1-rule"></div>
+        </div>
+        <h1 class="scene-title s1-title">온체인 랜덤니스의 <em>네 가지 요건</em></h1>
+        <p class="scene-subtitle s1-sub">블록체인에서 쓸 수 있는 랜덤니스는 이 네 가지를 동시에 만족해야 합니다.</p>
+
+        <div class="scene-body">
+          <div class="s1-grid">
+            <div class="req-card rc1">
+              <div>
+                <div class="req-num">01</div>
+                <div class="req-label">편향 불가</div>
+              </div>
+              <div class="req-desc">어떤 참여자도, 운영자조차도 결과를 자기에게 유리하게 기울일 수 없어야 한다.</div>
+              <div class="req-rule"></div>
+            </div>
+            <div class="req-card rc2">
+              <div>
+                <div class="req-num">02</div>
+                <div class="req-label">신뢰 가능</div>
+              </div>
+              <div class="req-desc">어떠한 악조건에서도 약속된 시점에 반드시 값이 산출된다.</div>
+              <div class="req-rule"></div>
+            </div>
+            <div class="req-card rc3">
+              <div>
+                <div class="req-num">03</div>
+                <div class="req-label">검증 가능</div>
+              </div>
+              <div class="req-desc">공개된 알고리즘이나 암호학적 증명으로 누구나 결과를 확인할 수 있다.</div>
+              <div class="req-rule"></div>
+            </div>
+            <div class="req-card rc4">
+              <div>
+                <div class="req-num">04</div>
+                <div class="req-label">예측 불가</div>
+              </div>
+              <div class="req-desc">값이 공개되기 전에 누구도 그것을 알 수 없다 — 알면 선행매매가 가능해진다.</div>
+              <div class="req-rule"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s1-c1" class="caption-group">네 가지 요건: 편향 불가, 신뢰, 검증, 예측 불가.</span>
+          <span id="s1-c2" class="caption-group" style="position:absolute; left:34px;">네 가지를 동시에 만족해야 비로소 사용 가능한 온체인 랜덤니스.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 2 ============ -->
+      <div id="sc2" class="clip scene s2" data-start="21.127" data-duration="24.198" data-track-index="2">
+        <div class="scene-header">
+          <div class="scene-number s2-num">§ 02 · L1 랜덤니스</div>
+          <div class="scene-rule s2-rule"></div>
+        </div>
+        <h1 class="scene-title s2-title">세 가지 암호학 <em>구성 요소</em></h1>
+        <p class="scene-subtitle s2-sub">L1 체인은 합의 설계에 따라 이들을 서로 다르게 조합합니다.</p>
+
+        <div class="scene-body">
+          <div class="s2-row">
+            <div class="tool-card primary t1">
+              <div class="tool-tag">PRIMITIVE · 핵심</div>
+              <div class="tool-name">VRF</div>
+              <div class="tool-desc">비밀키 보유자가 유사 난수를 생성한다. 공개키로 누구나 검증 가능하다. 같은 입력 → 같은 출력.</div>
+            </div>
+            <div class="tool-card primary t2">
+              <div class="tool-tag">PROTOCOL · 핵심</div>
+              <div class="tool-name">DKG</div>
+              <div class="tool-desc">하나의 비밀키를 여러 참여자에게 나누어 저장한다. 사용하려면 임계값 이상이 협력해야 한다.</div>
+            </div>
+            <div class="tool-card t3">
+              <div class="tool-tag">SIGNATURE · 보조</div>
+              <div class="tool-name">BLS</div>
+              <div class="tool-desc">여러 서명을 하나로 합칠 수 있다. 임계 서명을 실용적으로 만든다.</div>
+            </div>
+          </div>
+          <div class="s2-footnote t-foot">VRF와 DKG가 핵심. BLS는 임계 서명을 뒷받침하는 보조 도구입니다.</div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s2-c1" class="caption-group">L1 체인은 VRF, DKG, BLS 서명을 조합해 랜덤니스를 만듭니다.</span>
+          <span id="s2-c2" class="caption-group" style="position:absolute; left:34px;">VRF와 DKG가 핵심, BLS는 임계 서명을 효율적으로 만드는 보조 도구입니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 3 ============ -->
+      <div id="sc3" class="clip scene s3" data-start="44.925" data-duration="15.664" data-track-index="3">
+        <div class="scene-header">
+          <div class="scene-number s3-num">§ 03 · L2 랜덤니스</div>
+          <div class="scene-rule s3-rule"></div>
+        </div>
+        <h1 class="scene-title s3-title">L2는 <em>검증자 구조</em>가 다르다</h1>
+        <p class="scene-subtitle s3-sub">광범위한 참여를 전제로 한 기법은, 단일 주체가 순서화를 맡는 순간 무너집니다.</p>
+
+        <div class="scene-body">
+          <div class="s3-split">
+            <div class="s3-panel p1">
+              <h3>L1</h3>
+              <div class="p-sub">수백 명의 독립 검증자</div>
+              <div class="validators" id="s3-validators"></div>
+            </div>
+            <div class="s3-panel p2">
+              <h3>L2</h3>
+              <div class="p-sub">대개 단일 시퀀서</div>
+              <div class="sequencer-wrap">
+                <div class="sequencer-circle">시퀀서</div>
+                <div class="sequencer-label">한 운영자 — 또는 소수의 그룹</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s3-c1" class="caption-group">L1은 독립적인 검증자 다수. 대부분의 L2는 시퀀서 하나로 트랜잭션을 순서화합니다.</span>
+          <span id="s3-c2" class="caption-group" style="position:absolute; left:34px;">DKG의 담합 저항 가정이 L2에서는 더 이상 성립하지 않습니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 4 ============ -->
+      <div id="sc4" class="clip scene s4" data-start="60.189" data-duration="13.634" data-track-index="4">
+        <div class="scene-header">
+          <div class="scene-number s4-num">§ 04 · 외부 오라클</div>
+          <div class="scene-rule s4-rule"></div>
+        </div>
+        <h1 class="scene-title s4-title">L2는 종종 <em>체인링크 VRF</em>에 의존한다</h1>
+        <p class="scene-subtitle s4-sub">프로토콜 내부 랜덤니스가 어려울 때, L2는 외부 오라클 네트워크에 이를 위임합니다.</p>
+
+        <div class="scene-body">
+          <div class="s4-flow">
+            <div class="flow-box fb-l2">
+              L2
+              <span class="bx-sub">애플리케이션 / 시퀀서</span>
+            </div>
+            <div class="flow-arrows fa">
+              <div class="flow-arrow"><span>요청</span><div class="line"></div><span>→</span></div>
+              <div class="flow-arrow"><span>←</span><div class="line"></div><span>응답</span></div>
+            </div>
+            <div class="flow-box fb-oracle">
+              Chainlink VRF
+              <span class="bx-sub">외부 오라클 네트워크</span>
+            </div>
+          </div>
+          <div class="s4-limits">
+            <div class="limit-item li1">왕복 지연</div>
+            <div class="limit-item li2">호출당 수수료</div>
+            <div class="limit-item li3">외부 의존성</div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s4-c1" class="caption-group">많은 L2는 체인링크 VRF 같은 외부 오라클에 의존합니다.</span>
+          <span id="s4-c2" class="caption-group" style="position:absolute; left:34px;">비용: 왕복 지연, 호출당 수수료, 외부 네트워크에 대한 의존성.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 5 ============ -->
+      <div id="sc5" class="clip scene s5" data-start="73.423" data-duration="14.911" data-track-index="5">
+        <div class="scene-header">
+          <div class="scene-number s5-num">§ 05 · Enshrined VRF</div>
+          <div class="scene-rule s5-rule"></div>
+        </div>
+        <h1 class="scene-title s5-title">VRF를 <em>L2 프로토콜에 직접 내장</em></h1>
+        <p class="scene-subtitle s5-sub">요청·응답 지연과 수수료는 사라지지만, 새로운 신뢰 문제가 등장합니다.</p>
+
+        <div class="scene-body">
+          <div class="s5-wrap">
+            <div class="s5-diagram">
+              <h4>내장된 VRF를 가진 L2</h4>
+              <div class="seq-l2 s5-seq">
+                <div>시퀀서</div>
+                <div class="inside-vrf">VRF — 프로토콜 내부</div>
+                <div class="seq-key">◆ sk (비밀키) 보유</div>
+              </div>
+            </div>
+            <div class="s5-risk">
+              <div class="risk-line rl1"><span class="risk-tag">RISK</span>랜덤 값을 <em>먼저</em> 알 수 있다.</div>
+              <div class="risk-line rl2"><span class="risk-tag">RISK</span>트랜잭션 순서를 자신에게 유리하게 조작할 수 있다.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s5-c1" class="caption-group">Enshrined VRF는 오라클 왕복과 수수료를 제거합니다.</span>
+          <span id="s5-c2" class="caption-group" style="position:absolute; left:34px;">그러나 sk를 쥔 시퀀서는 값을 먼저 알고 순서를 조작할 수 있습니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 6 ============ -->
+      <div id="sc6" class="clip scene s6" data-start="87.934" data-duration="16.058" data-track-index="6">
+        <div class="scene-header">
+          <div class="scene-number s6-num">§ 06 · 비밀키 격리</div>
+          <div class="scene-rule s6-rule"></div>
+        </div>
+        <h1 class="scene-title s6-title">비밀키를 <em>격리하는 세 가지</em> 방법</h1>
+        <p class="scene-subtitle s6-sub">목표는, 시퀀서가 비밀을 몰라도 안전하게 랜덤니스를 만들어내는 것입니다.</p>
+
+        <div class="scene-body">
+          <div class="iso-row">
+            <div class="iso-card ic1">
+              <div class="iso-sym">
+                <svg width="74" height="74" viewBox="0 0 74 74" fill="none" stroke="#1B3A8A" stroke-width="1.6"><rect x="10" y="18" width="54" height="44" /><rect x="22" y="28" width="30" height="24" /><line x1="22" y1="40" x2="52" y2="40"/><line x1="37" y1="28" x2="37" y2="52"/></svg>
+              </div>
+              <div class="iso-fn">방식 · 하드웨어</div>
+              <div class="iso-name">TEE</div>
+              <div class="iso-desc">하드웨어로 격리된 영역. VRF 키를 그 안에서 만들고 사용한다. 운영자조차 읽을 수 없다.</div>
+            </div>
+            <div class="iso-card ic2">
+              <div class="iso-sym">
+                <svg width="74" height="74" viewBox="0 0 74 74" fill="none" stroke="#1B3A8A" stroke-width="1.6"><circle cx="37" cy="37" r="26"/><line x1="37" y1="16" x2="37" y2="37"/><line x1="37" y1="37" x2="54" y2="44"/></svg>
+              </div>
+              <div class="iso-fn">방식 · 순차 계산</div>
+              <div class="iso-name">VDF</div>
+              <div class="iso-desc">반드시 단계별로만 계산되는 함수. 실제 시간이 흐른 뒤에야 결과가 나온다.</div>
+            </div>
+            <div class="iso-card ic3">
+              <div class="iso-sym">
+                <svg width="74" height="74" viewBox="0 0 74 74" fill="none" stroke="#1B3A8A" stroke-width="1.6"><path d="M6 44 Q18 30 30 44 T54 44 T78 44"/><path d="M6 54 Q18 40 30 54 T54 54 T78 54" stroke-opacity="0.5"/></svg>
+              </div>
+              <div class="iso-fn">방식 · 외부 비콘</div>
+              <div class="iso-name">drand</div>
+              <div class="iso-desc">탈중앙 랜덤 비콘. 시퀀서는 비콘의 비밀키에 접근할 수 없다.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s6-c1" class="caption-group">시퀀서로부터 sk를 격리하는 세 가지 접근.</span>
+          <span id="s6-c2" class="caption-group" style="position:absolute; left:34px;">TEE 엔클레이브, 순차 계산의 VDF, 외부 비콘 drand.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 7 ============ -->
+      <div id="sc7" class="clip scene s7" data-start="103.592" data-duration="18.068" data-track-index="7">
+        <div class="scene-header">
+          <div class="scene-number s7-num">§ 07 · 트레이드오프</div>
+          <div class="scene-rule s7-rule"></div>
+        </div>
+        <h1 class="scene-title s7-title">각 방식은 <em>한계</em>를 가진다</h1>
+        <p class="scene-subtitle s7-sub">공짜는 없습니다 — 문제는 어떤 비용이 빠른 블록 생산에 맞는가입니다.</p>
+
+        <div class="scene-body">
+          <div class="limits-row">
+            <div class="limit-card lc1">
+              <div class="lc-tag">TEE</div>
+              <div class="lc-top">하드웨어 신뢰</div>
+              <div class="lc-divider"></div>
+              <div class="lc-issue">엔클레이브를 제대로 만들고 루트 키를 안전하게 지키는 <strong>제조사</strong>에 의존한다.</div>
+            </div>
+            <div class="limit-card lc2">
+              <div class="lc-tag">VDF</div>
+              <div class="lc-top">ASIC · 지연</div>
+              <div class="lc-divider"></div>
+              <div class="lc-issue"><strong>전용 하드웨어</strong>가 예상보다 빨리 계산할 수 있고, 추가 시간은 <strong>빠른 파이널리티</strong>를 해친다.</div>
+            </div>
+            <div class="limit-card lc3">
+              <div class="lc-tag">BEACON</div>
+              <div class="lc-top">고정 스케줄</div>
+              <div class="lc-divider"></div>
+              <div class="lc-issue">drand는 <strong>30초</strong>마다 출력 — L2의 블록 주기와 맞지 않을 수 있다.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s7-c1" class="caption-group">TEE는 하드웨어 신뢰. VDF는 ASIC과 지연.</span>
+          <span id="s7-c2" class="caption-group" style="position:absolute; left:34px;">비콘은 고정 스케줄 — L2의 블록 주기와 어긋날 수 있습니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 8 ============ -->
+      <div id="sc8" class="clip scene s8" data-start="121.260" data-duration="14.179" data-track-index="8">
+        <div class="scene-header">
+          <div class="scene-number s8-num">§ 08 · TEE 기반 Enshrined VRF</div>
+          <div class="scene-rule s8-rule"></div>
+        </div>
+        <h1 class="scene-title s8-title">TEE는 <em>빠른 L2</em>에 가장 잘 맞는다</h1>
+        <p class="scene-subtitle s8-sub">추가 운영자 없음. 외부 의존 없음. 지연 없음.</p>
+
+        <div class="scene-body">
+          <div class="s8-wrap">
+            <div class="s8-diagram">
+              <div class="seq-outer s8-seq">
+                <div class="seq-label">SEQUENCER</div>
+                <div class="tee-enclave s8-tee">
+                  <div class="tee-tag">TEE · 하드웨어 엔클레이브</div>
+                  <div class="tee-vrf">VRF</div>
+                  <div class="tee-sk">sk는 내부에만 존재</div>
+                </div>
+              </div>
+            </div>
+            <div class="s8-wins">
+              <div class="win-item w1"><span class="win-bullet">01</span><span class="win-text">합의 변경 없음 — 시퀀서 <em>내부에</em> 존재한다.</span></div>
+              <div class="win-item w2"><span class="win-bullet">02</span><span class="win-text">VRF가 <em>즉시</em> 계산 — 빠른 블록 생산이 유지된다.</span></div>
+              <div class="win-item w3"><span class="win-bullet">03</span><span class="win-text">외부 네트워크 없음 — <em>추가 의존 없음</em>.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s8-c1" class="caption-group">TEE는 시퀀서 내부 — 추가 운영자나 외부 의존이 필요 없습니다.</span>
+          <span id="s8-c2" class="caption-group" style="position:absolute; left:34px;">VRF는 엔클레이브 안에서 즉시 계산되어 빠른 파이널리티가 유지됩니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 9 ============ -->
+      <div id="sc9" class="clip scene s9" data-start="135.039" data-duration="18.928" data-track-index="9">
+        <div class="scene-header">
+          <div class="scene-number s9-num">§ 09 · 생성 증명</div>
+          <div class="scene-rule s9-rule"></div>
+        </div>
+        <h1 class="scene-title s9-title">키가 <em>엔클레이브 안에서</em> 만들어졌다는 증명</h1>
+        <p class="scene-subtitle s9-sub">증명서는 공개키를, 검증된 VRF 코드가 실행되는 진짜 TEE와 연결합니다.</p>
+
+        <div class="scene-body">
+          <div class="attest-quote s9-quote">
+            "공개키 <span class="mono accent">pk</span>는 격리된 엔클레이브 안에서 <span class="accent">검증된 VRF 코드</span>에 의해 생성되었다 — 하드웨어 제조사의 루트 키로 서명됨."
+          </div>
+
+          <div class="s9-flow">
+            <div class="s9-stage">
+              <div class="s9-node enclave sn1">
+                <div class="n-top">TEE 엔클레이브</div>
+                <div class="n-body">(sk, pk) 생성</div>
+              </div>
+              <div class="s9-arrow sa1"><span>발급</span><div class="line"></div></div>
+              <div class="s9-node sn2">
+                <div class="n-top">증명서</div>
+                <div class="n-body">pk · root_key로 서명</div>
+              </div>
+              <div class="s9-arrow sa2"><span>등록</span><div class="line"></div></div>
+              <div class="s9-node onchain sn3">
+                <div class="n-top">ONCHAIN</div>
+                <div class="n-body">누구나 검증 가능</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s9-c1" class="caption-group">TEE는 제조사 루트 키로 서명된 증명서를 발급합니다.</span>
+          <span id="s9-c2" class="caption-group" style="position:absolute; left:34px;">온체인에 등록하면 누구나 키의 출처를 검증할 수 있습니다.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- validator dots (static, deterministic) -->
+    <script>
+      (function () {
+        var host = document.getElementById("s3-validators");
+        if (host) {
+          var n = 180;
+          var html = "";
+          for (var i = 0; i < n; i++) html += "<div></div>";
+          host.innerHTML = html;
+        }
+      })();
+    </script>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      var scenes = [
+        { id: "#sc1", start: 0,        dur: 21.527 },
+        { id: "#sc2", start: 21.127,   dur: 24.198 },
+        { id: "#sc3", start: 44.925,   dur: 15.664 },
+        { id: "#sc4", start: 60.189,   dur: 13.634 },
+        { id: "#sc5", start: 73.423,   dur: 14.911 },
+        { id: "#sc6", start: 87.934,   dur: 16.058 },
+        { id: "#sc7", start: 103.592,  dur: 18.068 },
+        { id: "#sc8", start: 121.260,  dur: 14.179 },
+        { id: "#sc9", start: 135.039,  dur: 18.928 },
+      ];
+
+      scenes.forEach(function (s) {
+        tl.from(s.id, { opacity: 0, duration: 0.55, ease: "sine.inOut" }, s.start);
+      });
+
+      // ----- Scene 1 -----
+      var s1t = 0;
+      tl.from(".s1-num",      { y: -12, opacity: 0, duration: 0.5, ease: "power2.out" }, s1t + 0.2);
+      tl.from(".s1-rule",     { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s1t + 0.3);
+      tl.from(".s1-title",    { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s1t + 0.4);
+      tl.from(".s1-sub",      { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s1t + 0.9);
+      tl.from(".req-card",    { y: 32, opacity: 0, duration: 0.6, stagger: 0.2, ease: "power3.out" }, s1t + 1.2);
+      tl.from(".req-card .req-rule", { scaleX: 0, opacity: 0, duration: 0.6, stagger: 0.2, ease: "power2.out", transformOrigin: "left center" }, s1t + 1.6);
+
+      // ----- Scene 2 -----
+      var s2t = 21.127;
+      tl.from(".s2-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s2t + 0.7);
+      tl.from(".s2-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s2t + 0.8);
+      tl.from(".s2-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s2t + 0.9);
+      tl.from(".s2-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s2t + 1.4);
+      tl.from(".tool-card",{ y: 40, opacity: 0, duration: 0.7, stagger: 0.24, ease: "power3.out" }, s2t + 1.7);
+      tl.from(".t-foot",   { y: 14, opacity: 0, duration: 0.6, ease: "sine.out" }, s2t + 3.2);
+
+      // ----- Scene 3 -----
+      var s3t = 44.925;
+      tl.from(".s3-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s3t + 0.7);
+      tl.from(".s3-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s3t + 0.8);
+      tl.from(".s3-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s3t + 0.9);
+      tl.from(".s3-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s3t + 1.4);
+      tl.from(".s3-panel.p1", { x: -40, opacity: 0, duration: 0.7, ease: "power3.out" }, s3t + 1.7);
+      tl.from(".s3-panel.p2", { x: 40,  opacity: 0, duration: 0.7, ease: "power3.out" }, s3t + 1.9);
+      tl.from("#s3-validators div", { opacity: 0, duration: 0.02, stagger: { amount: 1.2, from: "random" }, ease: "none" }, s3t + 2.4);
+      tl.from(".sequencer-circle",  { scale: 0.7, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "center" }, s3t + 3.0);
+      tl.from(".sequencer-label",   { y: 14, opacity: 0, duration: 0.5, ease: "sine.out" }, s3t + 3.5);
+
+      // ----- Scene 4 -----
+      var s4t = 60.189;
+      tl.from(".s4-num",    { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s4t + 0.7);
+      tl.from(".s4-rule",   { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s4t + 0.8);
+      tl.from(".s4-title",  { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s4t + 0.9);
+      tl.from(".s4-sub",    { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s4t + 1.4);
+      tl.from(".fb-l2",     { x: -40, opacity: 0, duration: 0.7, ease: "power3.out" }, s4t + 1.8);
+      tl.from(".fb-oracle", { x: 40,  opacity: 0, duration: 0.7, ease: "power3.out" }, s4t + 2.0);
+      tl.from(".fa .flow-arrow:nth-child(1) .line", { scaleX: 0, opacity: 0, duration: 0.6, ease: "power2.out", transformOrigin: "left center" }, s4t + 2.3);
+      tl.from(".fa .flow-arrow:nth-child(2) .line", { scaleX: 0, opacity: 0, duration: 0.6, ease: "power2.out", transformOrigin: "right center" }, s4t + 2.6);
+      tl.from(".limit-item", { y: 16, opacity: 0, duration: 0.5, stagger: 0.18, ease: "power2.out" }, s4t + 3.2);
+
+      // ----- Scene 5 -----
+      var s5t = 73.423;
+      tl.from(".s5-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s5t + 0.7);
+      tl.from(".s5-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s5t + 0.8);
+      tl.from(".s5-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s5t + 0.9);
+      tl.from(".s5-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s5t + 1.4);
+      tl.from(".s5-seq",   { y: 24, opacity: 0, duration: 0.6, ease: "power3.out" }, s5t + 1.8);
+      tl.from(".inside-vrf", { scale: 0.9, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "left center" }, s5t + 2.2);
+      tl.from(".seq-key",  { x: -12, opacity: 0, duration: 0.5, ease: "power2.out" }, s5t + 2.6);
+      tl.from(".rl1",      { x: 16, opacity: 0, duration: 0.6, ease: "power3.out" }, s5t + 3.0);
+      tl.from(".rl2",      { x: 16, opacity: 0, duration: 0.6, ease: "power3.out" }, s5t + 3.6);
+
+      // ----- Scene 6 -----
+      var s6t = 87.934;
+      tl.from(".s6-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s6t + 0.7);
+      tl.from(".s6-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s6t + 0.8);
+      tl.from(".s6-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s6t + 0.9);
+      tl.from(".s6-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s6t + 1.4);
+      tl.from(".iso-card", { y: 40, opacity: 0, duration: 0.7, stagger: 0.24, ease: "power3.out" }, s6t + 1.8);
+      tl.from(".iso-card .iso-sym svg", { scale: 0.8, opacity: 0, duration: 0.6, stagger: 0.24, ease: "power2.out", transformOrigin: "center" }, s6t + 2.3);
+
+      // ----- Scene 7 -----
+      var s7t = 103.592;
+      tl.from(".s7-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s7t + 0.7);
+      tl.from(".s7-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s7t + 0.8);
+      tl.from(".s7-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s7t + 0.9);
+      tl.from(".s7-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s7t + 1.4);
+      tl.from(".limit-card", { y: 40, opacity: 0, duration: 0.7, stagger: 0.22, ease: "power3.out" }, s7t + 1.8);
+      tl.from(".limit-card .lc-divider", { scaleX: 0, opacity: 0, duration: 0.5, stagger: 0.22, ease: "power2.out", transformOrigin: "left center" }, s7t + 2.8);
+      tl.from(".limit-card .lc-issue",  { y: 12, opacity: 0, duration: 0.5, stagger: 0.22, ease: "sine.out" }, s7t + 3.2);
+
+      // ----- Scene 8 -----
+      var s8t = 121.260;
+      tl.from(".s8-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s8t + 0.5);
+      tl.from(".s8-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s8t + 0.6);
+      tl.from(".s8-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s8t + 0.7);
+      tl.from(".s8-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s8t + 1.2);
+      tl.from(".s8-seq",   { scale: 0.9, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "center" }, s8t + 1.6);
+      tl.from(".s8-tee",   { scale: 0.85, opacity: 0, duration: 0.7, ease: "power3.out", transformOrigin: "center" }, s8t + 2.2);
+      tl.from(".win-item", { x: 18, opacity: 0, duration: 0.55, stagger: 0.26, ease: "power3.out" }, s8t + 2.5);
+
+      // ----- Scene 9 -----
+      var s9t = 135.039;
+      tl.from(".s9-num",   { y: -10, opacity: 0, duration: 0.5, ease: "power2.out" }, s9t + 0.5);
+      tl.from(".s9-rule",  { scaleX: 0, opacity: 0, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }, s9t + 0.6);
+      tl.from(".s9-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, s9t + 0.7);
+      tl.from(".s9-sub",   { y: 24, opacity: 0, duration: 0.6, ease: "power2.out" }, s9t + 1.2);
+      tl.from(".s9-quote", { x: -16, opacity: 0, duration: 0.8, ease: "power3.out" }, s9t + 1.6);
+      tl.from(".sn1",      { x: -30, opacity: 0, duration: 0.6, ease: "power3.out" }, s9t + 2.8);
+      tl.from(".sa1 .line",{ scaleX: 0, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "left center" }, s9t + 3.3);
+      tl.from(".sa1 span", { opacity: 0, duration: 0.4, ease: "sine.out" }, s9t + 3.5);
+      tl.from(".sn2",      { y: 20, opacity: 0, duration: 0.6, ease: "power3.out" }, s9t + 3.7);
+      tl.from(".sa2 .line",{ scaleX: 0, opacity: 0, duration: 0.5, ease: "power2.out", transformOrigin: "left center" }, s9t + 4.2);
+      tl.from(".sa2 span", { opacity: 0, duration: 0.4, ease: "sine.out" }, s9t + 4.4);
+      tl.from(".sn3",      { x: 30, opacity: 0, duration: 0.6, ease: "power3.out" }, s9t + 4.6);
+
+      // final fade-out
+      tl.to("#sc9", { opacity: 0, duration: 1.2, ease: "sine.inOut" }, s9t + 16.5);
+
+      // ----- captions -----
+      var captionGroups = [
+        { scene: 0, g1: "#s1-c1", g2: "#s1-c2", g1in: 0.6,  g1out: 10.0, g2in: 10.0, g2out: 21.0 },
+        { scene: 1, g1: "#s2-c1", g2: "#s2-c2", g1in: 0.6,  g1out: 11.6, g2in: 11.6, g2out: 23.7 },
+        { scene: 2, g1: "#s3-c1", g2: "#s3-c2", g1in: 0.6,  g1out: 7.5,  g2in: 7.5,  g2out: 15.2 },
+        { scene: 3, g1: "#s4-c1", g2: "#s4-c2", g1in: 0.6,  g1out: 6.3,  g2in: 6.3,  g2out: 13.2 },
+        { scene: 4, g1: "#s5-c1", g2: "#s5-c2", g1in: 0.6,  g1out: 6.5,  g2in: 6.5,  g2out: 14.4 },
+        { scene: 5, g1: "#s6-c1", g2: "#s6-c2", g1in: 0.6,  g1out: 7.5,  g2in: 7.5,  g2out: 15.6 },
+        { scene: 6, g1: "#s7-c1", g2: "#s7-c2", g1in: 0.6,  g1out: 8.5,  g2in: 8.5,  g2out: 17.6 },
+        { scene: 7, g1: "#s8-c1", g2: "#s8-c2", g1in: 0.6,  g1out: 6.5,  g2in: 6.5,  g2out: 13.7 },
+        { scene: 8, g1: "#s9-c1", g2: "#s9-c2", g1in: 0.6,  g1out: 9.0,  g2in: 9.0,  g2out: 18.5 },
+      ];
+      captionGroups.forEach(function (c) {
+        var s = scenes[c.scene].start;
+        tl.fromTo(c.g1, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "sine.out" }, s + c.g1in);
+        tl.to(c.g1,  { opacity: 0, duration: 0.3, ease: "sine.in" }, s + c.g1out);
+        tl.set(c.g1, { opacity: 0, visibility: "hidden" }, s + c.g1out + 0.31);
+        tl.fromTo(c.g2, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "sine.out" }, s + c.g2in);
+        tl.to(c.g2,  { opacity: 0, duration: 0.3, ease: "sine.in" }, s + c.g2out);
+        tl.set(c.g2, { opacity: 0, visibility: "hidden" }, s + c.g2out + 0.31);
+      });
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

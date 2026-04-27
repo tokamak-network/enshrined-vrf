@@ -1,0 +1,1 @@
+On layer two, the validator structure is different. Where L1 has hundreds of independent validators, most L2s run a single sequencer, or a small group of operators. The anti-collusion assumption that makes D K G safe no longer holds.

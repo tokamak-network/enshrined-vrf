@@ -15,3 +15,9 @@ contracts/broadcast/
 
 # Arcade demo config — written by scripts/arcade.sh on every run
 arcade/shared/config.js
+
+# HyperFrames render outputs and preview thumbnails
+**/.thumbnails/
+vrf-video/renders/
+vrf-video-ko/renders/
+session-accounts-ko/renders/

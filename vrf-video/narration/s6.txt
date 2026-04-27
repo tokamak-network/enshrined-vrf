@@ -1,0 +1,1 @@
+To keep the sequencer from the key, three approaches exist. A T E E uses a hardware isolated enclave. A V D F forces sequential computation, so the output only emerges after time passes. An external beacon like drand produces randomness outside the chain.

@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;600&family=Noto+Sans+KR:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,wght@0,500;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #F6F3EC;
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        color: #17233A;
+      }
+
+      /* ---------- scene shell ---------- */
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        background: #F6F3EC;
+        padding: 96px 140px 160px;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+      .scene-header {
+        display: flex;
+        align-items: baseline;
+        gap: 28px;
+      }
+      .scene-number {
+        font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+        font-size: 20px;
+        letter-spacing: 0.22em;
+        color: #5A6472;
+        text-transform: uppercase;
+        padding-top: 4px;
+      }
+      .scene-rule {
+        flex: 1;
+        height: 1px;
+        background: #C9C3B4;
+        transform-origin: left center;
+      }
+      .scene-title {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 82px;
+        font-weight: 500;
+        line-height: 1.12;
+        color: #17233A;
+        margin-top: 20px;
+        letter-spacing: -0.01em;
+      }
+      .scene-title em {
+        color: #1B3A8A;
+        font-style: italic;
+        font-weight: 500;
+      }
+      .scene-subtitle {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 28px;
+        line-height: 1.5;
+        color: #5A6472;
+        margin-top: 20px;
+        max-width: 1500px;
+      }
+      .scene-body {
+        flex: 1;
+        margin-top: 48px;
+        position: relative;
+      }
+      .caption-band {
+        position: absolute;
+        left: 140px;
+        right: 140px;
+        bottom: 68px;
+        min-height: 40px;
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 24px;
+        letter-spacing: 0.005em;
+        color: #2A3649;
+        line-height: 1.45;
+      }
+      .caption-band::before {
+        content: "▸";
+        color: #1B3A8A;
+        margin-right: 14px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .caption-group { opacity: 0; }
+
+      .mono { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; }
+      .accent { color: #1B3A8A; }
+      .risk { color: #C9322B; }
+
+      /* ========== Scene 1 · Title ========== */
+      .s1-cover {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .s1-eyebrow {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 20px;
+        letter-spacing: 0.3em;
+        color: #1B3A8A;
+        margin-bottom: 28px;
+      }
+      .s1-headline {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 160px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        line-height: 1.02;
+      }
+      .s1-headline em {
+        color: #1B3A8A;
+        font-style: italic;
+        font-weight: 500;
+      }
+      .s1-subline {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 32px;
+        color: #5A6472;
+        margin-top: 36px;
+        letter-spacing: 0.005em;
+      }
+      .s1-tagline {
+        position: absolute;
+        left: 140px;
+        bottom: 110px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        letter-spacing: 0.36em;
+        color: #5A6472;
+      }
+      .s1-tagline span { color: #1B3A8A; }
+
+      /* ========== Scene 2 · Problem ========== */
+      .s2-wrap {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 80px;
+        margin-top: 20px;
+      }
+      .s2-popups {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .popup-row {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .popup-card {
+        border: 1px solid #C9322B;
+        background: #F6F3EC;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 420px;
+      }
+      .popup-card .lock {
+        width: 34px;
+        height: 34px;
+        border-radius: 4px;
+        background: rgba(201, 50, 43, 0.08);
+        color: #C9322B;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .popup-card .pop-text {
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 500;
+        font-size: 20px;
+        color: #17233A;
+        letter-spacing: 0.005em;
+      }
+      .popup-card .pop-text small {
+        display: block;
+        font-size: 13px;
+        letter-spacing: 0.2em;
+        color: #C9322B;
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .popup-arrow {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 22px;
+        color: #5A6472;
+      }
+      .popup-action {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 22px;
+        color: #2A3649;
+      }
+      .s2-pain {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 22px;
+      }
+      .s2-pain h3 {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 56px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: #17233A;
+      }
+      .s2-pain h3 em {
+        color: #C9322B;
+        font-style: italic;
+        font-weight: 500;
+      }
+      .s2-pain p {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 26px;
+        color: #2A3649;
+        line-height: 1.55;
+        max-width: 620px;
+      }
+      .s2-pain .pain-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.24em;
+        color: #C9322B;
+        margin-bottom: 2px;
+      }
+
+      /* ========== Scene 3 · Three-layer architecture ========== */
+      .s3-layers {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        margin-top: 18px;
+      }
+      .layer-box {
+        width: 1440px;
+        border: 1px solid #1A2740;
+        padding: 28px 40px;
+        background: #F6F3EC;
+        display: grid;
+        grid-template-columns: 220px 1fr 300px;
+        gap: 24px;
+        align-items: center;
+      }
+      .layer-box.eoa { border-color: rgba(26,39,64,0.8); }
+      .layer-box.hub { background: #EEE7D6; border-color: #1B3A8A; }
+      .layer-box .layer-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.28em;
+        color: #5A6472;
+      }
+      .layer-box.hub .layer-tag { color: #1B3A8A; }
+      .layer-box .layer-name {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 48px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .layer-box.hub .layer-name { color: #1B3A8A; }
+      .layer-box .layer-desc {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 20px;
+        color: #2A3649;
+        text-align: right;
+      }
+      .layer-arrow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.14em;
+        color: #5A6472;
+      }
+      .layer-arrow .line {
+        width: 1px;
+        height: 28px;
+        background: #1A2740;
+        margin: 6px 0;
+      }
+      .layer-arrow .sig-yes { color: #C9322B; }
+      .layer-arrow .sig-no { color: #1B7A4A; }
+      .sessions-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        width: 1440px;
+      }
+      .session-card {
+        border: 1px solid #1A2740;
+        padding: 20px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: #F6F3EC;
+      }
+      .session-card .sc-title {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.2em;
+        color: #1B3A8A;
+      }
+      .session-card .sc-target {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 28px;
+        font-weight: 500;
+        color: #17233A;
+      }
+      .session-card .sc-scope {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 15px;
+        color: #5A6472;
+        letter-spacing: 0.04em;
+      }
+
+      /* ========== Scene 4 · Signature flow ========== */
+      .s4-stage {
+        margin-top: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 34px;
+      }
+      .s4-lane {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .lane-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 16px;
+        letter-spacing: 0.24em;
+        color: #5A6472;
+        width: 210px;
+      }
+      .lane-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .tx-box {
+        border: 1px solid #1A2740;
+        padding: 20px 28px;
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 26px;
+        color: #17233A;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: #F6F3EC;
+      }
+      .tx-box.deposit { border-color: #1B3A8A; color: #1B3A8A; background: #EEE7D6; }
+      .tx-box .tbx-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.2em;
+        color: inherit;
+        opacity: 0.75;
+        display: block;
+        margin-top: 4px;
+      }
+      .tx-box.deposit .lock {
+        color: #1B3A8A;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 22px;
+      }
+      .tx-dot {
+        width: 58px;
+        height: 58px;
+        border: 1px solid #1A2740;
+        background: #F6F3EC;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 20px;
+        color: #2A3649;
+      }
+      .tx-dot.silent { color: #1B7A4A; border-color: #1B7A4A; }
+      .lane-arrow {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        color: #5A6472;
+      }
+      .s4-summary {
+        margin-top: 18px;
+        display: flex;
+        gap: 60px;
+      }
+      .summary-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .summary-item .si-k {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 14px;
+        letter-spacing: 0.22em;
+        color: #5A6472;
+      }
+      .summary-item .si-v {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 44px;
+        font-weight: 500;
+        color: #17233A;
+        letter-spacing: -0.01em;
+      }
+      .summary-item .si-v em {
+        color: #1B3A8A;
+        font-style: italic;
+        font-weight: 500;
+      }
+
+      /* ========== Scene 5 · Predeploys ========== */
+      .s5-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 26px;
+        margin-top: 14px;
+      }
+      .pd-card {
+        border: 1px solid #1A2740;
+        padding: 34px 40px;
+        background: #F6F3EC;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        position: relative;
+      }
+      .pd-card .pd-addr {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        color: #1B3A8A;
+      }
+      .pd-card .pd-name {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 48px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .pd-card .pd-role {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 22px;
+        color: #2A3649;
+        line-height: 1.5;
+        max-width: 640px;
+      }
+      .pd-card .pd-tag {
+        position: absolute;
+        top: 34px;
+        right: 40px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        color: #5A6472;
+      }
+      .pd-card.shipped .pd-tag { color: #1B7A4A; }
+      .pd-card.phase1 { background: #EEE7D6; }
+      .pd-card.phase1 .pd-tag { color: #1B3A8A; }
+
+      /* ========== Scene 6 · Closing ========== */
+      .s6-cover {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .s6-headline {
+        font-family: 'Newsreader', 'Noto Serif KR', serif;
+        font-size: 140px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        line-height: 1.02;
+      }
+      .s6-headline em {
+        color: #1B3A8A;
+        font-style: italic;
+        font-weight: 500;
+      }
+      .s6-sub {
+        font-family: 'Noto Serif KR', serif;
+        font-size: 32px;
+        color: #5A6472;
+        margin-top: 36px;
+        letter-spacing: 0.005em;
+      }
+      .s6-stack {
+        display: flex;
+        gap: 36px;
+        margin-top: 56px;
+      }
+      .s6-chip {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        letter-spacing: 0.22em;
+        color: #1B3A8A;
+        border: 1px solid #1B3A8A;
+        padding: 12px 22px;
+      }
+      .s6-signature {
+        position: absolute;
+        left: 140px;
+        bottom: 110px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        letter-spacing: 0.36em;
+        color: #5A6472;
+      }
+      .s6-signature span { color: #1B3A8A; }
+    </style>
+  </head>
+  <body>
+    <div data-composition-id="session-accounts-ko" data-width="1920" data-height="1080" data-start="0" data-duration="95">
+
+      <!-- ============ Scene 1 · Title ============ -->
+      <div id="sc1" class="clip scene s1" data-start="0" data-duration="11" data-track-index="1">
+        <div class="s1-cover">
+          <div class="s1-eyebrow" id="s1-eyebrow">§ SESSION ACCOUNTS · 게임 L2</div>
+          <h1 class="s1-headline">
+            <span id="s1-line1">서명 한 <em>번</em>,</span><br>
+            <span id="s1-line2">이후 <em>무서명</em>.</span>
+          </h1>
+          <p class="s1-subline" id="s1-sub">Enshrined VRF L2를 위한 세션 어카운트 설계</p>
+        </div>
+        <div class="s1-tagline" id="s1-tag">EOA <span>·</span> GAMEHUB <span>·</span> SESSIONKEYS</div>
+      </div>
+
+      <!-- ============ Scene 2 · Problem ============ -->
+      <div id="sc2" class="clip scene s2" data-start="11" data-duration="18" data-track-index="2">
+        <div class="scene-header">
+          <div class="scene-number" id="s2-num">§ 01 · 문제</div>
+          <div class="scene-rule" id="s2-rule"></div>
+        </div>
+        <h1 class="scene-title" id="s2-title">매 액션마다 <em>서명 팝업</em></h1>
+        <p class="scene-subtitle" id="s2-sub">게임 중 일어나는 모든 행동에 지갑 승인이 필요해지면, 몰입은 무너집니다.</p>
+
+        <div class="scene-body">
+          <div class="s2-wrap">
+            <div class="s2-popups">
+              <div class="popup-row s2-p1">
+                <div class="popup-card"><div class="lock">🔒</div><div class="pop-text"><small>SIGN</small>MetaMask 승인</div></div>
+                <div class="popup-arrow">→</div>
+                <div class="popup-action">move()</div>
+              </div>
+              <div class="popup-row s2-p2">
+                <div class="popup-card"><div class="lock">🔒</div><div class="pop-text"><small>SIGN</small>MetaMask 승인</div></div>
+                <div class="popup-arrow">→</div>
+                <div class="popup-action">attack()</div>
+              </div>
+              <div class="popup-row s2-p3">
+                <div class="popup-card"><div class="lock">🔒</div><div class="pop-text"><small>SIGN</small>MetaMask 승인</div></div>
+                <div class="popup-arrow">→</div>
+                <div class="popup-action">drawRandom()</div>
+              </div>
+              <div class="popup-row s2-p4">
+                <div class="popup-card"><div class="lock">🔒</div><div class="pop-text"><small>SIGN</small>MetaMask 승인</div></div>
+                <div class="popup-arrow">→</div>
+                <div class="popup-action">bet()</div>
+              </div>
+              <div class="popup-row s2-p5">
+                <div class="popup-card"><div class="lock">🔒</div><div class="pop-text"><small>SIGN</small>MetaMask 승인</div></div>
+                <div class="popup-arrow">→</div>
+                <div class="popup-action">move() …</div>
+              </div>
+            </div>
+            <div class="s2-pain">
+              <div class="pain-tag" id="s2-pain-tag">COST · 유저 경험</div>
+              <h3 id="s2-pain-h">팝업이 게임 <em>흐름을 끊는다</em></h3>
+              <p id="s2-pain-p">액션마다 지갑을 여는 경험은 게임의 가장 큰 강점인 몰입을 직접 공격합니다. 온체인 게임이 성장하지 못한 핵심 이유 중 하나입니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s2-c1" class="caption-group">매 액션마다 서명이 필요하면, 온체인 게임은 플레이할 수 없습니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 3 · Three-layer architecture ============ -->
+      <div id="sc3" class="clip scene s3" data-start="29" data-duration="21" data-track-index="3">
+        <div class="scene-header">
+          <div class="scene-number" id="s3-num">§ 02 · 해결</div>
+          <div class="scene-rule" id="s3-rule"></div>
+        </div>
+        <h1 class="scene-title" id="s3-title">3계층 <em>세션 어카운트</em></h1>
+        <p class="scene-subtitle" id="s3-sub">EOA는 자산을 지키고, Hub는 게임 잔고를 관리하며, 세션키는 게임별 스코프 안에서만 작동합니다.</p>
+
+        <div class="scene-body">
+          <div class="s3-layers">
+            <div class="layer-box eoa" id="s3-eoa">
+              <div>
+                <div class="layer-tag">LAYER 1 · FULL CUSTODY</div>
+                <div class="layer-name">EOA</div>
+              </div>
+              <div></div>
+              <div class="layer-desc">유저의 메인 지갑 — 큰 잔고 · 서명 권한 풀셋</div>
+            </div>
+            <div class="layer-arrow" id="s3-arr1">
+              <div class="sig-yes">🔒 deposit + register · 1 sig</div>
+              <div class="line"></div>
+              <div>▼</div>
+            </div>
+            <div class="layer-box hub" id="s3-hub">
+              <div>
+                <div class="layer-tag">LAYER 2 · PER-USER SMART ACCOUNT</div>
+                <div class="layer-name">GameHub Account</div>
+              </div>
+              <div></div>
+              <div class="layer-desc">유저당 1개 · 게임별 잔고 슬롯 · 세션키 검증</div>
+            </div>
+            <div class="layer-arrow" id="s3-arr2">
+              <div class="sig-no">session key signs — 유저 서명 없음</div>
+              <div class="line"></div>
+              <div>▼</div>
+            </div>
+            <div class="sessions-row" id="s3-sessions">
+              <div class="session-card s3-sk1">
+                <div class="sc-title">SESSION KEY · A</div>
+                <div class="sc-target">→ Game A</div>
+                <div class="sc-scope">cap 1 ETH · 24h</div>
+              </div>
+              <div class="session-card s3-sk2">
+                <div class="sc-title">SESSION KEY · B</div>
+                <div class="sc-target">→ Game B</div>
+                <div class="sc-scope">cap 0.5 ETH · 6h</div>
+              </div>
+              <div class="session-card s3-sk3">
+                <div class="sc-title">SESSION KEY · C</div>
+                <div class="sc-target">→ Game C</div>
+                <div class="sc-scope">cap 2 ETH · 12h</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s3-c1" class="caption-group">EOA · GameHub · SessionKeys — 세 계층. 권한은 위에서 아래로, 범위는 점점 좁아집니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 4 · Signature flow ============ -->
+      <div id="sc4" class="clip scene s4" data-start="50" data-duration="18" data-track-index="4">
+        <div class="scene-header">
+          <div class="scene-number" id="s4-num">§ 03 · 흐름</div>
+          <div class="scene-rule" id="s4-rule"></div>
+        </div>
+        <h1 class="scene-title" id="s4-title">온보딩 <em>한 번</em>, 이후는 모두 조용히</h1>
+        <p class="scene-subtitle" id="s4-sub">첫 입금 트랜잭션에 세션키 등록까지 포함됩니다. 그 다음부터 플레이는 백그라운드 서명으로만 진행.</p>
+
+        <div class="scene-body">
+          <div class="s4-stage">
+            <div class="s4-lane">
+              <div class="lane-label">ONBOARDING</div>
+              <div class="lane-content">
+                <div class="tx-box deposit" id="s4-deposit">
+                  <span class="lock">🔒</span>
+                  <span>
+                    deposit + registerSession
+                    <span class="tbx-sub">EOA signs · 1 time</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="s4-lane">
+              <div class="lane-label">GAMEPLAY</div>
+              <div class="lane-content" id="s4-play">
+                <div class="tx-dot silent s4-d1">·</div>
+                <div class="lane-arrow">→</div>
+                <div class="tx-dot silent s4-d2">·</div>
+                <div class="lane-arrow">→</div>
+                <div class="tx-dot silent s4-d3">·</div>
+                <div class="lane-arrow">→</div>
+                <div class="tx-dot silent s4-d4">·</div>
+                <div class="lane-arrow">→</div>
+                <div class="tx-dot silent s4-d5">·</div>
+                <div class="lane-arrow">→</div>
+                <div class="tx-dot silent s4-d6">·</div>
+                <div class="lane-arrow">→</div>
+                <div class="tx-dot silent s4-d7">·</div>
+                <div class="lane-arrow">…</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="s4-summary">
+            <div class="summary-item s4-sm1">
+              <div class="si-k">SIGNATURES · ONBOARDING</div>
+              <div class="si-v"><em>1</em></div>
+            </div>
+            <div class="summary-item s4-sm2">
+              <div class="si-k">SIGNATURES · PER PLAY</div>
+              <div class="si-v">0</div>
+            </div>
+            <div class="summary-item s4-sm3">
+              <div class="si-k">SCOPE 초과 시</div>
+              <div class="si-v"><em>자동 중단</em></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s4-c1" class="caption-group">세션키 scope 안에서는 자유롭게, scope를 벗어나면 프로토콜이 즉시 거부합니다.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 5 · Predeploys ============ -->
+      <div id="sc5" class="clip scene s5" data-start="68" data-duration="18" data-track-index="5">
+        <div class="scene-header">
+          <div class="scene-number" id="s5-num">§ 04 · L2 내장</div>
+          <div class="scene-rule" id="s5-rule"></div>
+        </div>
+        <h1 class="scene-title" id="s5-title">컨트랙트가 아닌 <em>프로토콜 기능</em></h1>
+        <p class="scene-subtitle" id="s5-sub">세션 어카운트는 L2에 predeploy로 내장되어, 모든 게임이 공유하는 기본 기능이 됩니다.</p>
+
+        <div class="scene-body">
+          <div class="s5-grid">
+            <div class="pd-card shipped s5-p1">
+              <div class="pd-tag">SHIPPED</div>
+              <div class="pd-addr">0x42…00F0</div>
+              <div class="pd-name">EnshrainedVRF</div>
+              <div class="pd-role">모든 게임이 공유하는 온체인 랜덤성 소스. 시퀀서가 블록당 1회 commit, 호출당 유일한 값을 제공.</div>
+            </div>
+            <div class="pd-card phase1 s5-p2">
+              <div class="pd-tag">PHASE 1</div>
+              <div class="pd-addr">0x42…00A0</div>
+              <div class="pd-name">GameHubFactory</div>
+              <div class="pd-role">EOA당 Hub 계정을 CREATE2로 결정적 배포. 입금+세션등록을 단일 트랜잭션으로 처리.</div>
+            </div>
+            <div class="pd-card phase1 s5-p3">
+              <div class="pd-tag">PHASE 1</div>
+              <div class="pd-addr">0x42…00A1</div>
+              <div class="pd-name">SessionKeyManager</div>
+              <div class="pd-role">세션키 scope(게임·cap·만료·selector) 등록·폐기·검증. Hub만이 자기 키를 관리.</div>
+            </div>
+            <div class="pd-card phase1 s5-p4">
+              <div class="pd-tag">PHASE 1</div>
+              <div class="pd-addr">0x42…00A2</div>
+              <div class="pd-name">GameRegistry</div>
+              <div class="pd-role">세션키가 호출할 수 있는 게임 컨트랙트 화이트리스트. 악성 컨트랙트의 자금 유출을 차단.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="caption-band">
+          <span id="s5-c1" class="caption-group">VRF · HubFactory · SessionKeyManager · GameRegistry — 모두 L2 predeploy.</span>
+        </div>
+      </div>
+
+      <!-- ============ Scene 6 · Closing ============ -->
+      <div id="sc6" class="clip scene s6" data-start="86" data-duration="9" data-track-index="6">
+        <div class="s6-cover">
+          <h1 class="s6-headline">
+            <span id="s6-l1">게임이 <em>잘 돌아가는</em></span><br>
+            <span id="s6-l2">레이어 투.</span>
+          </h1>
+          <p class="s6-sub" id="s6-sub">VRF와 세션 어카운트를 프로토콜에 enshrine.</p>
+          <div class="s6-stack">
+            <div class="s6-chip s6-c1">ENSHRINED VRF</div>
+            <div class="s6-chip s6-c2">SESSION ACCOUNTS</div>
+            <div class="s6-chip s6-c3">NATIVE</div>
+          </div>
+        </div>
+        <div class="s6-signature" id="s6-sig">ENSHRINED-VRF <span>·</span> 2026</div>
+      </div>
+
+      <!-- ============ narration audio ============ -->
+      <audio id="a1" class="clip" data-start="0.3"  data-duration="10.3" data-track-index="20" src="assets/s1.wav"></audio>
+      <audio id="a2" class="clip" data-start="11.5" data-duration="17"   data-track-index="20" src="assets/s2.wav"></audio>
+      <audio id="a3" class="clip" data-start="29.5" data-duration="19.3" data-track-index="20" src="assets/s3.wav"></audio>
+      <audio id="a4" class="clip" data-start="50.5" data-duration="16.5" data-track-index="20" src="assets/s4.wav"></audio>
+      <audio id="a5" class="clip" data-start="68.5" data-duration="16.3" data-track-index="20" src="assets/s5.wav"></audio>
+      <audio id="a6" class="clip" data-start="86.5" data-duration="8"    data-track-index="20" src="assets/s6.wav"></audio>
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      /* ─── Scene 1 · Title ─── */
+      tl.from("#s1-eyebrow", { y: 30, opacity: 0, duration: 0.7, ease: "power3.out" }, 0.3);
+      tl.from("#s1-line1", { y: 80, opacity: 0, duration: 1.0, ease: "power3.out" }, 0.6);
+      tl.from("#s1-line2", { y: 80, opacity: 0, duration: 1.0, ease: "power3.out" }, 1.0);
+      tl.from("#s1-sub", { y: 30, opacity: 0, duration: 0.7, ease: "power2.out" }, 1.8);
+      tl.from("#s1-tag", { opacity: 0, duration: 0.9, ease: "sine.inOut" }, 2.4);
+
+      /* ─── Scene 2 · Problem ─── (start 11) */
+      tl.from("#s2-num", { opacity: 0, duration: 0.5, ease: "power2.out" }, 11.1);
+      tl.from("#s2-rule", { scaleX: 0, duration: 0.9, ease: "power3.out" }, 11.2);
+      tl.from("#s2-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, 11.3);
+      tl.from("#s2-sub", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, 11.7);
+      tl.from(".s2-p1", { x: -40, opacity: 0, duration: 0.55, ease: "power3.out" }, 12.6);
+      tl.from(".s2-p2", { x: -40, opacity: 0, duration: 0.55, ease: "power3.out" }, 13.4);
+      tl.from(".s2-p3", { x: -40, opacity: 0, duration: 0.55, ease: "power3.out" }, 14.2);
+      tl.from(".s2-p4", { x: -40, opacity: 0, duration: 0.55, ease: "power3.out" }, 15.0);
+      tl.from(".s2-p5", { x: -40, opacity: 0, duration: 0.55, ease: "power3.out" }, 15.8);
+      tl.from("#s2-pain-tag", { opacity: 0, y: 16, duration: 0.5, ease: "power2.out" }, 19.6);
+      tl.from("#s2-pain-h", { opacity: 0, y: 28, duration: 0.7, ease: "power3.out" }, 19.8);
+      tl.from("#s2-pain-p", { opacity: 0, y: 20, duration: 0.6, ease: "power2.out" }, 20.4);
+      tl.to("#s2-c1", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 25.5);
+
+      /* ─── Scene 3 · Architecture ─── (start 29) */
+      tl.from("#s3-num", { opacity: 0, duration: 0.5, ease: "power2.out" }, 29.1);
+      tl.from("#s3-rule", { scaleX: 0, duration: 0.9, ease: "power3.out" }, 29.2);
+      tl.from("#s3-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, 29.3);
+      tl.from("#s3-sub", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, 29.7);
+      tl.from("#s3-eoa", { y: -24, opacity: 0, duration: 0.7, ease: "power3.out" }, 30.4);
+      tl.from("#s3-arr1", { opacity: 0, duration: 0.5, ease: "sine.inOut" }, 31.2);
+      tl.from("#s3-hub", { y: -18, opacity: 0, duration: 0.7, ease: "power3.out" }, 31.8);
+      tl.from("#s3-arr2", { opacity: 0, duration: 0.5, ease: "sine.inOut" }, 33.0);
+      tl.from(".s3-sk1", { y: 30, opacity: 0, duration: 0.5, ease: "power3.out" }, 33.6);
+      tl.from(".s3-sk2", { y: 30, opacity: 0, duration: 0.5, ease: "power3.out" }, 33.9);
+      tl.from(".s3-sk3", { y: 30, opacity: 0, duration: 0.5, ease: "power3.out" }, 34.2);
+      tl.to("#s3-c1", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 45.0);
+
+      /* ─── Scene 4 · Signature flow ─── (start 50) */
+      tl.from("#s4-num", { opacity: 0, duration: 0.5, ease: "power2.out" }, 50.1);
+      tl.from("#s4-rule", { scaleX: 0, duration: 0.9, ease: "power3.out" }, 50.2);
+      tl.from("#s4-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, 50.3);
+      tl.from("#s4-sub", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, 50.7);
+      tl.from("#s4-deposit", { x: -60, opacity: 0, duration: 0.8, ease: "power3.out" }, 51.4);
+      tl.from(".s4-d1", { scale: 0, opacity: 0, duration: 0.3, ease: "power2.out" }, 53.2);
+      tl.from(".s4-d2", { scale: 0, opacity: 0, duration: 0.3, ease: "power2.out" }, 53.6);
+      tl.from(".s4-d3", { scale: 0, opacity: 0, duration: 0.3, ease: "power2.out" }, 54.0);
+      tl.from(".s4-d4", { scale: 0, opacity: 0, duration: 0.3, ease: "power2.out" }, 54.4);
+      tl.from(".s4-d5", { scale: 0, opacity: 0, duration: 0.3, ease: "power2.out" }, 54.8);
+      tl.from(".s4-d6", { scale: 0, opacity: 0, duration: 0.3, ease: "power2.out" }, 55.2);
+      tl.from(".s4-d7", { scale: 0, opacity: 0, duration: 0.3, ease: "power2.out" }, 55.6);
+      tl.from(".s4-sm1", { opacity: 0, y: 24, duration: 0.6, ease: "power3.out" }, 60.5);
+      tl.from(".s4-sm2", { opacity: 0, y: 24, duration: 0.6, ease: "power3.out" }, 60.9);
+      tl.from(".s4-sm3", { opacity: 0, y: 24, duration: 0.6, ease: "power3.out" }, 61.3);
+      tl.to("#s4-c1", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 63.5);
+
+      /* ─── Scene 5 · Predeploys ─── (start 68) */
+      tl.from("#s5-num", { opacity: 0, duration: 0.5, ease: "power2.out" }, 68.1);
+      tl.from("#s5-rule", { scaleX: 0, duration: 0.9, ease: "power3.out" }, 68.2);
+      tl.from("#s5-title", { y: 40, opacity: 0, duration: 0.8, ease: "power3.out" }, 68.3);
+      tl.from("#s5-sub", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, 68.7);
+      tl.from(".s5-p1", { y: 28, opacity: 0, duration: 0.6, ease: "power3.out" }, 69.7);
+      tl.from(".s5-p2", { y: 28, opacity: 0, duration: 0.6, ease: "power3.out" }, 71.5);
+      tl.from(".s5-p3", { y: 28, opacity: 0, duration: 0.6, ease: "power3.out" }, 74.2);
+      tl.from(".s5-p4", { y: 28, opacity: 0, duration: 0.6, ease: "power3.out" }, 76.9);
+      tl.to("#s5-c1", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 82.0);
+
+      /* ─── Scene 6 · Closing ─── (start 86) */
+      tl.from("#s6-l1", { y: 60, opacity: 0, duration: 0.9, ease: "power3.out" }, 86.5);
+      tl.from("#s6-l2", { y: 60, opacity: 0, duration: 0.9, ease: "power3.out" }, 87.1);
+      tl.from("#s6-sub", { y: 24, opacity: 0, duration: 0.7, ease: "power2.out" }, 88.2);
+      tl.from(".s6-c1", { y: 20, opacity: 0, duration: 0.5, ease: "power3.out" }, 89.3);
+      tl.from(".s6-c2", { y: 20, opacity: 0, duration: 0.5, ease: "power3.out" }, 89.6);
+      tl.from(".s6-c3", { y: 20, opacity: 0, duration: 0.5, ease: "power3.out" }, 89.9);
+      tl.from("#s6-sig", { opacity: 0, duration: 0.7, ease: "sine.inOut" }, 91.0);
+
+      window.__timelines["session-accounts-ko"] = tl;
+    </script>
+  </body>
+</html>

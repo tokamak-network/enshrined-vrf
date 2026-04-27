@@ -1,0 +1,1 @@
+The T E E issues an attestation report. It declares, this public key was created inside an isolated enclave by verified V R F code. The report is signed by the hardware maker's root key. Register it onchain, and anyone can verify the provenance of the key.

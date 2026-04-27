@@ -1,0 +1,1 @@
+Each approach has trade offs. T E E trust rests on the hardware manufacturer. V D Fs face A S I C speedups and add latency that hurts fast L2 finality. External beacons run on fixed schedules — drand outputs every thirty seconds — which may not match L2 block cadence.
