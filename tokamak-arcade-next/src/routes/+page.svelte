@@ -154,7 +154,10 @@
 
   <section class="section" id="how">
     <div class="section-head">
-      <h2>{i18n.t('landing.featuresKicker')}</h2>
+      <div class="section-head-stack">
+        <span class="section-kicker">{i18n.t('landing.featuresEyebrow')}</span>
+        <h2>{i18n.t('landing.featuresKicker')}</h2>
+      </div>
     </div>
     <div class="feature-strip-grid">
       <div class="feature">
@@ -732,12 +735,35 @@
   }
   .feature .icon {
     color: var(--tk-blue);
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(42, 114, 229, 0.1);
+    border: 1px solid rgba(42, 114, 229, 0.22);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+  }
+  .feature p :global(code) {
+    background: rgba(42, 114, 229, 0.08);
+    border: 0;
+    color: var(--tk-blue);
+    padding: 1px 6px;
+    font-size: 0.9em;
+  }
+  .section-head-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .section-kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--tk-blue);
   }
   .feature h3 {
     font-family: var(--font-sans);
