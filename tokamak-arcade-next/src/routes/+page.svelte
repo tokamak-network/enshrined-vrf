@@ -4,15 +4,6 @@
   import { jankenMascot } from '$lib/mascots';
   import { TOKAMAK_SYMBOL_DATA_URI } from '$lib/brand';
 
-  type Game = {
-    cls: string;
-    name: string;
-    badge: string;
-    meta: string;
-    href: string;
-    desc: string;
-    mascot: typeof jankenMascot;
-  };
   type SoonGame = {
     cls: string;
     name: string;
@@ -21,18 +12,6 @@
     accent: string;
     desc: string;
   };
-
-  const GAMES: Game[] = [
-    {
-      cls: 'janken',
-      name: 'Jankenman',
-      badge: 'DeFi',
-      meta: 'RPS + LP pool',
-      mascot: jankenMascot,
-      href: '/jankenman/',
-      desc: '가위바위보 + 룰렛. 단일 VRF 호출 + 세션키로 서명 없는 플레이.'
-    }
-  ];
 
   const SOON: SoonGame[] = [
     {
@@ -68,8 +47,6 @@
       desc: 'VRF로 매일 매치 시드. 같은 시드 → 같은 게임판.'
     }
   ];
-
-  const FEATURED = GAMES.filter((g) => g.cls === 'janken');
 </script>
 
 <svelte:head>
@@ -112,50 +89,6 @@
         <p>RPS + roulette · LP pool · session keys</p>
       </div>
     </a>
-  </section>
-
-  <section class="section" id="featured">
-    <div class="section-head">
-      <h2>{i18n.t('landing.featured.t')}</h2>
-      <a class="head-link" href="/games/">{i18n.t('landing.seeAll')}</a>
-    </div>
-    <div class="scroll-row row-featured">
-      {#each FEATURED as g (g.cls)}
-        <a class="tile {g.cls}" href={g.href} aria-label={g.name}>
-          <div class="art">
-            <span class="pin">{g.badge}</span>
-            {@html g.mascot({ size: 110 })}
-          </div>
-          <div class="body">
-            <h4>{g.name}</h4>
-            <div class="meta">{g.meta}</div>
-            <div class="desc">{g.desc}</div>
-          </div>
-        </a>
-      {/each}
-    </div>
-  </section>
-
-  <section class="section" id="all-games">
-    <div class="section-head">
-      <h2>{i18n.t('landing.preview.t')}</h2>
-      <a class="head-link" href="/games/">{i18n.t('landing.seeAll')}</a>
-    </div>
-    <div class="scroll-row">
-      {#each GAMES as g (g.cls)}
-        <a class="tile {g.cls}" href={g.href} aria-label={g.name}>
-          <div class="art">
-            <span class="pin">{g.badge}</span>
-            {@html g.mascot({ size: 110 })}
-          </div>
-          <div class="body">
-            <h4>{g.name}</h4>
-            <div class="meta">{g.meta}</div>
-            <div class="desc">{g.desc}</div>
-          </div>
-        </a>
-      {/each}
-    </div>
   </section>
 
   <section class="section" id="how">
