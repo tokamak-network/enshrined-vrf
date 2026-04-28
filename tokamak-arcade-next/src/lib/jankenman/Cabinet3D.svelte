@@ -169,10 +169,8 @@
   }
 
   // ─── Scene setup ───────────────────────────────────────────────────
-  function setup() {
+  function setup(w: number, h: number) {
     if (!host) return;
-    const w = host.clientWidth;
-    const h = host.clientHeight;
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -182,8 +180,8 @@
 
     scene = new THREE.Scene();
 
-    camera = new THREE.PerspectiveCamera(36, w / h, 0.1, 100);
-    camera.position.set(0, 4.6, 4.2);
+    camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+    camera.position.set(0, 5.4, 5.2);
     camera.lookAt(0, 0.1, 0);
 
     // Lighting
@@ -320,7 +318,7 @@
     // Subtle camera bob for liveliness
     if (camera) {
       const bob = Math.sin(now * 0.0006) * 0.015;
-      camera.position.y = 4.6 + bob;
+      camera.position.y = 5.4 + bob;
       camera.lookAt(0, 0.1, 0);
     }
 
@@ -377,19 +375,31 @@
 
   // ─── Lifecycle ─────────────────────────────────────────────────────
   onMount(() => {
-    setup();
+    if (!host) return;
 
-    if (host) {
-      resizeObs = new ResizeObserver(() => {
-        if (!renderer || !host) return;
-        const w = host.clientWidth;
-        const h = host.clientHeight;
+    // Wait until the host has measurable dimensions before initialising
+    // three.js — otherwise the renderer ends up sized 0×0 and shows nothing.
+    resizeObs = new ResizeObserver(() => {
+      if (!host) return;
+      const w = host.clientWidth;
+      const h = host.clientHeight;
+      if (w === 0 || h === 0) return;
+
+      if (!renderer) {
+        setup(w, h);
+      } else {
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
-      });
-      resizeObs.observe(host);
-    }
+      }
+    });
+    resizeObs.observe(host);
+
+    // Some browsers fire the first ResizeObserver callback only on the next
+    // frame; if the element is already laid out, kick off setup immediately.
+    const w0 = host.clientWidth;
+    const h0 = host.clientHeight;
+    if (w0 > 0 && h0 > 0) setup(w0, h0);
   });
 
   onDestroy(() => {
@@ -410,6 +420,8 @@
 <style>
   .cabinet3d {
     width: 100%;
+    height: 100%;
+    min-height: 240px;
     aspect-ratio: 1 / 1;
     position: relative;
     overflow: hidden;
