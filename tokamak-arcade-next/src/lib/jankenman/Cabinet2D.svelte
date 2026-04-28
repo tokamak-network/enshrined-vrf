@@ -193,20 +193,21 @@
                 stroke-width="1.2"
               />
             {/each}
-            <!-- Multiplier numbers -->
+            <!-- Multiplier numbers — placed at the radial midpoint of
+                 each segment (inner hub r=38, outer r=92 → middle r≈64). -->
             {#each SEGMENTS as seg, i}
               <text
                 x="0"
-                y="-72"
+                y="-62"
                 transform="rotate({i * 36 - 18} 0 0)"
                 text-anchor="middle"
                 dominant-baseline="middle"
-                font-size="22"
+                font-size="24"
                 font-weight="900"
                 font-family="Pretendard, system-ui, sans-serif"
                 fill="#0B0F17"
                 stroke="#ffffff"
-                stroke-width="3"
+                stroke-width="3.2"
                 paint-order="stroke"
               >
                 {seg.m}
