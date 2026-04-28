@@ -32,14 +32,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.cta.enter': 'Get Started',
     'landing.cta.how': '어떻게 작동하나요?',
     'landing.f1.t': 'L2에 내장된 난수',
-    'landing.f1.b':
-      'VRF는 프리디플로이 컨트랙트 주소로 네이티브하게 살아 있어요. 외부 oracle도, off-chain callback도 없이 opcode처럼 호출됩니다.',
     'landing.f2.t': '한 트랜잭션, 한 결과',
-    'landing.f2.b':
-      '주사위를 굴리는 즉시 결과가 나옵니다. request/fulfill 왕복이나 콜백 대기 없이, 플레이 트랜잭션 한 번으로 결과가 확정됩니다.',
     'landing.f3.t': '누구나 검증 가능',
-    'landing.f3.b':
-      '각 난수는 시퀀서가 사전 커밋한 뒤 공개되는 방식이라, 누구든 트랜잭션 해시만 있으면 공정성을 재연산할 수 있어요.',
     'landing.preview.t': '오늘의 라인업',
     'landing.preview.n': '6개의 미니게임이 열려 있어요',
     'landing.final.t': '준비됐다면 이 버튼 하나로.',
@@ -171,14 +165,8 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.cta.enter': 'Enter Arcade',
     'landing.cta.how': 'How does it work?',
     'landing.f1.t': 'Built into the L2',
-    'landing.f1.b':
-      'VRF lives natively at a pre-deployed contract address. No external oracle, no off-chain callback — call it like an opcode.',
     'landing.f2.t': 'One tx, one result',
-    'landing.f2.b':
-      'Roll the dice → result, instantly. No request/fulfill round-trip — the outcome settles inside the play transaction itself.',
     'landing.f3.t': 'Verifiable by anyone',
-    'landing.f3.b':
-      'Each randomness is pre-committed by the sequencer and revealed later, so anyone with the tx hash can recompute fairness.',
     'landing.preview.t': "Today's line-up",
     'landing.preview.n': '6 mini-games currently open',
     'landing.final.t': 'Ready? One button does it.',

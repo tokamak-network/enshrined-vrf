@@ -99,17 +99,14 @@
       <div class="feature">
         <div class="num">01</div>
         <h3>{i18n.t('landing.f1.t')}</h3>
-        <p>{i18n.t('landing.f1.b')}</p>
       </div>
       <div class="feature">
         <div class="num">02</div>
         <h3>{i18n.t('landing.f2.t')}</h3>
-        <p>{i18n.t('landing.f2.b')}</p>
       </div>
       <div class="feature">
         <div class="num">03</div>
         <h3>{i18n.t('landing.f3.t')}</h3>
-        <p>{i18n.t('landing.f3.b')}</p>
       </div>
     </div>
   </section>
