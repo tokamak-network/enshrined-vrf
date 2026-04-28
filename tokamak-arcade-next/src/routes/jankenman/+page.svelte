@@ -878,7 +878,7 @@
                           fill="#ffffff"
                           font-weight="800"
                           font-size="17"
-                          font-family="Inter, sans-serif"
+                          font-family="system-ui, -apple-system, sans-serif"
                           transform="rotate({l.angle} 100 100)"
                           style="paint-order: stroke; stroke: rgba(0,0,0,0.35); stroke-width: 1px;"
                         >
@@ -1262,44 +1262,47 @@
      GMX-inspired tokens, scoped to Jankenman page.
      ═══════════════════════════════════════════════════════════════ */
   .gmx-shell {
-    --gmx-bg: #09090c;
-    --gmx-surface: #0b0c16;
-    --gmx-card: #11131c;
-    --gmx-card-2: #161826;
-    --gmx-line: rgba(255, 255, 255, 0.06);
-    --gmx-line-2: rgba(255, 255, 255, 0.1);
-    --gmx-line-3: rgba(255, 255, 255, 0.18);
-    --gmx-primary: #3042ff;
-    --gmx-primary-hover: #4255ff;
-    --gmx-primary-soft: rgba(48, 66, 255, 0.12);
-    --gmx-text: #ffffff;
-    --gmx-text-2: rgba(255, 255, 255, 0.6);
-    --gmx-text-3: rgba(255, 255, 255, 0.4);
-    --gmx-success: #00ba72;
-    --gmx-success-soft: rgba(0, 186, 114, 0.14);
-    --gmx-error: #ff5c5c;
-    --gmx-error-soft: rgba(255, 92, 92, 0.14);
-    --gmx-warn: #ffc857;
+    /* Re-use the landing's tokamak.css tokens — keep visual continuity
+       across pages. Only the layout shape (sidebar + topbar + slip)
+       comes from the GMX skeleton; colors, type, radii match landing. */
+    --gmx-bg: var(--cream);
+    --gmx-surface: var(--paper);
+    --gmx-card: var(--paper-2);
+    --gmx-card-2: #243049;
+    --gmx-line: var(--line-1);
+    --gmx-line-2: var(--line-2);
+    --gmx-line-3: var(--line-3);
+    --gmx-primary: var(--tk-blue);
+    --gmx-primary-hover: #3d85f0;
+    --gmx-primary-soft: var(--glow-soft);
+    --gmx-primary-glow: var(--glow);
+    --gmx-text: var(--ink);
+    --gmx-text-2: var(--ink-soft);
+    --gmx-text-3: var(--ink-faint);
+    --gmx-success: var(--success);
+    --gmx-success-soft: rgba(0, 204, 102, 0.14);
+    --gmx-error: var(--error);
+    --gmx-error-soft: rgba(255, 77, 94, 0.14);
+    --gmx-warn: var(--warn);
     --gmx-warn-soft: rgba(255, 200, 87, 0.14);
-    --r-sm: 4px;
-    --r-md: 8px;
-    --r-lg: 12px;
-    --r-xl: 16px;
+    --r-sm: var(--radius-sm);
+    --r-md: var(--radius-md);
+    --r-lg: var(--radius-lg);
+    --r-xl: var(--radius-xl);
 
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
     min-height: 100vh;
     background: var(--gmx-bg);
     color: var(--gmx-text);
-    font-family: 'Inter', system-ui, -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+    font-family: var(--font-sans);
     letter-spacing: -0.005em;
-    font-feature-settings: 'cv11';
   }
 
   :global(body) {
-    background: #09090c;
+    background: var(--cream);
     padding: 0;
-    font-family: 'Inter', system-ui, -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+    font-family: var(--font-sans);
   }
 
   /* ─── Sidebar ──────────────────────────────────────────────── */
@@ -1490,7 +1493,7 @@
   }
   .metric.vrf-metric .m-v {
     color: var(--gmx-primary);
-    text-shadow: 0 0 12px rgba(48, 66, 255, 0.5);
+    text-shadow: 0 0 12px var(--gmx-primary-glow);
   }
 
   .connect {
@@ -1560,7 +1563,7 @@
     position: relative;
   }
   .cabinet-marquee {
-    background: linear-gradient(180deg, var(--gmx-primary) 0%, #1a2bb8 100%);
+    background: linear-gradient(180deg, var(--tk-blue) 0%, var(--tk-blue-deep) 100%);
     border: 1px solid rgba(0, 0, 0, 0.4);
     border-radius: 8px 8px 4px 4px;
     padding: 8px 14px;
@@ -1576,7 +1579,7 @@
     color: #fff;
     text-shadow:
       0 0 10px rgba(255, 255, 255, 0.6),
-      0 0 18px rgba(48, 66, 255, 0.6);
+      0 0 18px var(--gmx-primary-glow);
   }
   .cabinet-marquee .ml {
     width: 6px;
@@ -1651,7 +1654,7 @@
     border: 3px solid #000;
     box-shadow:
       0 0 0 2px rgba(0, 0, 0, 0.4),
-      0 0 30px rgba(48, 66, 255, 0.45),
+      0 0 30px var(--gmx-primary-glow),
       inset 0 0 20px rgba(0, 0, 0, 0.25);
     background: conic-gradient(
       from -18deg,
@@ -1760,7 +1763,7 @@
     gap: 10px;
     min-height: 36px;
     text-align: center;
-    font-family: 'Inter', monospace;
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
   .status-line .status-dot {
@@ -1885,7 +1888,7 @@
     color: #1a1a1a;
   }
   .ht-btn.active.sci {
-    background: #3042ff;
+    background: var(--tk-blue);
   }
   .ht-cap {
     font-size: 16px;
@@ -2065,7 +2068,7 @@
     color: var(--gmx-success);
   }
   .mono {
-    font-family: 'Inter', monospace;
+    font-family: var(--font-mono);
     font-feature-settings: 'tnum';
   }
 
@@ -2228,7 +2231,7 @@
     color: var(--gmx-text);
   }
   .defi-note :global(code) {
-    background: rgba(48, 66, 255, 0.18);
+    background: rgba(42, 114, 229, 0.18);
     color: var(--gmx-text);
     padding: 1px 6px;
     border-radius: var(--r-sm);
@@ -2353,7 +2356,7 @@
     padding: 3px 7px;
     border-radius: var(--r-sm);
     font-size: 10.5px;
-    font-family: 'Inter', monospace;
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
   .pos-table-wrap {
