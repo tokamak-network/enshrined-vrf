@@ -77,7 +77,7 @@
       badge: 'Soon',
       meta: 'tournament',
       accent: 'var(--mint)',
-      desc: '단일 VRF 호출로 64인 토너먼트 대진을 결정.',
+      desc: 'One VRF call seats a 64-player tournament bracket — provably fair pairings, end to end.',
       icon: bracketIcon
     },
     {
@@ -86,7 +86,7 @@
       badge: 'Soon',
       meta: 'race · vrf',
       accent: 'var(--sky)',
-      desc: '랜덤 트랙 + 랜덤 부스트 — 한 라운드, 한 결과.',
+      desc: 'Random track layout, random boosts. One round, one result — settled inside the play tx.',
       icon: kartIcon
     },
     {
@@ -95,7 +95,7 @@
       badge: 'Soon',
       meta: 'loot pull',
       accent: 'var(--coral)',
-      desc: '균등 분포 검증 가능한 가챠. 풀이 100% 온체인.',
+      desc: 'A gacha with provably uniform odds. Loot tables and pull logic stay 100% on-chain.',
       icon: giftIcon
     },
     {
@@ -104,7 +104,7 @@
       badge: 'Soon',
       meta: 'word puzzle',
       accent: 'var(--lavender)',
-      desc: 'VRF로 매일 매치 시드. 같은 시드 → 같은 게임판.',
+      desc: 'A daily match seed from VRF. Same seed → same board for everyone, no server in the loop.',
       icon: wordIcon
     }
   ];
@@ -161,16 +161,19 @@
         <div class="icon">{@html chipIcon}</div>
         <div class="num">01</div>
         <h3>{i18n.t('landing.f1.t')}</h3>
+        <p>{@html i18n.t('landing.f1.b')}</p>
       </div>
       <div class="feature">
         <div class="icon">{@html boltIcon}</div>
         <div class="num">02</div>
         <h3>{i18n.t('landing.f2.t')}</h3>
+        <p>{@html i18n.t('landing.f2.b')}</p>
       </div>
       <div class="feature">
         <div class="icon">{@html shieldCheckIcon}</div>
         <div class="num">03</div>
         <h3>{i18n.t('landing.f3.t')}</h3>
+        <p>{@html i18n.t('landing.f3.b')}</p>
       </div>
     </div>
   </section>

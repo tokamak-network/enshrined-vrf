@@ -31,8 +31,14 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.cta.enter': 'Get Started',
     'landing.cta.how': '어떻게 작동하나요?',
     'landing.f1.t': 'L2에 내장된 난수',
+    'landing.f1.b':
+      'VRF가 L2의 프리디플로이 주소(<code>0x42…f0</code>)에 상주합니다. 모든 컨트랙트가 opcode를 호출하듯 <code>getRandomness()</code>를 부를 수 있어, 외부 오라클이나 왕복 수수료가 끼어들 자리가 없어요.',
     'landing.f2.t': '한 트랜잭션, 한 결과',
+    'landing.f2.b':
+      '시퀀서가 블록마다 난수를 미리 커밋해 두면, 플레이 트랜잭션이 같은 블록에서 곧바로 공개·소비합니다. request/fulfill 왕복이나 콜백 대기 없이, 트랜잭션 한 번에 결과가 확정됩니다.',
     'landing.f3.t': '누구나 검증 가능',
+    'landing.f3.b':
+      '모든 커밋은 L1에 정착돼 영구 기록됩니다. 트랜잭션 해시만 있으면 누구든 난수를 재유도하고 컨슈머 로직을 재실행해, 결과가 조작되지 않았음을 직접 증명할 수 있어요.',
     'landing.preview.t': '오늘의 라인업',
     'landing.preview.n': '6개의 미니게임이 열려 있어요',
     'landing.final.t': '준비됐다면 이 버튼 하나로.',
@@ -156,8 +162,14 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.cta.enter': 'Enter Arcade',
     'landing.cta.how': 'How does it work?',
     'landing.f1.t': 'Built into the L2',
+    'landing.f1.b':
+      'VRF runs at an L2 predeploy address (<code>0x42…f0</code>) — every contract calls <code>getRandomness()</code> like a built-in opcode. No oracle bridge, no per-call fee, no off-chain callback.',
     'landing.f2.t': 'One tx, one result',
+    'landing.f2.b':
+      'The sequencer pre-commits randomness per block; your play transaction reveals and consumes it in the same block. No request/fulfill round-trip, no callback wait — one tx, one result.',
     'landing.f3.t': 'Verifiable by anyone',
+    'landing.f3.b':
+      'Every commit settles to L1 and lives in the permanent record. With just the tx hash, anyone can re-derive the value, replay the consumer logic, and prove the outcome wasn’t tampered with.',
     'landing.preview.t': "Today's line-up",
     'landing.preview.n': '6 mini-games currently open',
     'landing.final.t': 'Ready? One button does it.',
