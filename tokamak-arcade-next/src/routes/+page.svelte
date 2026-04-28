@@ -4,6 +4,62 @@
   import { jankenMascot } from '$lib/mascots';
   import { TOKAMAK_SYMBOL_DATA_URI } from '$lib/brand';
 
+  // ─── Feature card icons (How it works) ────────────────────────────
+  // Stroke = currentColor so they pick up the tk-blue from `.feature .icon`.
+  const chipIcon = `
+<svg viewBox="0 0 32 32" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="8" y="8" width="16" height="16" rx="2"/>
+  <path d="M3 12h5M3 20h5M24 12h5M24 20h5M12 3v5M20 3v5M12 24v5M20 24v5"/>
+  <circle cx="16" cy="16" r="2.5" fill="currentColor"/>
+</svg>`;
+  const boltIcon = `
+<svg viewBox="0 0 32 32" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M18 3 L7 18 h7 l-2 11 L25 14 h-7 z" fill="currentColor"/>
+</svg>`;
+  const shieldCheckIcon = `
+<svg viewBox="0 0 32 32" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M16 3 L27 7 v9 c0 6 -4 11 -11 13 C9 27 5 22 5 16 V7 z"/>
+  <path d="M11 16 l4 4 l7 -7"/>
+</svg>`;
+
+  // ─── Soon-tile glyphs (Upcoming Games) ────────────────────────────
+  // Dark stroke at low opacity so the glyph reads against the pastel art.
+  const bracketIcon = `
+<svg viewBox="0 0 64 64" width="84" height="84" fill="none" stroke="rgba(11,15,23,0.6)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="6" y="14" width="16" height="6" rx="1"/>
+  <rect x="6" y="26" width="16" height="6" rx="1"/>
+  <rect x="6" y="38" width="16" height="6" rx="1"/>
+  <rect x="6" y="50" width="16" height="6" rx="1"/>
+  <rect x="42" y="20" width="16" height="6" rx="1"/>
+  <rect x="42" y="44" width="16" height="6" rx="1"/>
+  <path d="M22 17 h6 v9 h-6 M22 29 h6 v-9 M28 23 h8 v17 h-8 v-9 M22 41 h6 v9 h-6 M22 53 h6 v-9 M28 47 h14"/>
+</svg>`;
+  const kartIcon = `
+<svg viewBox="0 0 64 64" width="84" height="84" fill="none" stroke="rgba(11,15,23,0.6)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M8 38 L14 24 h26 l8 14 z"/>
+  <path d="M24 24 v-6 h10 v6"/>
+  <circle cx="18" cy="44" r="6"/>
+  <circle cx="46" cy="44" r="6"/>
+  <path d="M48 26 l6 -2 M14 28 l-6 -2"/>
+</svg>`;
+  const giftIcon = `
+<svg viewBox="0 0 64 64" width="84" height="84" fill="none" stroke="rgba(11,15,23,0.6)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="10" y="22" width="44" height="32" rx="2"/>
+  <rect x="6" y="18" width="52" height="8" rx="1"/>
+  <path d="M32 18 v36"/>
+  <path d="M32 18 c-4 -8 -14 -6 -12 0 c2 4 8 4 12 0 z"/>
+  <path d="M32 18 c4 -8 14 -6 12 0 c-2 4 -8 4 -12 0 z"/>
+</svg>`;
+  const wordIcon = `
+<svg viewBox="0 0 64 64" width="84" height="84" fill="none" stroke="rgba(11,15,23,0.6)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="6" y="22" width="16" height="20" rx="2"/>
+  <rect x="24" y="22" width="16" height="20" rx="2"/>
+  <rect x="42" y="22" width="16" height="20" rx="2"/>
+  <path d="M11 30 l3 5 l3 -5"/>
+  <path d="M28 28 l4 8 l4 -8 M30 33 h4"/>
+  <path d="M48 28 v8 M48 28 l4 4 l-4 4"/>
+</svg>`;
+
   type SoonGame = {
     cls: string;
     name: string;
@@ -11,6 +67,7 @@
     meta: string;
     accent: string;
     desc: string;
+    icon: string;
   };
 
   const SOON: SoonGame[] = [
@@ -20,7 +77,8 @@
       badge: 'Soon',
       meta: 'tournament',
       accent: 'var(--mint)',
-      desc: '단일 VRF 호출로 64인 토너먼트 대진을 결정.'
+      desc: '단일 VRF 호출로 64인 토너먼트 대진을 결정.',
+      icon: bracketIcon
     },
     {
       cls: 'sky',
@@ -28,7 +86,8 @@
       badge: 'Soon',
       meta: 'race · vrf',
       accent: 'var(--sky)',
-      desc: '랜덤 트랙 + 랜덤 부스트 — 한 라운드, 한 결과.'
+      desc: '랜덤 트랙 + 랜덤 부스트 — 한 라운드, 한 결과.',
+      icon: kartIcon
     },
     {
       cls: 'coral',
@@ -36,7 +95,8 @@
       badge: 'Soon',
       meta: 'loot pull',
       accent: 'var(--coral)',
-      desc: '균등 분포 검증 가능한 가챠. 풀이 100% 온체인.'
+      desc: '균등 분포 검증 가능한 가챠. 풀이 100% 온체인.',
+      icon: giftIcon
     },
     {
       cls: 'lavender',
@@ -44,7 +104,8 @@
       badge: 'Soon',
       meta: 'word puzzle',
       accent: 'var(--lavender)',
-      desc: 'VRF로 매일 매치 시드. 같은 시드 → 같은 게임판.'
+      desc: 'VRF로 매일 매치 시드. 같은 시드 → 같은 게임판.',
+      icon: wordIcon
     }
   ];
 </script>
@@ -97,14 +158,17 @@
     </div>
     <div class="feature-strip-grid">
       <div class="feature">
+        <div class="icon">{@html chipIcon}</div>
         <div class="num">01</div>
         <h3>{i18n.t('landing.f1.t')}</h3>
       </div>
       <div class="feature">
+        <div class="icon">{@html boltIcon}</div>
         <div class="num">02</div>
         <h3>{i18n.t('landing.f2.t')}</h3>
       </div>
       <div class="feature">
+        <div class="icon">{@html shieldCheckIcon}</div>
         <div class="num">03</div>
         <h3>{i18n.t('landing.f3.t')}</h3>
       </div>
@@ -126,6 +190,7 @@
         <div class="tile soon" style="--accent:{s.accent}">
           <div class="art">
             <span class="pin soon-badge">{s.badge}</span>
+            <div class="glyph">{@html s.icon}</div>
           </div>
           <div class="body">
             <h4>{s.name} <span class="badge">soon</span></h4>
@@ -600,6 +665,17 @@
     color: rgba(255, 255, 255, 0.85);
     border-color: rgba(255, 255, 255, 0.15);
   }
+  .tile.soon .art .glyph {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .tile.soon .art .glyph :global(svg) {
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+  }
 
   .feature-strip-grid {
     display: grid;
@@ -642,6 +718,14 @@
   }
   .feature:hover::before {
     opacity: 0.6;
+  }
+  .feature .icon {
+    color: var(--tk-blue);
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .feature .num {
     font-family: var(--font-mono);
