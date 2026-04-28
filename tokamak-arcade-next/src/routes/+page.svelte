@@ -158,21 +158,24 @@
     </div>
     <div class="feature-strip-grid">
       <div class="feature">
-        <div class="icon">{@html chipIcon}</div>
-        <div class="num">01</div>
-        <h3>{i18n.t('landing.f1.t')}</h3>
+        <div class="head">
+          <div class="icon">{@html chipIcon}</div>
+          <h3>{i18n.t('landing.f1.t')}</h3>
+        </div>
         <p>{@html i18n.t('landing.f1.b')}</p>
       </div>
       <div class="feature">
-        <div class="icon">{@html boltIcon}</div>
-        <div class="num">02</div>
-        <h3>{i18n.t('landing.f2.t')}</h3>
+        <div class="head">
+          <div class="icon">{@html boltIcon}</div>
+          <h3>{i18n.t('landing.f2.t')}</h3>
+        </div>
         <p>{@html i18n.t('landing.f2.b')}</p>
       </div>
       <div class="feature">
-        <div class="icon">{@html shieldCheckIcon}</div>
-        <div class="num">03</div>
-        <h3>{i18n.t('landing.f3.t')}</h3>
+        <div class="head">
+          <div class="icon">{@html shieldCheckIcon}</div>
+          <h3>{i18n.t('landing.f3.t')}</h3>
+        </div>
         <p>{@html i18n.t('landing.f3.b')}</p>
       </div>
     </div>
@@ -722,6 +725,11 @@
   .feature:hover::before {
     opacity: 0.6;
   }
+  .feature .head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
   .feature .icon {
     color: var(--tk-blue);
     width: 36px;
@@ -729,14 +737,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-  }
-  .feature .num {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--tk-blue);
+    flex-shrink: 0;
   }
   .feature h3 {
     font-family: var(--font-sans);
