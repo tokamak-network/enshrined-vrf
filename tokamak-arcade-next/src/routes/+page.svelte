@@ -190,13 +190,6 @@
     </div>
     <div class="footer-bottom">
       <span>© Tokamak Network</span>
-      <span>
-        Tokamak Arcade — an
-        <a href="https://enshrined-vrf-docs.vercel.app/" target="_blank" rel="noopener">
-          Enshrined VRF
-        </a>
-        demo
-      </span>
     </div>
   </footer>
 </main>
