@@ -16,7 +16,7 @@
     WHEEL_SEGMENTS
   } from '$lib/jankenman/abi';
   import { getSessionKey } from '$lib/jankenman/session.svelte';
-  import Cabinet3D from '$lib/jankenman/Cabinet3D.svelte';
+  import Cabinet2D from '$lib/jankenman/Cabinet2D.svelte';
 
   // ─── State ────────────────────────────────────────────────────────
   let selectedHand = $state<number | null>(null);
@@ -849,10 +849,10 @@
     <main class="content">
       {#if activeView === 'game'}
         <section class="game-grid">
-          <!-- LEFT: full 3D arcade cabinet (the "chart" area) -->
+          <!-- LEFT: 2D Korean-arcade cabinet (the "chart" area) -->
           <div class="board-panel">
             <div class="cabinet-host">
-              <Cabinet3D
+              <Cabinet2D
                 targetRotationDeg={wheelRotation}
                 {displayEmoji}
                 resultKind={(displayResultClass.replace('result-', '') || '') as
@@ -864,6 +864,8 @@
                 {selectedHand}
                 {busy}
                 onSelectHand={setHand}
+                {kpiTvl}
+                {kpiVrf}
               />
               <div class="status-line {statusKind}">
                 <span class="status-dot"></span>
