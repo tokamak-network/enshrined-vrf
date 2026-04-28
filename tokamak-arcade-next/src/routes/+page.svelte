@@ -269,8 +269,7 @@
 </main>
 
 <style>
-  body {
-    padding: 16px 0 0;
+  :global(body) {
     background:
       radial-gradient(1100px 600px at 85% -10%, rgba(42, 114, 229, 0.08), transparent 70%),
       radial-gradient(900px 500px at -10% 30%, rgba(111, 168, 255, 0.06), transparent 70%),
@@ -295,21 +294,20 @@
 
   .hero {
     max-width: 1280px;
-    margin: 24px auto 96px;
+    margin: 16px auto 80px;
     border-radius: var(--radius-xl);
     background:
       radial-gradient(700px 420px at 90% 20%, rgba(42, 114, 229, 0.18), transparent 65%),
       radial-gradient(560px 360px at 0% 100%, rgba(111, 168, 255, 0.16), transparent 70%),
       linear-gradient(160deg, #0f1623 0%, #0b0f17 100%);
     border: 1px solid var(--line-1);
-    padding: 80px 56px 72px;
+    padding: 56px 56px 56px;
     position: relative;
     overflow: hidden;
-    min-height: 520px;
     display: grid;
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    align-items: center;
-    gap: 56px;
+    align-items: start;
+    gap: 48px;
   }
   .hero::after {
     content: '';
@@ -492,8 +490,8 @@
   @media (max-width: 960px) {
     .hero {
       grid-template-columns: 1fr;
-      padding: 56px 28px;
-      gap: 40px;
+      padding: 40px 24px 48px;
+      gap: 32px;
     }
     .hero-feature {
       max-width: 360px;
@@ -938,8 +936,8 @@
       padding: 0 16px;
     }
     .hero {
-      padding: 44px 24px 56px;
-      margin: 16px auto 64px;
+      padding: 32px 20px 40px;
+      margin: 12px auto 56px;
     }
     .section {
       margin-bottom: 64px;

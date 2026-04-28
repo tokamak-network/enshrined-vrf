@@ -185,8 +185,7 @@
 </main>
 
 <style>
-  body {
-    padding: 16px 0 0;
+  :global(body) {
     background:
       radial-gradient(900px 480px at 90% -10%, rgba(42, 114, 229, 0.07), transparent 70%),
       radial-gradient(700px 460px at -10% 25%, rgba(111, 168, 255, 0.05), transparent 70%),
