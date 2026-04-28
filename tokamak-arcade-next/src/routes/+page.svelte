@@ -67,7 +67,7 @@
       <h1>{@html i18n.t('landing.h1')}</h1>
       <p class="lede">{@html i18n.t('landing.lede')}</p>
       <div class="cta-row">
-        <a class="btn-primary" href="/games/">
+        <a class="btn-primary" href="/jankenman/">
           <span>{i18n.t('landing.cta.enter')}</span>
           <span aria-hidden="true">→</span>
         </a>
@@ -137,21 +137,6 @@
           </div>
         </div>
       {/each}
-    </div>
-  </section>
-
-  <section class="final-cta">
-    <div>
-      <div class="kicker">{i18n.t('landing.finalKicker')}</div>
-      <h2>{i18n.t('landing.final.t')}</h2>
-      <p>{@html i18n.t('landing.final.b')}</p>
-    </div>
-    <div class="cta-side">
-      <a class="btn-primary" href="/games/">
-        <span>{i18n.t('landing.cta.enter')}</span>
-        <span aria-hidden="true">→</span>
-      </a>
-      <span class="stat">1 game live · 4 in development</span>
     </div>
   </section>
 
