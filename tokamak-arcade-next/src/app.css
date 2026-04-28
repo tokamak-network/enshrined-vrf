@@ -1,0 +1,708 @@
+/* Tokamak Arcade — GAMES.GG-inspired dark game-platform design system.
+   Deep navy canvas, Tokamak Network brand-blue primary, edge-to-edge artwork.
+   See DESIGN.md for the full rationale. Variable names are preserved from
+   the previous Base-light system so every per-game page keeps working —
+   only the values change. */
+:root {
+  /* Canvas + surfaces — dark first */
+  --cream:       #0B0F17;   /* page background (legacy var name; now dark) */
+  --paper:       #131927;   /* card / panel surface 1 */
+  --paper-2:     #1B2336;   /* hover / elevated / code blocks */
+
+  /* Ink — light text on dark canvas */
+  --ink:         #FFFFFF;
+  --ink-soft:    #A8B0C0;
+  --ink-faint:   #6B7280;
+
+  /* Brand primary — Tokamak Network blue (#2A72E5 from the official symbol).
+     Variable name is preserved across pages; values are now the real brand. */
+  --tk-blue:     #2A72E5;
+  --tk-blue-deep:#1A56B8;
+  --tk-blue-ink: #FFFFFF;
+
+  /* Per-game accents — saturated, vibrant on dark */
+  --pink:        #FF6B9F;
+  --pink-deep:   #E84A82;
+  --mint:        #62E6A8;
+  --mint-deep:   #2EBE82;
+  --butter:      #FFD466;
+  --butter-deep: #E0B040;
+  --sky:         #6FA8FF;
+  --sky-deep:    #4A82E0;
+  --lavender:    #B69BFF;
+  --lavender-deep:#9072E8;
+  --coral:       #FF8866;
+  --coral-deep:  #E06548;
+  --grass:       #8AAE5A;
+  --grass-deep:  #6B8E40;
+
+  /* States — semantic green stays for wins/live indicators (decoupled from
+     primary so that the brand color can change without breaking UX signals). */
+  --error:       #FF4D5E;
+  --warn:        #FFC857;
+  --success:     #00CC66;
+  --success-deep:#00A653;
+
+  /* Borders */
+  --line-1:      rgba(255, 255, 255, 0.06);
+  --line-2:      rgba(255, 255, 255, 0.12);
+  --line-3:      rgba(255, 255, 255, 0.20);
+
+  /* Glow — primary (blue) for CTAs/focus, success (green) for win states. */
+  --glow:         rgba(42, 114, 229, 0.30);
+  --glow-soft:    rgba(42, 114, 229, 0.12);
+  --success-glow: rgba(0, 204, 102, 0.30);
+
+  /* Shape — sharp on UI, generous on big visual blocks */
+  --stroke: 1px;
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-md: 8px;
+  --radius-sm: 4px;
+
+  /* Legacy offset-shadow tokens kept so game pages don't break. */
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 0px;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 12px 48px rgba(0, 0, 0, 0.60);
+
+  /* Defaults for game accent overrides */
+  --accent:      var(--tk-blue);
+  --accent-deep: var(--tk-blue-deep);
+
+  /* Typography stack */
+  --font-sans:  -apple-system, "system-ui", "Pretendard", "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+  --font-mono:  "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 16px;
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  padding: 28px 32px 96px;
+}
+
+/* ---------- Typography ---------- */
+.display {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+h1, h2, h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+h1 { font-size: clamp(40px, 7vw, 80px); line-height: 1.05; letter-spacing: -0.025em; }
+h2 { font-size: clamp(24px, 3vw, 36px); }
+h3 { font-size: 20px; line-height: 1.25; letter-spacing: -0.015em; }
+
+p { color: var(--ink-soft); }
+
+code, .mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  background: var(--paper-2);
+  padding: 1px 6px; border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 0.9em;
+}
+
+.kw,
+.tokamak-hero h1 .chip,
+h1 .chip, h2 .chip {
+  display: inline; padding: 0; border: 0; background: transparent;
+  transform: none; box-shadow: none; margin: 0;
+  color: var(--tk-blue);
+}
+
+a {
+  color: var(--tk-blue);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+a:hover { color: var(--tk-blue-deep); text-decoration: underline; text-underline-offset: 3px; }
+
+button { font: inherit; cursor: pointer; }
+
+::selection { background: var(--glow); color: var(--ink); }
+
+/* ---------- Top bar ---------- */
+.tokamak-topbar {
+  max-width: 1280px; margin: 0 auto 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-1);
+  padding-bottom: 16px;
+}
+.tokamak-brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--ink);
+}
+.tokamak-brand:hover { text-decoration: none; color: var(--ink); }
+.tokamak-brand .logo {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.tokamak-brand:hover .logo {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+.tokamak-brand .logo-img {
+  width: 100%; height: 100%; object-fit: contain;
+  display: block;
+  filter: brightness(0) invert(1);  /* white symbol on dark canvas */
+}
+.tokamak-brand .title {
+  font-family: var(--font-sans); font-weight: 500;
+  font-size: 16px; letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.tokamak-brand .title b { font-weight: 700; }
+
+.tokamak-topbar-right { display: flex; gap: 8px; align-items: center; }
+
+/* VRF status pill */
+.vrf-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-radius: var(--radius-md);
+  background: var(--paper);
+  border: 1px solid var(--line-1);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+.vrf-pill .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ink-faint);
+}
+.vrf-pill.ok    .dot { background: var(--success); box-shadow: 0 0 0 3px var(--glow-soft); }
+.vrf-pill.stale .dot { background: var(--warn); }
+.vrf-pill.err   .dot { background: var(--error); }
+
+/* Language toggle */
+.lang-toggle {
+  display: inline-flex; padding: 2px;
+  background: var(--paper);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-md);
+  overflow: hidden; cursor: pointer;
+  font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.lang-toggle .lang-opt {
+  padding: 6px 12px;
+  color: var(--ink-soft);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-transform: uppercase;
+}
+.lang-toggle .lang-opt + .lang-opt { margin-left: 2px; }
+.lang-toggle .lang-opt.active {
+  background: var(--tk-blue); color: var(--tk-blue-ink);
+}
+
+/* ---------- Buttons ---------- */
+.tokamak-btn {
+  appearance: none;
+  border: 1px solid var(--line-2);
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans); font-weight: 600;
+  font-size: 14px; letter-spacing: 0.005em;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
+}
+.tokamak-btn:hover { background: var(--paper-2); color: var(--ink); border-color: var(--line-3); }
+.tokamak-btn:active { transform: translateY(1px); }
+.tokamak-btn:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+.tokamak-btn.primary {
+  background: var(--tk-blue); color: var(--tk-blue-ink);
+  border-color: var(--tk-blue);
+}
+.tokamak-btn.primary:hover {
+  background: var(--tk-blue-deep); color: var(--tk-blue-ink);
+  border-color: var(--tk-blue-deep);
+  box-shadow: 0 0 0 4px var(--glow-soft);
+}
+.tokamak-btn.ghost {
+  background: transparent;
+  border-color: var(--line-2);
+}
+.tokamak-btn.ghost:hover { background: rgba(255, 255, 255, 0.04); border-color: var(--line-3); }
+.tokamak-btn.small {
+  padding: 7px 14px; font-size: 12.5px;
+}
+
+/* ---------- Hero (legacy) ---------- */
+.tokamak-hero {
+  max-width: 1280px; margin: 12px auto 64px;
+  padding: 28px 0 8px;
+  position: relative;
+}
+.tokamak-hero .eyebrow {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
+.tokamak-hero h1 {
+  font-size: clamp(40px, 7vw, 80px);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  max-width: 18ch;
+}
+.tokamak-hero p {
+  margin: 24px 0 0;
+  max-width: 620px;
+  color: var(--ink-soft);
+  font-size: 17px; font-weight: 400;
+  line-height: 1.55;
+}
+
+/* ---------- Game grid (hub fallback / per-game lists) ---------- */
+.tokamak-grid {
+  max-width: 1280px; margin: 0 auto;
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.tokamak-card {
+  position: relative;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  display: flex; flex-direction: column;
+  min-height: 320px;
+  text-decoration: none;
+  overflow: hidden;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.tokamak-card:hover {
+  background: var(--paper-2);
+  border-color: var(--line-2);
+  transform: translateY(-3px);
+  text-decoration: none;
+  color: var(--ink);
+}
+.tokamak-card .mascot-holder {
+  height: 200px;
+  display: grid; place-items: center;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%),
+    var(--accent);
+  position: relative; overflow: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+.tokamak-card .mascot-holder::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle at 75% 25%, rgba(255, 255, 255, 0.18), transparent 60%);
+  pointer-events: none;
+}
+.tokamak-card .mascot-holder svg { position: relative; z-index: 1; }
+.tokamak-card h3 {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 18px 20px 0;
+}
+.tokamak-card h3 .badge {
+  font-family: var(--font-sans); font-size: 10px; font-weight: 700;
+  background: var(--paper-2); color: var(--ink-soft);
+  padding: 4px 8px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line-1);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.tokamak-card .desc {
+  color: var(--ink-soft); font-size: 13.5px; flex: 1;
+  font-family: var(--font-sans); font-weight: 400;
+  line-height: 1.55;
+  padding: 8px 20px 16px;
+}
+.tokamak-card .go {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-sans); color: var(--tk-blue);
+  font-weight: 700; font-size: 12.5px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 0 20px 18px;
+}
+.tokamak-card .go svg { transition: transform 0.18s ease; }
+.tokamak-card .go svg path { stroke: var(--tk-blue); }
+.tokamak-card:hover .go svg { transform: translateX(4px); }
+
+/* Per-card accent tinting */
+.tokamak-card.flip    { --accent: var(--butter); }
+.tokamak-card.dice    { --accent: var(--pink); }
+.tokamak-card.plinko  { --accent: var(--sky); }
+.tokamak-card.lottery { --accent: var(--lavender); }
+.tokamak-card.janken  { --accent: var(--tk-blue); }
+.tokamak-card.pongy   { --accent: var(--coral); }
+
+/* ---------- Game page shell ---------- */
+.tokamak-shell {
+  max-width: 760px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 24px;
+}
+.tokamak-shell-head {
+  display: flex; align-items: center; gap: 18px;
+  padding: 6px 2px;
+}
+.tokamak-shell-head .mascot {
+  width: 64px; height: 64px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.tokamak-shell-head h2 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+}
+.tokamak-shell-head .lead {
+  color: var(--ink-soft); font-size: 15px;
+  font-family: var(--font-sans); font-weight: 400;
+  margin-top: 4px; line-height: 1.5;
+}
+.tokamak-shell-head .lead code { font-size: 13px; }
+
+.tokamak-panel {
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+}
+.tokamak-panel.paper-2 { background: var(--paper-2); }
+.tokamak-panel.accent {
+  background: var(--accent); color: var(--tk-blue-ink);
+  border-color: transparent;
+}
+.tokamak-panel.dark {
+  background: #050810; color: #fff;
+  border-color: var(--line-1);
+}
+.tokamak-panel.dark p { color: rgba(255, 255, 255, 0.7); }
+.tokamak-panel.dark code { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+/* Rows */
+.tokamak-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.tokamak-row.center  { justify-content: center; }
+.tokamak-row.between { justify-content: space-between; }
+
+/* Key-value */
+.kv {
+  font-family: var(--font-sans); font-size: 12px;
+  color: var(--ink-soft); font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.kv b { color: var(--ink); font-weight: 700; text-transform: none; letter-spacing: 0; }
+
+/* Hex / code blocks */
+.hex-block {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 400;
+  color: var(--ink-soft); word-break: break-all; line-height: 1.7;
+  background: var(--paper-2);
+  border: 1px solid var(--line-1);
+  padding: 12px 14px; border-radius: var(--radius-sm);
+}
+
+/* History list */
+.tokamak-history {
+  margin-top: 6px; display: flex; flex-direction: column; gap: 6px;
+  max-height: 220px; overflow-y: auto;
+}
+.tokamak-history .item {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--paper-2);
+  border: 1px solid var(--line-1);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 400;
+  color: var(--ink-soft);
+}
+.tokamak-history .item.win  {
+  background: rgba(0, 204, 102, 0.08);
+  border-color: rgba(0, 204, 102, 0.32);
+  color: var(--ink);
+}
+.tokamak-history .item.lose {
+  background: rgba(255, 77, 94, 0.08);
+  border-color: rgba(255, 77, 94, 0.30);
+  color: var(--ink);
+}
+
+/* Result banner */
+.tokamak-result {
+  text-align: center; padding: 24px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-1);
+  background: var(--paper-2);
+  font-family: var(--font-sans);
+  font-size: 22px; font-weight: 600;
+  letter-spacing: -0.01em;
+  min-height: 76px;
+  display: grid; place-items: center;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.tokamak-result.win  {
+  background: rgba(0, 204, 102, 0.10);
+  border-color: rgba(0, 204, 102, 0.40);
+  color: var(--success-deep);
+}
+.tokamak-result.lose {
+  background: rgba(255, 77, 94, 0.08);
+  border-color: rgba(255, 77, 94, 0.32);
+  color: var(--error);
+}
+.tokamak-result small {
+  display: block; font-size: 12px; color: var(--ink-soft); font-weight: 600;
+  font-family: var(--font-sans); margin-top: 6px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+
+/* Footer */
+.tokamak-footer {
+  max-width: 1280px; margin: 60px auto 0;
+  text-align: center; color: var(--ink-faint);
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 20px;
+  border-top: 1px solid var(--line-1);
+}
+.tokamak-footer code { font-size: 12px; }
+
+/* Back link */
+.tokamak-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px; font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  transition: color 0.15s ease;
+}
+.tokamak-back:hover { color: var(--tk-blue); text-decoration: none; }
+
+/* ---------- Animations ---------- */
+@keyframes tokamak-wobble {
+  0%,100% { transform: rotate(-2deg); }
+  50%     { transform: rotate(2deg); }
+}
+@keyframes tokamak-spin   { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+@keyframes tokamak-pop    { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tokamak-shake  { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@keyframes tokamak-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes tokamak-sparkle{ 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes tokamak-pulse  { 0%,100% { box-shadow: 0 0 0 0 var(--glow); } 50% { box-shadow: 0 0 0 6px transparent; } }
+
+.wobble   { animation: tokamak-wobble 1s ease-in-out infinite; }
+.bounce   { animation: tokamak-bounce 1.4s ease-in-out infinite; }
+.sparkle  { animation: tokamak-sparkle 1.6s ease-in-out infinite; }
+.rolling  { animation: tokamak-shake 0.22s ease-in-out infinite; }
+.popping  { animation: tokamak-pop 0.4s ease-out; }
+.pulse    { animation: tokamak-pulse 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wobble, .bounce, .sparkle, .rolling, .popping, .pulse { animation: none; }
+}
+
+/* Utility — hide scrollbars (used on carousel rows) */
+.scroll-row {
+  display: flex; gap: 16px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 32px;
+  padding: 4px 32px 12px;
+  margin: 0 -32px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 56px), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 56px), transparent 100%);
+}
+.scroll-row::-webkit-scrollbar { display: none; }
+.scroll-row > * { scroll-snap-align: start; flex-shrink: 0; }
+
+/* Mobile */
+@media (max-width: 640px) {
+  body { padding: 20px 16px 64px; }
+  .tokamak-shell-head h2 { font-size: 26px; }
+  .tokamak-panel { padding: 22px; }
+  .tokamak-topbar { margin-bottom: 32px; }
+  .scroll-row {
+    scroll-padding: 0 16px;
+    padding: 4px 16px 12px;
+    margin: 0 -16px;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 32px), transparent 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 32px), transparent 100%);
+  }
+}
+
+/* ============================================================
+   Left rail (DEX-style sidebar) — mounted via shared/sidebar.js
+   ============================================================
+   Pages that mount the sidebar get `tk-has-sidebar` on <body>.
+   That class drives the body offset and a sticky topbar so the
+   IA stays visible across scroll. Per-page CSS does not need to
+   know about the sidebar — it just keeps using its existing
+   max-width centering inside the now-narrower body.
+   ============================================================ */
+
+.tk-sb {
+  position: fixed; top: 0; left: 0;
+  width: 240px; height: 100vh;
+  background: rgba(11, 15, 23, 0.96);
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  border-right: 1px solid var(--line-1);
+  padding: 22px 14px 18px;
+  display: flex; flex-direction: column;
+  z-index: 60;
+}
+
+.tk-sb-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 8px 24px;
+  text-decoration: none; color: var(--ink);
+}
+.tk-sb-brand:hover { text-decoration: none; color: var(--ink); }
+.tk-sb-mark {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  transition: transform 0.15s ease;
+}
+.tk-sb-brand:hover .tk-sb-mark { transform: translateY(-1px); }
+.tk-sb-name {
+  font-family: var(--font-sans);
+  font-size: 15.5px; font-weight: 500; letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.tk-sb-name b { font-weight: 700; }
+
+.tk-sb-nav {
+  flex: 1;
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 4px;
+}
+.tk-sb-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 14px; font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+}
+.tk-sb-link svg { flex-shrink: 0; opacity: 0.85; transition: opacity 0.15s ease; }
+.tk-sb-link:hover {
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+}
+.tk-sb-link:hover svg { opacity: 1; }
+.tk-sb-link.active {
+  background: var(--paper);
+  color: var(--tk-blue);
+  box-shadow: inset 3px 0 0 var(--tk-blue);
+}
+.tk-sb-link.active svg { opacity: 1; }
+.tk-sb-link.active svg [stroke] { stroke: var(--tk-blue); }
+.tk-sb-link[aria-disabled="true"] {
+  cursor: default; opacity: 0.55;
+}
+.tk-sb-link[aria-disabled="true"]:hover {
+  background: transparent; color: var(--ink-soft);
+}
+.tk-sb-link[aria-disabled="true"]:hover svg { opacity: 0.85; }
+.tk-sb-soon {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-faint);
+  background: var(--paper-2);
+  border: 1px solid var(--line-1);
+  padding: 2px 6px; border-radius: var(--radius-sm);
+}
+
+.tk-sb-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px 0;
+  border-top: 1px solid var(--line-1);
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+.tk-sb-foot-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+
+/* ---- Body layout when sidebar is mounted ---- */
+/* Each page styles its own topbar (sticky / blur / border) — the sidebar
+   only owns the body offset, so per-page padding rules stay valid. */
+body.tk-has-sidebar { margin-left: 240px; }
+
+/* Collapse the rail to icon-only on medium screens. */
+@media (max-width: 1024px) {
+  .tk-sb { width: 64px; padding: 22px 8px 18px; }
+  .tk-sb-brand { padding: 4px 0 24px; justify-content: center; }
+  .tk-sb-name,
+  .tk-sb-link span:not(.tk-sb-soon),
+  .tk-sb-soon,
+  .tk-sb-foot { display: none; }
+  .tk-sb-link { justify-content: center; padding: 10px 0; }
+  body.tk-has-sidebar { margin-left: 64px; }
+}
+
+/* Hide entirely on narrow screens — per-game pages still have their
+   `← 게임 목록으로` back link as fallback navigation. */
+@media (max-width: 720px) {
+  .tk-sb { display: none; }
+  body.tk-has-sidebar { margin-left: 0; }
+}
+
+/* When the sidebar provides the back-to-Play link via "Play",
+   the per-page `← 게임 목록으로` becomes redundant on desktop.
+   Keep it on mobile (≤720px) where the sidebar is hidden. */
+body.tk-has-sidebar .tokamak-back { display: none; }
+@media (max-width: 720px) {
+  body.tk-has-sidebar .tokamak-back { display: inline-flex; }
+}
