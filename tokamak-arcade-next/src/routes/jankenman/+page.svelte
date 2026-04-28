@@ -4,8 +4,8 @@
   import { i18n } from '$lib/i18n.svelte';
   import { wallet, pub, shortAddr } from '$lib/wallet.svelte';
   import { CONFIG } from '$lib/config';
-  import { TOKAMAK_SYMBOL_DATA_URI } from '$lib/brand';
   import LangToggle from '$lib/components/LangToggle.svelte';
+  import { jankenMascot } from '$lib/mascots';
   import {
     JANKENMAN_ABI as ABI,
     VRF_ABI,
@@ -775,9 +775,7 @@
 <div class="gmx-shell">
   <aside class="sb">
     <a class="sb-brand" href="/">
-      <span class="sb-mark">
-        <img src={TOKAMAK_SYMBOL_DATA_URI} alt="Tokamak Network" />
-      </span>
+      <span class="sb-mark">{@html jankenMascot({ size: 26 })}</span>
       <span class="sb-name">Jankenman</span>
     </a>
 
@@ -817,9 +815,6 @@
   <div class="gmx-main">
     <header class="topbar">
       <div class="pair">
-        <span class="pair-icon">
-          <img src={TOKAMAK_SYMBOL_DATA_URI} alt="Tokamak Network" />
-        </span>
         <span class="pair-name">Jankenman</span>
       </div>
 
@@ -854,35 +849,29 @@
     <main class="content">
       {#if activeView === 'game'}
         <section class="game-grid">
-          <!-- LEFT: arcade cabinet (the "chart" area) -->
+          <!-- LEFT: full 3D arcade cabinet (the "chart" area) -->
           <div class="board-panel">
-            <div class="arcade-cabinet">
-              <div class="cabinet-marquee">
-                <span class="ml"></span><span class="ml"></span><span class="ml"></span>
-                <span class="mt">JANKENMAN</span>
-                <span class="ml"></span><span class="ml"></span><span class="ml"></span>
-              </div>
-              <div class="cabinet-screen">
-                <div class="jk-stage">
-                  <Cabinet3D
-                    targetRotationDeg={wheelRotation}
-                    {displayEmoji}
-                    resultKind={(displayResultClass.replace('result-', '') || '') as
-                      | ''
-                      | 'win'
-                      | 'lose'
-                      | 'draw'}
-                    cycling={displayCycling}
-                  />
-                </div>
-                <div class="status-line {statusKind}">
-                  <span class="status-dot"></span>
-                  {#if statusHtml}
-                    <span class="status-text">{@html statusText}</span>
-                  {:else}
-                    <span class="status-text">{statusText || i18n.t('janken.ready')}</span>
-                  {/if}
-                </div>
+            <div class="cabinet-host">
+              <Cabinet3D
+                targetRotationDeg={wheelRotation}
+                {displayEmoji}
+                resultKind={(displayResultClass.replace('result-', '') || '') as
+                  | ''
+                  | 'win'
+                  | 'lose'
+                  | 'draw'}
+                cycling={displayCycling}
+                {selectedHand}
+                {busy}
+                onSelectHand={setHand}
+              />
+              <div class="status-line {statusKind}">
+                <span class="status-dot"></span>
+                {#if statusHtml}
+                  <span class="status-text">{@html statusText}</span>
+                {:else}
+                  <span class="status-text">{statusText || i18n.t('janken.ready')}</span>
+                {/if}
               </div>
             </div>
           </div>
@@ -1318,11 +1307,9 @@
     display: grid;
     place-items: center;
   }
-  .sb-mark img {
+  .sb-mark :global(svg) {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    filter: brightness(0) invert(1);
   }
   .sb-name {
     font-weight: 700;
@@ -1421,19 +1408,6 @@
     border: 1px solid var(--gmx-line);
     border-radius: var(--r-md);
     flex-shrink: 0;
-  }
-  .pair-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-  }
-  .pair-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    filter: brightness(0) invert(1);
   }
   .pair-name {
     font-weight: 700;
@@ -1541,7 +1515,14 @@
     gap: 14px;
   }
 
-  /* ─── Arcade cabinet (GMX-fied) ────────────────────────────── */
+  /* ─── 3D arcade cabinet host ─────────────────────────────── */
+  .cabinet-host {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ─── Arcade cabinet (GMX-fied — legacy CSS, no longer rendered) ──── */
   .arcade-cabinet {
     background: linear-gradient(180deg, #0e1530 0%, #050a1c 100%);
     border: 1px solid var(--gmx-line-2);
