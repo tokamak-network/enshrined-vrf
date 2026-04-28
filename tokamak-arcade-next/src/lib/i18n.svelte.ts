@@ -26,7 +26,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.lineupKicker': '오늘의 라인업',
     'landing.finalKicker': 'Ready to play',
     'landing.h1':
-      '공정한 <span class="kw">미니게임</span>, 내장된 <span class="kw">난수</span>, 온체인 <span class="kw">아케이드</span>.',
+      '공정한 <span class="kw">미니게임</span>,<br>내장된 <span class="kw">난수</span>,<br>온체인 <span class="kw">아케이드</span>.',
     'landing.lede':
       'L2 컨트랙트가 <code>VRF.getRandomness()</code>를 한 번 호출하면 끝. 오라클도, 콜백도, 수상한 서버도 없이 — 단일 트랜잭션 안에서 결과가 확정됩니다.',
     'landing.cta.enter': 'Get Started',
@@ -165,7 +165,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.lineupKicker': "Today's lineup",
     'landing.finalKicker': 'Ready to play',
     'landing.h1':
-      'Fair <span class="kw">play</span>, enshrined <span class="kw">randomness</span>, on-chain <span class="kw">arcade</span>.',
+      'Fair <span class="kw">play</span>,<br>enshrined <span class="kw">randomness</span>,<br>on-chain <span class="kw">arcade</span>.',
     'landing.lede':
       "One call to <code>VRF.getRandomness()</code> and that's it. No oracle, no callback, no shady server — the outcome settles inside a single transaction.",
     'landing.cta.enter': 'Enter Arcade',
