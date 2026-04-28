@@ -24,33 +24,38 @@
     busy = false
   }: Props = $props();
 
-  // Mirror the on-chain wheel layout. Order is fixed: 10 segments × 36° each,
-  // starting from -18° at the top of the wheel.
+  // Mirror the on-chain layout. Photo's wheel uses red/green/yellow segments —
+  // we use the same multiplier weights but keep the segment colors readable.
   const SEGMENTS = [
-    { m: 1, color: '#FFD3DF' },
-    { m: 2, color: '#FFC0D0' },
-    { m: 1, color: '#FFD3DF' },
-    { m: 4, color: '#FFE29A' },
-    { m: 1, color: '#FFD3DF' },
-    { m: 2, color: '#FFC0D0' },
-    { m: 7, color: '#D7B5F5' },
-    { m: 1, color: '#FFD3DF' },
-    { m: 2, color: '#FFC0D0' },
-    { m: 20, color: '#FF8A7E' }
+    { m: 1, color: '#3FB95F' }, // green
+    { m: 2, color: '#FFC83C' }, // yellow
+    { m: 1, color: '#3FB95F' },
+    { m: 4, color: '#E84A4A' }, // red
+    { m: 1, color: '#3FB95F' },
+    { m: 2, color: '#FFC83C' },
+    { m: 7, color: '#E84A4A' },
+    { m: 1, color: '#3FB95F' },
+    { m: 2, color: '#FFC83C' },
+    { m: 20, color: '#E84A4A' }
   ];
 
-  const HAND_LABELS = ['✊', '✋', '✌️'];
-  const BUTTON_COLORS = [0xff6b6b, 0xffd466, 0x6fa8ff];
-  const BUTTON_X = [-1.2, 0, 1.2];
+  // Photo button order (left → right): 가위(red) / 바위(yellow) / 보(green).
+  // Hand index from the contract: 0=rock, 1=paper, 2=scissors.
+  // So slot[0] = scissors(red), slot[1] = rock(yellow), slot[2] = paper(green).
+  const BUTTON_LAYOUT = [
+    { idx: 2, color: 0xe84a4a, label: '가위' }, // scissors — red
+    { idx: 0, color: 0xffc83c, label: '바위' }, // rock     — yellow
+    { idx: 1, color: 0x3fb95f, label: '보' } //   paper    — green
+  ];
+  const BUTTON_X = [-1.1, 0, 1.1];
 
   let host: HTMLDivElement | null = null;
 
-  // Three.js objects
   let renderer: THREE.WebGLRenderer | null = null;
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
   let cabinet: THREE.Group;
-  let wheelGroup: THREE.Group;
+  let wheelMesh: THREE.Mesh;
   let displayMesh: THREE.Mesh;
   let displayMat: THREE.MeshBasicMaterial;
   let displayTex: THREE.CanvasTexture;
@@ -65,19 +70,17 @@
   let frameId: number | null = null;
   let resizeObs: ResizeObserver | null = null;
 
-  // Tween state for wheel
   let currentAngle = 0;
   let tweenStart = 0;
   let tweenFromAngle = 0;
   let tweenToAngle = 0;
   const TWEEN_DURATION = 3600;
 
-  // Button press animation state — drops to -0.1 then eases back
   const buttonOffsets = [0, 0, 0];
-  const BUTTON_BASE_Y = -1.45;
-  const BUTTON_PRESS_DEPTH = -0.06;
+  const BUTTON_BASE_Y = -1.78;
+  const BUTTON_PRESS_DEPTH = -0.05;
 
-  // ─── Texture builders ──────────────────────────────────────────────
+  // ─── Canvas builders ──────────────────────────────────────────────
   function makeWheelTexture(size = 1024): THREE.CanvasTexture {
     const c = document.createElement('canvas');
     c.width = c.height = size;
@@ -86,43 +89,55 @@
     const cy = size / 2;
     const radius = size / 2 - 8;
 
+    // Outer green ring (the gold/green outer band around the segmented wheel)
+    ctx.fillStyle = '#3FB95F';
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Segments — start from -18° at top, sweep clockwise.
     for (let i = 0; i < 10; i++) {
       const a0 = ((i * 36 - 18 - 90) * Math.PI) / 180;
       const a1 = (((i + 1) * 36 - 18 - 90) * Math.PI) / 180;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius, a0, a1);
+      ctx.arc(cx, cy, radius * 0.96, a0, a1);
       ctx.closePath();
       ctx.fillStyle = SEGMENTS[i].color;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 3;
       ctx.stroke();
     }
 
-    ctx.fillStyle = '#0B0F17';
-    ctx.font = 'bold 64px system-ui, -apple-system, sans-serif';
+    // Multiplier labels in each segment (chunky white outline like arcade signage)
+    ctx.font = 'bold 88px "Pretendard", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (let i = 0; i < 10; i++) {
       const ang = ((i * 36 - 90) * Math.PI) / 180;
-      const r = radius * 0.78;
+      const r = radius * 0.74;
       const x = cx + r * Math.cos(ang);
       const y = cy + r * Math.sin(ang);
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(ang + Math.PI / 2);
-      ctx.fillText(`${SEGMENTS[i].m}×`, 0, 0);
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#ffffff';
+      ctx.strokeText(`${SEGMENTS[i].m}`, 0, 0);
+      ctx.fillStyle = '#0B0F17';
+      ctx.fillText(`${SEGMENTS[i].m}`, 0, 0);
       ctx.restore();
     }
 
-    const rg = ctx.createRadialGradient(cx, cy, radius * 0.6, cx, cy, radius);
-    rg.addColorStop(0, 'rgba(0,0,0,0)');
-    rg.addColorStop(1, 'rgba(0,0,0,0.22)');
-    ctx.fillStyle = rg;
+    // Inner dark hub (where the LED hand sits over)
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.arc(cx, cy, radius * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = '#0d2510';
     ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#000000';
+    ctx.stroke();
 
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -130,63 +145,131 @@
     return tex;
   }
 
-  function makeMarqueeTexture(size = 1024): THREE.CanvasTexture {
+  function makeScreenBackgroundTexture(size = 1024): THREE.CanvasTexture {
+    // 4:3 screen — cyan background with title bar + side art labels
+    const W = size;
+    const H = Math.floor(size * 0.78);
     const c = document.createElement('canvas');
-    c.width = size;
-    c.height = Math.floor(size / 6);
+    c.width = W;
+    c.height = H;
     const ctx = c.getContext('2d')!;
-    ctx.clearRect(0, 0, c.width, c.height);
 
-    // Title
-    ctx.font = 'bold 96px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
+    // Cyan/blue gradient like the photo
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#3da7e6');
+    g.addColorStop(1, '#1e6db3');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Top yellow title
+    ctx.font = 'bold 72px "Pretendard", system-ui, sans-serif';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = '#ffffff';
-    ctx.shadowBlur = 24;
-    ctx.fillText('JANKENMAN', c.width / 2, c.height / 2);
-    ctx.shadowBlur = 0;
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#0B0F17';
+    ctx.fillStyle = '#FFE74E';
+    ctx.strokeText('JANKENMAN', 40, 60);
+    ctx.fillText('JANKENMAN', 40, 60);
 
-    // Border dots
-    ctx.fillStyle = '#FFE29A';
-    const dotRadius = 8;
-    const dotCount = 8;
-    for (let i = 0; i < dotCount; i++) {
-      const x = (c.width / (dotCount + 1)) * (i + 1);
-      ctx.beginPath();
-      ctx.arc(x, dotRadius * 2, dotRadius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x, c.height - dotRadius * 2, dotRadius, 0, Math.PI * 2);
-      ctx.fill();
+    // Korean win/lose/draw rim labels around the wheel area (decorative)
+    // The wheel itself sits at left-center; rim labels go around it.
+    const cx = W * 0.32;
+    const cy = H * 0.55;
+    const labelRadius = H * 0.42;
+
+    ctx.font = 'bold 30px "Pretendard", system-ui, sans-serif';
+    const rimLabels = [
+      { text: '이겼다', ang: -90, color: '#E84A4A' },
+      { text: '비겼다', ang: -54, color: '#FFC83C' },
+      { text: '졌다', ang: 90, color: '#E84A4A' },
+      { text: '비겼다', ang: 54, color: '#FFC83C' }
+    ];
+    for (const l of rimLabels) {
+      const a = (l.ang * Math.PI) / 180;
+      const x = cx + Math.cos(a) * labelRadius;
+      const y = cy + Math.sin(a) * labelRadius;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(a + Math.PI / 2);
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#ffffff';
+      ctx.strokeText(l.text, 0, 0);
+      ctx.fillStyle = l.color;
+      ctx.fillText(l.text, 0, 0);
+      ctx.restore();
     }
+
+    // Right side panel: stats area
+    const panelX = W * 0.62;
+    const panelW = W * 0.34;
+    const panelY = H * 0.18;
+    const panelH = H * 0.7;
+
+    // Panel block
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(panelX, panelY, panelW, panelH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+    // Panel labels
+    ctx.font = 'bold 28px "Pretendard", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('POOL TVL', panelX + panelW / 2, panelY + 50);
+
+    // 7-seg-style display stub (we'll re-render this dynamically)
+    ctx.fillStyle = '#1a0808';
+    ctx.fillRect(panelX + 16, panelY + 70, panelW - 32, 60);
+    ctx.font = 'bold 36px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#FF4040';
+    ctx.fillText('— ETH', panelX + panelW / 2, panelY + 100);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px "Pretendard", system-ui, sans-serif';
+    ctx.fillText('VRF COMMIT', panelX + panelW / 2, panelY + 170);
+    ctx.fillStyle = '#1a0808';
+    ctx.fillRect(panelX + 16, panelY + 190, panelW - 32, 60);
+    ctx.fillStyle = '#FF4040';
+    ctx.font = 'bold 36px "JetBrains Mono", monospace';
+    ctx.fillText('#—', panelX + panelW / 2, panelY + 220);
+
+    // Action hint
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = 'bold 24px "Pretendard", system-ui, sans-serif';
+    ctx.fillText('SELECT A HAND', panelX + panelW / 2, panelY + 320);
 
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
     return tex;
   }
 
-  function makeButtonLabelTexture(emoji: string, size = 256): THREE.CanvasTexture {
+  function makeButtonLabelTexture(label: string, size = 256): THREE.CanvasTexture {
     const c = document.createElement('canvas');
     c.width = c.height = size;
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, size, size);
-    ctx.font = `${Math.floor(size * 0.62)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    ctx.font = `bold ${Math.floor(size * 0.32)}px "Pretendard", system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(emoji, size / 2, size / 2 + size * 0.04);
+    ctx.lineWidth = size * 0.06;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeText(label, size / 2, size / 2);
+    ctx.fillStyle = '#0B0F17';
+    ctx.fillText(label, size / 2, size / 2);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }
 
+  // LED dot-matrix hand renderer (to mimic the photo's pixelated white-dot LED face).
   function drawDisplay(emoji: string, kind: ResultKind, cyc: boolean) {
     if (!displayCanvas) return;
     const ctx = displayCanvas.getContext('2d')!;
     const size = displayCanvas.width;
-    const cx = size / 2;
-    const cy = size / 2;
 
+    // Decide ring + LED color from the result
     const ringColor =
       kind === 'win'
         ? '#7FE3AD'
@@ -194,36 +277,52 @@
           ? '#FF8A8A'
           : kind === 'draw'
             ? '#FFE29A'
-            : '#ff4040';
+            : '#ffffff';
 
-    ctx.fillStyle = '#150303';
-    ctx.fillRect(0, 0, size, size);
-    const grad = ctx.createRadialGradient(cx, cy, 12, cx, cy, size * 0.55);
-    grad.addColorStop(0, '#3a0c0c');
-    grad.addColorStop(1, '#080000');
-    ctx.fillStyle = grad;
+    // Background (the recessed dark hub of the wheel)
+    ctx.fillStyle = '#0a1a0a';
     ctx.fillRect(0, 0, size, size);
 
-    ctx.fillStyle = 'rgba(255,0,0,0.12)';
-    for (let x = 0; x < size; x += 4) ctx.fillRect(x, 0, 1, size);
-    for (let y = 0; y < size; y += 4) ctx.fillRect(0, y, size, 1);
+    // Step 1: render the emoji at large size into a temp mask canvas
+    const tmp = document.createElement('canvas');
+    tmp.width = tmp.height = size;
+    const tctx = tmp.getContext('2d')!;
+    tctx.font = `${Math.floor(size * 0.78)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    tctx.textAlign = 'center';
+    tctx.textBaseline = 'middle';
+    tctx.fillStyle = '#ffffff';
+    tctx.fillText(emoji, size / 2, size / 2 + size * 0.04);
+    const data = tctx.getImageData(0, 0, size, size).data;
 
-    ctx.strokeStyle = ringColor;
-    ctx.lineWidth = 4;
-    ctx.shadowColor = ringColor;
-    ctx.shadowBlur = 24;
-    ctx.strokeRect(8, 8, size - 16, size - 16);
-    ctx.shadowBlur = 0;
+    // Step 2: dot-matrix sampling
+    const dotSpacing = Math.max(8, Math.floor(size / 36));
+    const dotRadius = dotSpacing * 0.36;
+    const flickerSeed = cyc ? Math.random() * 0.18 : 0;
 
-    ctx.globalAlpha = cyc ? 0.92 : 1;
-    ctx.font = `${Math.floor(size * 0.62)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = ringColor;
-    ctx.shadowBlur = 18;
-    ctx.fillText(emoji, cx, cy + size * 0.04);
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
+    for (let y = dotSpacing / 2; y < size; y += dotSpacing) {
+      for (let x = dotSpacing / 2; x < size; x += dotSpacing) {
+        const idx = (Math.floor(y) * size + Math.floor(x)) * 4;
+        const alpha = data[idx + 3];
+        const lit = alpha > 70;
+        if (lit) {
+          ctx.beginPath();
+          ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+          ctx.shadowColor = ringColor;
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = ringColor;
+          ctx.globalAlpha = 1 - flickerSeed;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+        } else {
+          // Dim LED (always present, just off)
+          ctx.beginPath();
+          ctx.arc(x, y, dotRadius * 0.45, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.04)';
+          ctx.fill();
+        }
+      }
+    }
 
     if (displayTex) displayTex.needsUpdate = true;
     if (resultLight) resultLight.color = new THREE.Color(ringColor);
@@ -240,148 +339,94 @@
     host.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0c14);
 
-    camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
-    camera.position.set(0, 0.4, 9);
-    camera.lookAt(0, 0, 0);
+    camera = new THREE.PerspectiveCamera(38, w / h, 0.1, 100);
+    camera.position.set(0.6, 0.6, 8.5);
+    camera.lookAt(0, 0.2, 0);
 
     // Lights ---------------------------------------------------------
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-
-    const key = new THREE.DirectionalLight(0xffffff, 0.7);
-    key.position.set(2, 4, 5);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const key = new THREE.DirectionalLight(0xffffff, 0.9);
+    key.position.set(3, 6, 6);
     scene.add(key);
+    const fill = new THREE.DirectionalLight(0xb8d4ff, 0.4);
+    fill.position.set(-4, 2, 4);
+    scene.add(fill);
 
-    const blueRim = new THREE.PointLight(0x2a72e5, 1.4, 12);
-    blueRim.position.set(0, 3, 1.5);
-    scene.add(blueRim);
-
-    resultLight = new THREE.PointLight(0xff4040, 1.0, 6);
-    resultLight.position.set(0, 0.4, 1.5);
+    resultLight = new THREE.PointLight(0xffffff, 0.6, 4);
+    resultLight.position.set(-1.05, 0.4, 1.2);
     scene.add(resultLight);
 
     // Cabinet --------------------------------------------------------
     cabinet = new THREE.Group();
     scene.add(cabinet);
 
-    // Outer black frame
-    const frameMat = new THREE.MeshStandardMaterial({
-      color: 0x000000,
-      roughness: 0.7,
-      metalness: 0.2
-    });
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(4.2, 6.2, 1.05), frameMat);
-    frame.position.z = -0.05;
-    cabinet.add(frame);
+    const bodyColor = 0xf2efe6; // warm cream/off-white from the photo
+    const trimColor = 0xb8b4a8; // silver/chrome trim
 
-    // Cabinet body (slightly inset on top of the frame)
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: 0x131927,
-      roughness: 0.55,
-      metalness: 0.25
+    // Outer trim frame (slightly larger and silver)
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: trimColor,
+      roughness: 0.45,
+      metalness: 0.6
     });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 1), bodyMat);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(4.7, 6.5, 1.3), trimMat);
+    trim.position.z = -0.02;
+    cabinet.add(trim);
+
+    // Body
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: bodyColor,
+      roughness: 0.65,
+      metalness: 0.05
+    });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.55, 6.35, 1.25), bodyMat);
     cabinet.add(body);
 
-    // Marquee panel ----------------------------------------------
-    const marqueePanelMat = new THREE.MeshStandardMaterial({
-      color: 0x1a56b8,
-      emissive: 0x2a72e5,
-      emissiveIntensity: 0.55,
-      roughness: 0.35,
-      metalness: 0.2
+    // Screen — the BIG flat panel on the upper portion of the cabinet
+    const screenW = 4.2;
+    const screenH = 3.0;
+    const screenY = 0.85;
+
+    // Black bezel around the screen
+    const bezelMat = new THREE.MeshStandardMaterial({
+      color: 0x0c0c10,
+      roughness: 0.4,
+      metalness: 0.3
     });
-    const marquee = new THREE.Mesh(
-      new THREE.BoxGeometry(3.6, 0.7, 0.06),
-      marqueePanelMat
+    const bezel = new THREE.Mesh(
+      new THREE.BoxGeometry(screenW + 0.18, screenH + 0.18, 0.05),
+      bezelMat
     );
-    marquee.position.set(0, 2.4, 0.52);
-    cabinet.add(marquee);
+    bezel.position.set(0, screenY, 0.626);
+    cabinet.add(bezel);
 
-    const marqueeTex = makeMarqueeTexture();
-    const marqueeText = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.5, 0.6),
-      new THREE.MeshBasicMaterial({ map: marqueeTex, transparent: true, toneMapped: false })
+    // Screen background (cyan painted/printed face)
+    const bgTex = makeScreenBackgroundTexture(1024);
+    const screenBg = new THREE.Mesh(
+      new THREE.PlaneGeometry(screenW, screenH),
+      new THREE.MeshBasicMaterial({ map: bgTex, toneMapped: false })
     );
-    marqueeText.position.set(0, 2.4, 0.56);
-    cabinet.add(marqueeText);
+    screenBg.position.set(0, screenY, 0.652);
+    cabinet.add(screenBg);
 
-    // Marquee blinker dots (3D)
-    const dotMat = new THREE.MeshStandardMaterial({
-      color: 0xffe29a,
-      emissive: 0xffe29a,
-      emissiveIntensity: 1.2
-    });
-    for (let i = -2; i <= 2; i++) {
-      if (i === 0) continue;
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), dotMat.clone());
-      dot.position.set(i * 0.3, 2.78, 0.6);
-      dot.userData.isDot = true;
-      dot.userData.phase = (i + 2) * 0.18;
-      cabinet.add(dot);
-    }
-
-    // Screen recess --------------------------------------------------
-    // Black frame around the screen
-    const screenFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(3.4, 2.8, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.6 })
-    );
-    screenFrame.position.set(0, 0.5, 0.515);
-    cabinet.add(screenFrame);
-
-    // Recessed screen back (slightly behind cabinet front)
-    const screenBack = new THREE.Mesh(
-      new THREE.BoxGeometry(3.2, 2.6, 0.02),
-      new THREE.MeshStandardMaterial({ color: 0x05060d, roughness: 0.4 })
-    );
-    screenBack.position.set(0, 0.5, 0.49);
-    cabinet.add(screenBack);
-
-    // Wheel ----------------------------------------------------------
-    wheelGroup = new THREE.Group();
-    wheelGroup.position.set(0, 0.5, 0.51);
-    cabinet.add(wheelGroup);
-
+    // Wheel — separate plane, slightly in front of the screen so it can spin
+    // independently. Centered over the LEFT half of the screen as in the photo.
     const wheelTex = makeWheelTexture(1024);
-    const wheelMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.05, 1.05, 0.05, 96, 1, false),
-      [
-        new THREE.MeshStandardMaterial({ color: 0x000000 }),
-        new THREE.MeshStandardMaterial({
-          map: wheelTex,
-          roughness: 0.35,
-          metalness: 0.05
-        }),
-        new THREE.MeshStandardMaterial({ color: 0x000000 })
-      ]
-    );
-    wheelMesh.rotation.x = -Math.PI / 2; // top face → +Z (toward camera)
-    wheelGroup.add(wheelMesh);
-
-    // Wheel rim (slightly larger torus on the front face)
-    const wheelRim = new THREE.Mesh(
-      new THREE.TorusGeometry(1.07, 0.03, 12, 96),
-      new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.6 })
-    );
-    wheelRim.position.z = 0.025;
-    cabinet.add(wheelRim);
-    // Note: rim outside wheelGroup so it doesn't spin
-
-    // Pointer at top of the wheel
-    const pointer = new THREE.Mesh(
-      new THREE.ConeGeometry(0.1, 0.22, 4),
-      new THREE.MeshStandardMaterial({
-        color: 0xffe29a,
-        emissive: 0xffe29a,
-        emissiveIntensity: 0.7
+    const wheelDiam = screenH * 0.92;
+    wheelMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(wheelDiam, wheelDiam),
+      new THREE.MeshBasicMaterial({
+        map: wheelTex,
+        transparent: true,
+        toneMapped: false
       })
     );
-    pointer.rotation.x = Math.PI; // tip points down
-    pointer.position.set(0, 1.65, 0.55);
-    cabinet.add(pointer);
+    wheelMesh.position.set(-screenW * 0.18, screenY - 0.05, 0.66);
+    cabinet.add(wheelMesh);
 
-    // LED display in the middle of the wheel
+    // LED display in the center of the wheel
     displayCanvas = document.createElement('canvas');
     displayCanvas.width = displayCanvas.height = 512;
     drawDisplay(displayEmoji, resultKind, cycling);
@@ -392,73 +437,129 @@
       transparent: true,
       toneMapped: false
     });
-    displayMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), displayMat);
-    displayMesh.position.set(0, 0.5, 0.6);
+    const dispSize = wheelDiam * 0.42;
+    displayMesh = new THREE.Mesh(new THREE.PlaneGeometry(dispSize, dispSize), displayMat);
+    displayMesh.position.set(-screenW * 0.18, screenY - 0.05, 0.668);
     cabinet.add(displayMesh);
 
-    // Control deck (sloped panel below the screen) ------------------
-    const deck = new THREE.Mesh(
-      new THREE.BoxGeometry(3.6, 0.32, 1.1),
-      new THREE.MeshStandardMaterial({
-        color: 0x243049,
-        roughness: 0.6,
-        metalness: 0.15
-      })
+    // Pointer (small triangle at top of the wheel)
+    const pointerGeom = new THREE.Shape();
+    pointerGeom.moveTo(0, 0);
+    pointerGeom.lineTo(-0.07, 0.16);
+    pointerGeom.lineTo(0.07, 0.16);
+    pointerGeom.lineTo(0, 0);
+    const pointerMesh = new THREE.Mesh(
+      new THREE.ShapeGeometry(pointerGeom),
+      new THREE.MeshBasicMaterial({ color: 0xff3333, toneMapped: false })
     );
-    deck.position.set(0, -1.7, 0.6);
-    deck.rotation.x = -Math.PI / 9;
+    pointerMesh.position.set(-screenW * 0.18, screenY - 0.05 + wheelDiam / 2 - 0.04, 0.665);
+    cabinet.add(pointerMesh);
+
+    // Speaker section (decorative grille) ----------------------------
+    function makeSpeakerGrille(): THREE.Mesh {
+      const c = document.createElement('canvas');
+      c.width = c.height = 256;
+      const cc = c.getContext('2d')!;
+      cc.fillStyle = '#5a5a5a';
+      cc.fillRect(0, 0, 256, 256);
+      cc.fillStyle = '#1a1a1a';
+      const spacing = 14;
+      for (let y = spacing; y < 256; y += spacing) {
+        for (let x = spacing; x < 256; x += spacing) {
+          cc.beginPath();
+          cc.arc(x, y, 4, 0, Math.PI * 2);
+          cc.fill();
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(
+        new THREE.CircleGeometry(0.42, 32),
+        new THREE.MeshStandardMaterial({
+          map: tex,
+          roughness: 0.6,
+          metalness: 0.2
+        })
+      );
+      return m;
+    }
+
+    const spkY = -0.95;
+    const spkLeft = makeSpeakerGrille();
+    spkLeft.position.set(-1.6, spkY, 0.626);
+    cabinet.add(spkLeft);
+    const spkRight = makeSpeakerGrille();
+    spkRight.position.set(1.6, spkY, 0.626);
+    cabinet.add(spkRight);
+
+    // Center toggle/coin slot strip between speakers
+    const stripMat = new THREE.MeshStandardMaterial({
+      color: 0x2a2a2a,
+      roughness: 0.4,
+      metalness: 0.5
+    });
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.32, 0.08), stripMat);
+    strip.position.set(0, spkY, 0.66);
+    cabinet.add(strip);
+
+    // Control deck (sloped panel below speakers) --------------------
+    const deckMat = new THREE.MeshStandardMaterial({
+      color: bodyColor,
+      roughness: 0.6
+    });
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(4.55, 0.36, 1.4), deckMat);
+    deck.position.set(0, -2.0, 0.6);
+    deck.rotation.x = -Math.PI / 8;
     cabinet.add(deck);
 
-    // Three buttons --------------------------------------------------
-    for (let i = 0; i < 3; i++) {
+    // Three buttons: 가위 / 바위 / 보 in photo's left-to-right order ---
+    for (let slot = 0; slot < 3; slot++) {
+      const layout = BUTTON_LAYOUT[slot];
       const group = new THREE.Group();
 
+      // Black collar/skirt
+      const skirt = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.42, 0.44, 0.08, 32),
+        new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.6 })
+      );
+      skirt.position.y = -0.13;
+      group.add(skirt);
+
+      // Cap with a slightly translucent feel (real arcade buttons are glossy)
       const cap = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.32, 0.36, 0.18, 32),
+        new THREE.CylinderGeometry(0.36, 0.4, 0.2, 32),
         new THREE.MeshStandardMaterial({
-          color: BUTTON_COLORS[i],
-          emissive: BUTTON_COLORS[i],
-          emissiveIntensity: 0.06,
-          roughness: 0.35,
+          color: layout.color,
+          emissive: layout.color,
+          emissiveIntensity: 0.08,
+          roughness: 0.25,
           metalness: 0.05
         })
       );
       group.add(cap);
 
-      // Black ring under the cap
-      const skirt = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.4, 0.42, 0.06, 32),
-        new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.7 })
-      );
-      skirt.position.y = -0.12;
-      group.add(skirt);
-
-      // Emoji label on top
-      const labelTex = makeButtonLabelTexture(HAND_LABELS[i]);
+      // Korean label below the button on the deck (small floating plane)
+      const labelTex = makeButtonLabelTexture(layout.label, 256);
       const label = new THREE.Mesh(
-        new THREE.CircleGeometry(0.28, 32),
-        new THREE.MeshBasicMaterial({
-          map: labelTex,
-          transparent: true,
-          toneMapped: false
-        })
+        new THREE.PlaneGeometry(0.6, 0.3),
+        new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, toneMapped: false })
       );
+      label.position.set(0, -0.18, 0.5);
       label.rotation.x = -Math.PI / 2;
-      label.position.y = 0.092;
       group.add(label);
 
-      group.position.set(BUTTON_X[i], BUTTON_BASE_Y, 0.95);
-      group.rotation.x = -Math.PI / 9; // match deck slope
-      group.userData = { handIdx: i };
+      // Position group on the deck, tilted to match the deck slope
+      group.position.set(BUTTON_X[slot], BUTTON_BASE_Y, 1.05);
+      group.rotation.x = -Math.PI / 8;
+      group.userData = { handIdx: layout.idx };
 
       cabinet.add(group);
       buttonGroups.push(group);
       buttonCaps.push(cap);
-      // raycast against everything in the group
       group.traverse((c) => pickables.push(c));
     }
 
-    // Pointer / raycaster --------------------------------------------
+    // Pointer / raycaster
     raycaster = new THREE.Raycaster();
     pointerVec = new THREE.Vector2();
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
@@ -467,7 +568,6 @@
     animate(performance.now());
   }
 
-  // Cubic-bezier-ish ease-out
   function easeOut(t: number): number {
     const c = Math.max(0, Math.min(1, t));
     return 1 - Math.pow(1 - c, 4);
@@ -481,12 +581,13 @@
     raycaster.setFromCamera(pointerVec, camera);
     const hits = raycaster.intersectObjects(pickables, false);
     if (hits.length === 0) return;
-
     let obj: THREE.Object3D | null = hits[0].object;
     while (obj && obj.userData?.handIdx === undefined) obj = obj.parent;
     if (obj && typeof obj.userData?.handIdx === 'number') {
       const idx = obj.userData.handIdx as number;
-      buttonOffsets[idx] = BUTTON_PRESS_DEPTH;
+      // Find which slot this hand index belongs to
+      const slot = BUTTON_LAYOUT.findIndex((b) => b.idx === idx);
+      if (slot >= 0) buttonOffsets[slot] = BUTTON_PRESS_DEPTH;
       onSelectHand?.(idx);
     }
   }
@@ -495,7 +596,6 @@
     if (!renderer) return;
     frameId = requestAnimationFrame(animate);
 
-    // Wheel rotation tween
     if (tweenStart > 0) {
       const t = (now - tweenStart) / TWEEN_DURATION;
       const k = easeOut(t);
@@ -505,40 +605,25 @@
         tweenStart = 0;
       }
     }
-    if (wheelGroup) wheelGroup.rotation.z = currentAngle;
+    if (wheelMesh) wheelMesh.rotation.z = currentAngle;
 
-    // Buttons: ease offset back toward 0, plus a static depression for selected
+    // Buttons — selected slot stays slightly pressed and brighter
     for (let i = 0; i < buttonGroups.length; i++) {
-      // Selected hand stays slightly pressed and brighter
-      const selectedDepth = selectedHand === i ? -0.025 : 0;
-      const target = selectedDepth;
+      const layout = BUTTON_LAYOUT[i];
+      const isSelected = selectedHand === layout.idx;
+      const target = isSelected ? -0.02 : 0;
       buttonOffsets[i] += (target - buttonOffsets[i]) * 0.18;
-      const g = buttonGroups[i];
-      // Recompute position keeping the slope: the deck tilts -PI/9 around X.
-      // We just nudge buttons along their local Y down/up.
-      g.position.y = BUTTON_BASE_Y + buttonOffsets[i];
+      buttonGroups[i].position.y = BUTTON_BASE_Y + buttonOffsets[i];
 
-      // Selected glow
       const cap = buttonCaps[i];
       const m = cap.material as THREE.MeshStandardMaterial;
-      const targetEmissive = selectedHand === i ? 0.6 : 0.06;
+      const targetEmissive = isSelected ? 0.55 : 0.08;
       m.emissiveIntensity += (targetEmissive - m.emissiveIntensity) * 0.15;
     }
 
-    // Marquee blinker dots
-    cabinet.traverse((o) => {
-      if (o.userData?.isDot) {
-        const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        const phase = o.userData.phase as number;
-        const v = 0.5 + 0.5 * Math.sin(now * 0.005 + phase * 4);
-        m.emissiveIntensity = 0.4 + v * 1.2;
-      }
-    });
-
-    // Subtle camera drift
-    camera.position.x = Math.sin(now * 0.00025) * 0.18;
-    camera.position.y = 0.4 + Math.sin(now * 0.0004) * 0.05;
-    camera.lookAt(0, 0, 0);
+    // Subtle camera bob
+    camera.position.y = 0.6 + Math.sin(now * 0.0004) * 0.04;
+    camera.lookAt(0, 0.2, 0);
 
     renderer.render(scene, camera);
   }
@@ -549,7 +634,7 @@
     if (!renderer) return;
     if (targetRotationDeg === lastTargetDeg) return;
     lastTargetDeg = targetRotationDeg;
-    const target = -(targetRotationDeg * Math.PI) / 180; // CSS-clockwise → -Z
+    const target = -(targetRotationDeg * Math.PI) / 180;
     tweenFromAngle = currentAngle;
     tweenToAngle = target;
     tweenStart = performance.now();
@@ -584,8 +669,6 @@
   // ─── Lifecycle ─────────────────────────────────────────────────────
   onMount(() => {
     if (!host) return;
-
-    // Wait for measurable dimensions before initializing.
     resizeObs = new ResizeObserver(() => {
       if (!host) return;
       const w = host.clientWidth;
@@ -600,7 +683,6 @@
       }
     });
     resizeObs.observe(host);
-
     const w0 = host.clientWidth;
     const h0 = host.clientHeight;
     if (w0 > 0 && h0 > 0) setup(w0, h0);
@@ -626,12 +708,12 @@
   .cabinet3d {
     width: 100%;
     height: 100%;
-    min-height: 360px;
+    min-height: 420px;
     aspect-ratio: 4 / 5;
     position: relative;
     overflow: hidden;
     border-radius: 12px;
-    background: radial-gradient(ellipse at 50% 30%, #0d1a40 0%, #050b22 100%);
+    background: #0a0c14;
     user-select: none;
     touch-action: none;
   }
