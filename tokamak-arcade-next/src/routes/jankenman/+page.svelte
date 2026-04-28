@@ -4,7 +4,8 @@
   import { i18n } from '$lib/i18n.svelte';
   import { wallet, pub, shortAddr } from '$lib/wallet.svelte';
   import { CONFIG } from '$lib/config';
-  import Topbar from '$lib/components/Topbar.svelte';
+  import { TOKAMAK_SYMBOL_DATA_URI } from '$lib/brand';
+  import LangToggle from '$lib/components/LangToggle.svelte';
   import { jankenMascot } from '$lib/mascots';
   import {
     JANKENMAN_ABI as ABI,
@@ -205,7 +206,6 @@
       poolOthers = Math.max(0, poolEth - myClaimEth).toFixed(4);
       poolBarMine = Math.min(100, myPct);
 
-      // LP previews
       const amt = Number(lpAmount || 0);
       let depPrev = '—';
       if (amt > 0) {
@@ -325,7 +325,7 @@
     }
     const nowSec = BigInt(Math.floor(Date.now() / 1000));
     if (liveValidUntil <= nowSec) {
-      setStatus('lose', 'NO ACTIVE SESSION — use "Start session" above');
+      setStatus('lose', 'NO ACTIVE SESSION — start a session above');
       return;
     }
     if (liveCredits < betWei) {
@@ -395,7 +395,7 @@
         await spinWheel(result.mult);
       }
       paintResult();
-      history = [{ result, hash }, ...history].slice(0, 8);
+      history = [{ result, hash }, ...history].slice(0, 10);
       await refreshPool();
       await refreshSession();
     } catch (err: any) {
@@ -424,11 +424,11 @@
     lockDisplay(HANDS[hHand], kind);
 
     if (outcome === 1) {
-      setStatus('draw', `🤝 DRAW · <b>${formatEther(bet)} ETH</b> REFUNDED`, true);
+      setStatus('draw', `DRAW · ${formatEther(bet)} ETH refunded`);
     } else if (outcome === 0) {
-      setStatus('lose', `💧 LOSS · <b>−${formatEther(bet)} ETH</b> → POOL`, true);
+      setStatus('lose', `LOSS · −${formatEther(bet)} ETH → pool`);
     } else {
-      setStatus('win', `🎉 WIN <b>${mult}×</b> · <b>+${formatEther(payout)} ETH</b>`, true);
+      setStatus('win', `WIN ${mult}× · +${formatEther(payout)} ETH`);
     }
   }
 
@@ -675,11 +675,22 @@
     await refreshPool();
   }
 
+  async function onConnect() {
+    if (wallet.account) return;
+    try {
+      await wallet.connect();
+    } catch (err: any) {
+      console.error('[connect]', err);
+      alert(err?.message ?? String(err));
+    }
+  }
+
   // ─── Derived ──────────────────────────────────────────────────────
   const betNum = $derived(Number(betEth || '0'));
   const evNum = $derived(-0.07 * betNum);
-  const fmt = (x: number) => (x >= 100 ? x.toFixed(1) : x >= 10 ? x.toFixed(2) : x.toFixed(4));
-  const playDisabled = $derived(busy || selectedHand === null);
+  const expectedPayoutOnWin = $derived(betNum * 1.79); // E[M|win] = 1.79
+  const fmt = (x: number) => (x >= 100 ? x.toFixed(2) : x >= 10 ? x.toFixed(3) : x.toFixed(4));
+  const playDisabled = $derived(busy || selectedHand === null || !sessionActive);
   const sessionRemainingLabel = $derived.by(() => {
     if (!sessionActive) return '—';
     const s = sessionRemaining;
@@ -689,6 +700,12 @@
   });
   const sessionKeyAddr = $derived(session ? shortAddr(session.account.address) : '—');
   const sessionKeyFull = $derived(session ? session.account.address : '—');
+  const connectLabel = $derived.by(() => {
+    if (wallet.connecting) return i18n.t('common.connecting');
+    if (wallet.account) return shortAddr(wallet.account);
+    if (!wallet.hasProvider) return i18n.t('common.noWallet');
+    return i18n.t('common.connect');
+  });
 
   function setHand(i: number) {
     selectedHand = i;
@@ -732,302 +749,405 @@
     angle: i * 36 + 18,
     m: seg.m
   }));
+
+  // ─── Sidebar nav icons (inline SVG, currentColor) ─────────────────
+  const navGameIcon = `
+<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M5 3 L15 9 L5 15 z" fill="currentColor"/>
+</svg>`;
+  const navLpIcon = `
+<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M9 2 C 5.5 6.5, 4 9, 4 11.5 a 5 5 0 0 0 10 0 C 14 9, 12.5 6.5, 9 2 z"/>
+</svg>`;
+  const navLbIcon = `
+<svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+  <path d="M5 3 h8 v3 a4 4 0 0 1 -8 0 z"/>
+  <path d="M3 4 h2 v2 a 2 2 0 0 1 -2 0 z M13 4 h2 v2 a 2 2 0 0 1 -2 0 z"/>
+  <path d="M7 11 h4 l-0.5 4 h-3 z"/>
+  <path d="M5.5 15 h7"/>
+</svg>`;
 </script>
 
 <svelte:head>
   <title>{i18n.t('janken.title')}</title>
 </svelte:head>
 
-<div id="topbar">
-  <Topbar hubHref="/" brand={true} />
-</div>
-
-<div class="dfi-shell">
-  <a class="tokamak-back" href="/">{i18n.t('common.back.landing')}</a>
-
-  <div class="dfi-head">
-    <div class="mascot">{@html jankenMascot({ size: 44 })}</div>
-    <h2>Jankenman</h2>
-    <span class="contract-pill">
-      <b>contract</b>
-      <span>
-        {CONFIG.jankenman === '0x0000000000000000000000000000000000000000'
-          ? 'not deployed'
-          : `${CONFIG.jankenman.slice(0, 6)}…${CONFIG.jankenman.slice(-4)}`}
+<div class="gmx-shell">
+  <aside class="sb">
+    <a class="sb-brand" href="/">
+      <span class="sb-mark">
+        <img src={TOKAMAK_SYMBOL_DATA_URI} alt="Tokamak Network" />
       </span>
-    </span>
-  </div>
+      <span class="sb-name">Jankenman</span>
+    </a>
 
-  <div class="dfi-body">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sb-section">{i18n.t('janken.nav.section')}</div>
-      <nav class="sb-nav">
-        <button
-          class="sb-item"
-          class:active={activeView === 'game'}
-          onclick={() => (activeView = 'game')}
-        >
-          <span class="sb-icon" aria-hidden="true">🎮</span>
-          <span class="sb-text">
-            <span class="sb-label">{i18n.t('janken.nav.game')}</span>
-            <span class="sb-sub">{i18n.t('janken.nav.gameSub')}</span>
-          </span>
-        </button>
-        <button
-          class="sb-item"
-          class:active={activeView === 'lp'}
-          onclick={() => (activeView = 'lp')}
-        >
-          <span class="sb-icon" aria-hidden="true">💧</span>
-          <span class="sb-text">
-            <span class="sb-label">{i18n.t('janken.nav.lp')}</span>
-            <span class="sb-sub">{i18n.t('janken.nav.lpSub')}</span>
-          </span>
-        </button>
-        <button
-          class="sb-item"
-          class:active={activeView === 'leaderboard'}
-          onclick={() => (activeView = 'leaderboard')}
-        >
-          <span class="sb-icon" aria-hidden="true">🏆</span>
-          <span class="sb-text">
-            <span class="sb-label">{i18n.t('janken.nav.leaderboard')}</span>
-            <span class="sb-sub">{i18n.t('janken.nav.leaderboardSub')}</span>
-          </span>
-        </button>
-      </nav>
+    <nav class="sb-nav">
+      <button
+        class="sb-item"
+        class:active={activeView === 'game'}
+        onclick={() => (activeView = 'game')}
+      >
+        <span class="sb-icon">{@html navGameIcon}</span>
+        <span>{i18n.t('janken.nav.game')}</span>
+      </button>
+      <button
+        class="sb-item"
+        class:active={activeView === 'lp'}
+        onclick={() => (activeView = 'lp')}
+      >
+        <span class="sb-icon">{@html navLpIcon}</span>
+        <span>{i18n.t('janken.nav.lp')}</span>
+      </button>
+      <button
+        class="sb-item"
+        class:active={activeView === 'leaderboard'}
+        onclick={() => (activeView = 'leaderboard')}
+      >
+        <span class="sb-icon">{@html navLbIcon}</span>
+        <span>{i18n.t('janken.nav.leaderboard')}</span>
+      </button>
+    </nav>
 
-      <div class="sb-mini">
-        <div class="sb-mini-row">
-          <span class="k">{i18n.t('janken.kpi.tvl')}</span>
-          <span class="v">{kpiTvl} ETH</span>
+    <div class="sb-foot">
+      <LangToggle />
+      <a class="sb-back" href="/">←</a>
+    </div>
+  </aside>
+
+  <div class="gmx-main">
+    <header class="topbar">
+      <div class="pair">
+        <span class="pair-icon">{@html jankenMascot({ size: 24 })}</span>
+        <span class="pair-name">JANKENMAN</span>
+        <span class="pair-tag">[RPS-ETH]</span>
+      </div>
+
+      <div class="topbar-metrics">
+        <div class="metric">
+          <span class="m-k">POOL TVL</span>
+          <span class="m-v">{kpiTvl}<span class="m-u">ETH</span></span>
         </div>
-        <div class="sb-mini-row">
-          <span class="k">{i18n.t('janken.kpi.vrf')}</span>
-          <span class="v vrf-v">#{kpiVrf}</span>
+        <div class="metric">
+          <span class="m-k">HOUSE EDGE</span>
+          <span class="m-v">7.00<span class="m-u">%</span></span>
         </div>
-        <div class="sb-mini-row">
-          <span class="k">{i18n.t('janken.kpi.sharePrice')}</span>
-          <span class="v">{kpiPrice} Ξ</span>
+        <div class="metric">
+          <span class="m-k">SHARE PRICE</span>
+          <span class="m-v">{kpiPrice}<span class="m-u">Ξ</span></span>
+        </div>
+        <div class="metric vrf-metric">
+          <span class="m-k">VRF COMMIT</span>
+          <span class="m-v">#{kpiVrf}</span>
         </div>
       </div>
-    </aside>
 
-    <!-- Main content -->
-    <div class="dfi-main">
-      <!-- Game view -->
+      <button
+        class="connect"
+        disabled={wallet.connecting}
+        onclick={onConnect}
+      >
+        {connectLabel}
+      </button>
+    </header>
+
+    <main class="content">
       {#if activeView === 'game'}
-        <div class="kpi-strip game-kpis">
-          <div class="kpi vrf">
-            <span class="pulse-dot"></span>
-            <span class="k">{i18n.t('janken.kpi.vrf')}</span>
-            <span class="v">#{kpiVrf}</span>
-          </div>
-          <div class="kpi blue">
-            <span class="k">{i18n.t('janken.kpi.houseEdge')}</span>
-            <span class="v">7.00<span class="u">%</span></span>
-          </div>
-        </div>
-
-        <div class="session-strip">
-          <span class="status-badge {sessionBadge.cls}">{sessionBadge.text}</span>
-          <div class="session-chips">
-            <div class="session-chip hl">
-              <span class="k">{i18n.t('janken.session.credits')}</span>
-              <span class="v">{Number(formatEther(sessionCredits)).toFixed(4)} ETH</span>
-            </div>
-            <div class="session-chip">
-              <span class="k">{i18n.t('janken.session.key')}</span>
-              <span class="v" title={sessionKeyFull}>{sessionKeyAddr}</span>
-            </div>
-            <div class="session-chip">
-              <span class="k">{i18n.t('janken.session.expires')}</span>
-              <span class="v">{sessionRemainingLabel}</span>
-            </div>
-            <div class="session-chip">
-              <span class="k">{i18n.t('janken.session.gas')}</span>
-              <span class="v">{Number(formatEther(sessionGas)).toFixed(4)} ETH</span>
-            </div>
-          </div>
-          <div class="session-actions">
-            {#if !sessionActive}
-              <button class="s-btn primary" onclick={openSessionModal}>
-                {i18n.t('janken.session.start')}
-              </button>
-            {:else}
-              <button class="s-btn" onclick={topUp}>{i18n.t('janken.session.topup')}</button>
-            {/if}
-            {#if sessionActive || sessionCredits > 0n}
-              <button class="s-btn warn" onclick={endSession}>
-                {i18n.t('janken.session.end')}
-              </button>
-            {/if}
-          </div>
-        </div>
-
-        <div class="play-grid">
-        <div class="panel cabinet-wrap">
-          <div class="arcade-cabinet">
-            <div class="cabinet-marquee">
-              <span class="ml"></span><span class="ml"></span><span class="ml"></span>
-              <span class="mt">JANKENMAN</span>
-              <span class="ml"></span><span class="ml"></span><span class="ml"></span>
-            </div>
-            <div class="cabinet-screen">
-              <div class="jk-stage">
-                <div class="jk-pointer"></div>
-                <div
-                  class="jk-ring"
-                  style="transform: rotate({wheelRotation}deg); transition: transform {wheelTransitionMs}ms cubic-bezier(0.18, 0.9, 0.24, 1);"
-                >
-                  <svg viewBox="0 0 200 200">
-                    {#each wheelLabels as l}
-                      <text
-                        x="100"
-                        y="28"
-                        text-anchor="middle"
-                        dominant-baseline="middle"
-                        fill="#ffffff"
-                        font-weight="800"
-                        font-size="17"
-                        font-family="Fredoka, sans-serif"
-                        transform="rotate({l.angle} 100 100)"
-                        style="paint-order: stroke; stroke: rgba(0,0,0,0.35); stroke-width: 1px;"
-                      >
-                        {l.m}×
-                      </text>
-                    {/each}
-                  </svg>
+        <section class="game-grid">
+          <!-- LEFT: arcade cabinet (the "chart" area) -->
+          <div class="board-panel">
+            <div class="arcade-cabinet">
+              <div class="cabinet-marquee">
+                <span class="ml"></span><span class="ml"></span><span class="ml"></span>
+                <span class="mt">JANKENMAN</span>
+                <span class="ml"></span><span class="ml"></span><span class="ml"></span>
+              </div>
+              <div class="cabinet-screen">
+                <div class="jk-stage">
+                  <div class="jk-pointer"></div>
+                  <div
+                    class="jk-ring"
+                    style="transform: rotate({wheelRotation}deg); transition: transform {wheelTransitionMs}ms cubic-bezier(0.18, 0.9, 0.24, 1);"
+                  >
+                    <svg viewBox="0 0 200 200">
+                      {#each wheelLabels as l}
+                        <text
+                          x="100"
+                          y="28"
+                          text-anchor="middle"
+                          dominant-baseline="middle"
+                          fill="#ffffff"
+                          font-weight="800"
+                          font-size="17"
+                          font-family="Inter, sans-serif"
+                          transform="rotate({l.angle} 100 100)"
+                          style="paint-order: stroke; stroke: rgba(0,0,0,0.35); stroke-width: 1px;"
+                        >
+                          {l.m}×
+                        </text>
+                      {/each}
+                    </svg>
+                  </div>
+                  <div class="jk-hub-ring"></div>
+                  <div class="jk-display {displayCycling ? 'cycling' : ''} {displayResultClass}">
+                    <span class="jk-display-emoji">{displayEmoji}</span>
+                  </div>
                 </div>
-                <div class="jk-hub-ring"></div>
-                <div class="jk-display {displayCycling ? 'cycling' : ''} {displayResultClass}">
-                  <span class="jk-display-emoji">{displayEmoji}</span>
+                <div class="status-line {statusKind}">
+                  <span class="status-dot"></span>
+                  {#if statusHtml}
+                    <span class="status-text">{@html statusText}</span>
+                  {:else}
+                    <span class="status-text">{statusText || i18n.t('janken.ready')}</span>
+                  {/if}
                 </div>
               </div>
-              <div class="status-line {statusKind}">
-                <span class="status-dot"></span>
-                {#if statusHtml}
-                  <span class="status-text">{@html statusText}</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: bet slip -->
+          <aside class="slip-panel">
+            <!-- Session strip -->
+            <div class="session-row">
+              <span class="badge {sessionBadge.cls}">{sessionBadge.text}</span>
+              <span class="credits">
+                {Number(formatEther(sessionCredits)).toFixed(4)} ETH
+              </span>
+              <span class="exp">⏱ {sessionRemainingLabel}</span>
+              <div class="actions">
+                {#if !sessionActive}
+                  <button class="s-btn primary" onclick={openSessionModal}>
+                    {i18n.t('janken.session.start')}
+                  </button>
                 {:else}
-                  <span class="status-text">{statusText || i18n.t('janken.ready')}</span>
+                  <button class="s-btn" onclick={topUp}>
+                    {i18n.t('janken.session.topup')}
+                  </button>
+                {/if}
+                {#if sessionActive || sessionCredits > 0n}
+                  <button class="s-btn warn" onclick={endSession} aria-label="end session">⨯</button>
                 {/if}
               </div>
             </div>
-            <div class="cabinet-controls">
+
+            <!-- Hand toggle (Long/Short/Swap equivalent) -->
+            <div class="hand-toggle" role="tablist">
               <button
-                class="arcade-btn rock"
-                class:selected={selectedHand === 0}
+                class="ht-btn rock"
+                class:active={selectedHand === 0}
                 disabled={busy}
                 onclick={() => setHand(0)}
               >
-                <span class="cap">✊</span><span class="tab">{i18n.t('janken.rock')}</span>
+                <span class="ht-cap">✊</span>
+                <span class="ht-tab">{i18n.t('janken.rock')}</span>
               </button>
               <button
-                class="arcade-btn paper"
-                class:selected={selectedHand === 1}
+                class="ht-btn paper"
+                class:active={selectedHand === 1}
                 disabled={busy}
                 onclick={() => setHand(1)}
               >
-                <span class="cap">✋</span><span class="tab">{i18n.t('janken.paper')}</span>
+                <span class="ht-cap">✋</span>
+                <span class="ht-tab">{i18n.t('janken.paper')}</span>
               </button>
               <button
-                class="arcade-btn sci"
-                class:selected={selectedHand === 2}
+                class="ht-btn sci"
+                class:active={selectedHand === 2}
                 disabled={busy}
                 onclick={() => setHand(2)}
               >
-                <span class="cap">✌️</span><span class="tab">{i18n.t('janken.scissors')}</span>
+                <span class="ht-cap">✌️</span>
+                <span class="ht-tab">{i18n.t('janken.scissors')}</span>
               </button>
             </div>
-          </div>
-        </div>
 
-        <div class="panel dim">
-          <div class="h">
-            <h3>{i18n.t('janken.slip')}</h3>
-            <span class="tag">{i18n.t('janken.slip.tag')}</span>
-          </div>
-          <div class="slip-body">
-            <div class="input-row">
-              <input type="number" min="0.001" step="0.001" bind:value={betEth} />
-              <span class="unit">ETH</span>
-            </div>
-            <div class="preset-row">
-              {#each ['0.001', '0.01', '0.05', '0.1', '0.5'] as p}
-                <button class="preset" onclick={() => preset(p)}>{p}</button>
-              {/each}
-            </div>
-
-            <div class="payout-table">
-              <div class="hdr">
-                <span>{i18n.t('janken.slip.payout')}</span>
-                <span>{i18n.t('janken.slip.odds')}</span>
+            <!-- Bet input -->
+            <div class="slip-field">
+              <div class="slip-field-head">
+                <span>{i18n.t('janken.betAmount')}</span>
+                <span class="slip-field-tag">ETH</span>
               </div>
+              <div class="slip-input">
+                <input type="number" min="0.001" step="0.001" bind:value={betEth} />
+                <span class="unit">ETH</span>
+              </div>
+              <div class="preset-row">
+                {#each ['0.001', '0.01', '0.05', '0.1', '0.5'] as p}
+                  <button class="preset" onclick={() => preset(p)}>{p}</button>
+                {/each}
+              </div>
+            </div>
+
+            <!-- Multiplier distribution -->
+            <div class="mult-grid">
               {#each MULTS as { m, p }}
-                <div class="row">
-                  <span class="m">{m}×</span>
-                  <span class="amt">{fmt(betNum * m)} ETH</span>
-                  <span class="p">{p}%</span>
+                <div class="mult">
+                  <span class="mm">{m}×</span>
+                  <span class="mp">{p}%</span>
                 </div>
               {/each}
-              <div class="ev">
-                <span>{i18n.t('janken.slip.ev')}</span>
-                <span class="val" class:neg={evNum < 0}>{fmt(evNum)} ETH</span>
+            </div>
+
+            <!-- Play CTA -->
+            <button
+              class="big-cta"
+              disabled={playDisabled}
+              onclick={play}
+            >
+              {#if !wallet.account}
+                {i18n.t('common.connect')}
+              {:else if !sessionActive}
+                {i18n.t('janken.session.start')}
+              {:else if selectedHand === null}
+                {i18n.t('janken.ready')}
+              {:else}
+                {i18n.t('janken.playBtn')}
+              {/if}
+            </button>
+
+            <!-- Execution details -->
+            <div class="exec">
+              <div class="exec-row">
+                <span class="k">{i18n.t('janken.slip.payout')}</span>
+                <span class="v">{fmt(expectedPayoutOnWin)} ETH</span>
+              </div>
+              <div class="exec-row">
+                <span class="k">House edge</span>
+                <span class="v">7.00%</span>
+              </div>
+              <div class="exec-row">
+                <span class="k">{i18n.t('janken.slip.ev')}</span>
+                <span class="v" class:neg={evNum < 0}>{fmt(evNum)} ETH</span>
+              </div>
+              <div class="exec-row">
+                <span class="k">{i18n.t('janken.session.key')}</span>
+                <span class="v mono" title={sessionKeyFull}>{sessionKeyAddr}</span>
+              </div>
+              <div class="exec-row">
+                <span class="k">{i18n.t('janken.session.gas')}</span>
+                <span class="v">{Number(formatEther(sessionGas)).toFixed(4)} ETH</span>
+              </div>
+            </div>
+          </aside>
+        </section>
+      {:else if activeView === 'lp'}
+        <section class="lp-grid">
+          <div class="lp-card">
+            <header class="card-head">
+              <h3>{i18n.t('janken.yourPos')}</h3>
+              <span class="card-tag">{posPct}</span>
+            </header>
+            <div class="kpis-3">
+              <div class="kpi-item">
+                <span class="m-k">{i18n.t('janken.myShares')}</span>
+                <span class="m-v">{posShares}</span>
+              </div>
+              <div class="kpi-item">
+                <span class="m-k">{i18n.t('janken.myClaim')}</span>
+                <span class="m-v">{posClaimEth}<span class="m-u">ETH</span></span>
+              </div>
+              <div class="kpi-item">
+                <span class="m-k">{i18n.t('janken.poolShare')}</span>
+                <span class="m-v">{posPct}</span>
               </div>
             </div>
 
-            <button class="big-play-btn" disabled={playDisabled} onclick={play}>
-              <span>{i18n.t('janken.playBtn')}</span>
-              <span>→</span>
+            <div class="pool-bar-wrap">
+              <div class="pool-bar-head">
+                <span>{i18n.t('janken.poolBreakdown')}</span>
+                <span>{poolTotal} ETH</span>
+              </div>
+              <div class="pool-bar">
+                <div class="mine" style="width: {poolBarMine}%"></div>
+                <div class="rest" style="width: {100 - poolBarMine}%"></div>
+              </div>
+              <div class="pool-bar-foot">
+                <span>you {poolYou} ETH</span>
+                <span>others {poolOthers} ETH</span>
+              </div>
+            </div>
+
+            <div class="defi-note">{@html i18n.t('janken.defiNote')}</div>
+          </div>
+
+          <aside class="lp-card slim">
+            <header class="card-head">
+              <h3>{i18n.t('janken.manage')}</h3>
+            </header>
+
+            <div class="lp-form">
+              <div class="lp-section">
+                <span class="lp-hint">{i18n.t('janken.depositLabel')}</span>
+                <div class="slip-input">
+                  <input type="number" min="0.001" step="0.001" bind:value={lpAmount} />
+                  <span class="unit">ETH</span>
+                </div>
+                <span class="lp-hint">{depositPreview}</span>
+                <button class="big-cta success" onclick={lpDeposit}>
+                  {i18n.t('janken.lpDeposit')}
+                </button>
+              </div>
+
+              <div class="lp-divider"></div>
+
+              <div class="lp-section">
+                <span class="lp-hint">{i18n.t('janken.withdrawLabel')}</span>
+                <div class="slip-input">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="shares"
+                    bind:value={lpWithdrawShares}
+                  />
+                  <button class="preset inline" onclick={lpMax}>{i18n.t('janken.max')}</button>
+                </div>
+                <span class="lp-hint">{withdrawPreview}</span>
+                <button class="big-cta danger" onclick={lpWithdraw}>
+                  {i18n.t('janken.lpWithdraw')}
+                </button>
+              </div>
+            </div>
+          </aside>
+        </section>
+      {:else}
+        <section class="lb-empty">
+          <div class="lb-card">
+            <span class="card-tag">{i18n.t('janken.leaderboard.tag')}</span>
+            <h3>{i18n.t('janken.leaderboard.title')}</h3>
+            <p>{i18n.t('janken.leaderboard.soon')}</p>
+            <table class="pos-table">
+              <thead>
+                <tr>
+                  <th>{i18n.t('janken.leaderboard.col.rank')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.player')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.pnl')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.rounds')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.best')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="empty"><td colspan="5">indexer offline · check back soon</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {/if}
+
+      <!-- Bottom positions panel — recent rounds -->
+      <section class="positions-panel">
+        <header class="pos-head">
+          <div class="pos-tabs">
+            <button class="pt-btn active">
+              {i18n.t('janken.recent')} <span class="pt-count">{history.length}</span>
             </button>
-
-            <div class="defi-note">{@html i18n.t('janken.defiShort')}</div>
           </div>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-top: 18px">
-        <div class="h">
-          <h3>{i18n.t('janken.dist')}</h3>
-          <span class="tag">E[M|win] = 1.79 · EV = -7%</span>
-        </div>
-        <div class="dist-list">
-          <div class="dist-row m1">
-            <span class="m">1×</span>
-            <div class="bar"><span style="width: 100%"></span></div>
-            <span class="pct">70%</span>
+          <div class="pos-raw">
+            <span class="raw-label">{i18n.t('common.raw')}</span>
+            <code>{randHex.slice(0, 18)}{randHex.length > 18 ? '…' : ''}</code>
           </div>
-          <div class="dist-row m2">
-            <span class="m">2×</span>
-            <div class="bar"><span style="width: 25.7%"></span></div>
-            <span class="pct">18%</span>
-          </div>
-          <div class="dist-row m4">
-            <span class="m">4×</span>
-            <div class="bar"><span style="width: 11.4%"></span></div>
-            <span class="pct">8%</span>
-          </div>
-          <div class="dist-row m7">
-            <span class="m">7×</span>
-            <div class="bar"><span style="width: 4.3%"></span></div>
-            <span class="pct">3%</span>
-          </div>
-          <div class="dist-row m20">
-            <span class="m">20×</span>
-            <div class="bar"><span style="width: 1.4%"></span></div>
-            <span class="pct">1%</span>
-          </div>
-        </div>
-      </div>
-
-        <!-- Recent rounds (game-only) -->
-        <div class="panel">
-          <div class="h">
-            <h3>{i18n.t('janken.recent')}</h3>
-            <span class="tag">{history.length}</span>
-          </div>
-          <table class="rounds-table">
+        </header>
+        <div class="pos-table-wrap">
+          <table class="pos-table">
             <thead>
               <tr>
                 <th>{i18n.t('janken.col.outcome')}</th>
@@ -1047,223 +1167,85 @@
                   <tr>
                     <td>
                       <span
-                        class="outcome {r.outcome === 2
+                        class="outcome-pill {r.outcome === 2
                           ? 'win'
                           : r.outcome === 1
                             ? 'draw'
                             : 'lose'}"
                       >
-                        {r.outcome === 2
-                          ? `win ${r.mult}×`
-                          : r.outcome === 1
-                            ? 'draw'
-                            : 'lose'}
+                        {r.outcome === 2 ? `WIN ${r.mult}×` : r.outcome === 1 ? 'DRAW' : 'LOSE'}
                       </span>
                     </td>
                     <td>
                       {HAND_NAMES[r.pHand]}
-                      <span style="color: var(--ink-faint)">vs</span>
+                      <span class="muted">vs</span>
                       {HAND_NAMES[r.hHand]}
                     </td>
-                    <td>{formatEther(r.bet)} ETH</td>
-                    <td>
+                    <td>{formatEther(r.bet)}</td>
+                    <td
+                      class:pos={r.outcome === 2}
+                      class:neg={r.outcome === 0}
+                    >
                       {r.outcome === 2
                         ? `+${formatEther(r.payout)}`
                         : r.outcome === 1
                           ? '±0'
                           : `−${formatEther(r.bet)}`}
-                      ETH
                     </td>
-                    <td><span class="hash">{hash.slice(0, 10)}…</span></td>
+                    <td><span class="hash mono">{hash.slice(0, 10)}…</span></td>
                   </tr>
                 {/each}
               {/if}
             </tbody>
           </table>
-          <div style="margin-top: 12px">
-            <div class="raw-label">{i18n.t('common.raw')}</div>
-            <div class="hex-block">{randHex}</div>
-          </div>
         </div>
-      {/if}
-
-      <!-- LP Pool view -->
-      {#if activeView === 'lp'}
-        <div class="kpi-strip lp-kpis">
-          <div class="kpi">
-            <span class="k">{i18n.t('janken.kpi.tvl')}</span>
-            <span class="v">{kpiTvl}<span class="u">ETH</span></span>
-          </div>
-          <div class="kpi">
-            <span class="k">{i18n.t('janken.kpi.sharePrice')}</span>
-            <span class="v">{kpiPrice}<span class="u">Ξ / share</span></span>
-          </div>
-        </div>
-
-        <div class="liq-grid">
-        <div class="panel">
-          <div class="h">
-            <h3>{i18n.t('janken.yourPos')}</h3>
-            <span class="tag">{posPct}</span>
-          </div>
-          <div class="position-card">
-            <div class="pos-chip">
-              <span class="k">{i18n.t('janken.myShares')}</span>
-              <span class="v">{posShares}</span>
-            </div>
-            <div class="pos-chip">
-              <span class="k">{i18n.t('janken.myClaim')}</span>
-              <span class="v">
-                {posClaimEth} <span style="font-size: 11px; color: var(--ink-soft);">ETH</span>
-              </span>
-            </div>
-            <div class="pos-chip">
-              <span class="k">{i18n.t('janken.poolShare')}</span>
-              <span class="v">{posPct}</span>
-            </div>
-          </div>
-
-          <div style="margin-top: 14px">
-            <div class="pool-head">
-              <span>{i18n.t('janken.poolBreakdown')}</span>
-              <span>{poolTotal} ETH TVL</span>
-            </div>
-            <div class="pool-bar">
-              <div class="mine" style="width: {poolBarMine}%"></div>
-              <div class="rest" style="width: {100 - poolBarMine}%"></div>
-            </div>
-            <div class="pool-foot">
-              <span>you {poolYou} ETH</span>
-              <span>others {poolOthers} ETH</span>
-            </div>
-          </div>
-
-          <div class="defi-note" style="margin-top: 14px">
-            {@html i18n.t('janken.defiNote')}
-          </div>
-        </div>
-
-        <div class="panel dim">
-          <div class="h">
-            <h3>{i18n.t('janken.manage')}</h3>
-            <span class="tag">{i18n.t('janken.manage.tag')}</span>
-          </div>
-          <div class="lp-form">
-            <div>
-              <div class="lp-hint">{i18n.t('janken.depositLabel')}</div>
-              <div class="input-row">
-                <input type="number" min="0.001" step="0.001" bind:value={lpAmount} />
-                <span class="unit">ETH</span>
-              </div>
-              <div class="lp-hint">{depositPreview}</div>
-              <button
-                class="big-play-btn"
-                style="background: var(--mint-deep); color: var(--ink); margin-top: 6px"
-                onclick={lpDeposit}
-              >
-                <span>{i18n.t('janken.lpDeposit')}</span>
-              </button>
-            </div>
-            <hr />
-            <div>
-              <div class="lp-hint">{i18n.t('janken.withdrawLabel')}</div>
-              <div class="input-row">
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="shares"
-                  bind:value={lpWithdrawShares}
-                />
-                <button class="preset" onclick={lpMax}>{i18n.t('janken.max')}</button>
-              </div>
-              <div class="lp-hint">{withdrawPreview}</div>
-              <button
-                class="big-play-btn"
-                style="background: var(--coral-deep); color: var(--ink); margin-top: 6px"
-                onclick={lpWithdraw}
-              >
-                <span>{i18n.t('janken.lpWithdraw')}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    {/if}
-
-      <!-- Leaderboard view -->
-      {#if activeView === 'leaderboard'}
-        <div class="panel">
-          <div class="h">
-            <h3>{i18n.t('janken.leaderboard.title')}</h3>
-            <span class="tag">{i18n.t('janken.leaderboard.tag')}</span>
-          </div>
-          <div class="leaderboard-empty">
-            <div class="lb-trophy" aria-hidden="true">🏆</div>
-            <div class="lb-msg">{i18n.t('janken.leaderboard.soon')}</div>
-            <table class="rounds-table lb-preview">
-              <thead>
-                <tr>
-                  <th>{i18n.t('janken.leaderboard.col.rank')}</th>
-                  <th>{i18n.t('janken.leaderboard.col.player')}</th>
-                  <th>{i18n.t('janken.leaderboard.col.pnl')}</th>
-                  <th>{i18n.t('janken.leaderboard.col.rounds')}</th>
-                  <th>{i18n.t('janken.leaderboard.col.best')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="empty">
-                  <td colspan="5">— — —</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      {/if}
-    </div>
+      </section>
+    </main>
   </div>
 </div>
 
-<!-- Modal -->
 {#if modalOpen}
-  <div class="modal-backdrop active" onclick={() => (modalOpen = false)}>
-    <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
+  <div
+    class="modal-backdrop"
+    onclick={() => (modalOpen = false)}
+    onkeydown={(e) => e.key === 'Escape' && (modalOpen = false)}
+    role="presentation"
+  >
+    <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
       <h3>{i18n.t('janken.modal.title')}</h3>
       <p class="sub">{@html i18n.t('janken.modal.sub')}</p>
 
-      <div class="field">
-        <label>{i18n.t('janken.modal.deposit')}</label>
-        <div class="input-row">
-          <input type="number" min="0.001" step="0.01" bind:value={modalDeposit} />
+      <div class="modal-field">
+        <label for="m-deposit">{i18n.t('janken.modal.deposit')}</label>
+        <div class="slip-input">
+          <input id="m-deposit" type="number" min="0.001" step="0.01" bind:value={modalDeposit} />
           <span class="unit">ETH</span>
         </div>
       </div>
 
-      <div class="field">
-        <label>{i18n.t('janken.modal.gas')}</label>
-        <div class="input-row">
-          <input type="number" min="0.005" step="0.005" bind:value={modalGas} />
+      <div class="modal-field">
+        <label for="m-gas">{i18n.t('janken.modal.gas')}</label>
+        <div class="slip-input">
+          <input id="m-gas" type="number" min="0.005" step="0.005" bind:value={modalGas} />
           <span class="unit">ETH</span>
         </div>
         <span class="hint">{i18n.t('janken.modal.gasHint')}</span>
       </div>
 
-      <div class="field">
-        <label>{i18n.t('janken.modal.duration')}</label>
-        <div class="input-row">
-          <input type="number" min="1" max="24" step="1" bind:value={modalHours} />
+      <div class="modal-field">
+        <label for="m-hours">{i18n.t('janken.modal.duration')}</label>
+        <div class="slip-input">
+          <input id="m-hours" type="number" min="1" max="24" step="1" bind:value={modalHours} />
           <span class="unit">hours</span>
         </div>
       </div>
 
-      <div class="field">
-        <label>{i18n.t('janken.modal.key')}</label>
-        <span class="hint" style="font-size: 12px; color: var(--ink);">
-          {sessionKeyFull}
-        </span>
+      <div class="modal-field">
+        <label for="m-key">{i18n.t('janken.modal.key')}</label>
+        <span class="hint mono" id="m-key">{sessionKeyFull}</span>
       </div>
 
-      <div class="actions">
+      <div class="modal-actions">
         <button class="s-btn" onclick={() => (modalOpen = false)}>
           {i18n.t('janken.modal.cancel')}
         </button>
@@ -1276,582 +1258,329 @@
 {/if}
 
 <style>
-  :root {
-    --accent: var(--tk-blue);
-    --accent-deep: var(--tk-blue-deep);
+  /* ═══════════════════════════════════════════════════════════════
+     GMX-inspired tokens, scoped to Jankenman page.
+     ═══════════════════════════════════════════════════════════════ */
+  .gmx-shell {
+    --gmx-bg: #09090c;
+    --gmx-surface: #0b0c16;
+    --gmx-card: #11131c;
+    --gmx-card-2: #161826;
+    --gmx-line: rgba(255, 255, 255, 0.06);
+    --gmx-line-2: rgba(255, 255, 255, 0.1);
+    --gmx-line-3: rgba(255, 255, 255, 0.18);
+    --gmx-primary: #3042ff;
+    --gmx-primary-hover: #4255ff;
+    --gmx-primary-soft: rgba(48, 66, 255, 0.12);
+    --gmx-text: #ffffff;
+    --gmx-text-2: rgba(255, 255, 255, 0.6);
+    --gmx-text-3: rgba(255, 255, 255, 0.4);
+    --gmx-success: #00ba72;
+    --gmx-success-soft: rgba(0, 186, 114, 0.14);
+    --gmx-error: #ff5c5c;
+    --gmx-error-soft: rgba(255, 92, 92, 0.14);
+    --gmx-warn: #ffc857;
+    --gmx-warn-soft: rgba(255, 200, 87, 0.14);
+    --r-sm: 4px;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --r-xl: 16px;
+
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    min-height: 100vh;
+    background: var(--gmx-bg);
+    color: var(--gmx-text);
+    font-family: 'Inter', system-ui, -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+    letter-spacing: -0.005em;
+    font-feature-settings: 'cv11';
   }
 
-  :global(body > #topbar) {
+  :global(body) {
+    background: #09090c;
+    padding: 0;
+    font-family: 'Inter', system-ui, -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+  }
+
+  /* ─── Sidebar ──────────────────────────────────────────────── */
+  .sb {
+    background: var(--gmx-surface);
+    border-right: 1px solid var(--gmx-line);
+    display: flex;
+    flex-direction: column;
+    padding: 14px 12px 12px;
+    gap: 4px;
     position: sticky;
     top: 0;
-    z-index: 50;
-    background: rgba(11, 15, 23, 0.85);
-    backdrop-filter: saturate(140%) blur(12px);
-    -webkit-backdrop-filter: saturate(140%) blur(12px);
-    padding: 0 32px;
+    height: 100vh;
   }
-  :global(body > #topbar .tokamak-topbar) {
-    margin: 0 auto;
-  }
-
-  .dfi-shell {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 0 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .dfi-body {
-    display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
-  }
-  .dfi-main {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    min-width: 0;
-  }
-  @media (max-width: 900px) {
-    .dfi-body {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* Sidebar */
-  .sidebar {
-    background: var(--paper);
-    border: 3px solid var(--ink);
-    border-radius: 20px;
-    box-shadow: 5px 5px 0 var(--ink);
-    padding: 18px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    position: sticky;
-    top: 88px;
-  }
-  @media (max-width: 900px) {
-    .sidebar {
-      position: static;
-    }
-  }
-  .sb-section {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    font-weight: 700;
-    padding: 0 4px;
-  }
-  .sb-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .sb-item {
-    appearance: none;
-    border: 2px solid transparent;
-    background: transparent;
-    border-radius: 14px;
-    padding: 10px 12px;
+  .sb-brand {
     display: flex;
     align-items: center;
     gap: 10px;
+    padding: 8px 10px 18px;
+    text-decoration: none;
+    color: var(--gmx-text);
+  }
+  .sb-brand:hover {
+    color: var(--gmx-text);
+    text-decoration: none;
+  }
+  .sb-mark {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+  }
+  .sb-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+  }
+  .sb-name {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+
+  .sb-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sb-item {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--gmx-text-2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--r-md);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
     cursor: pointer;
     text-align: left;
     transition:
       background 0.15s ease,
-      border-color 0.15s ease,
-      transform 0.08s ease,
-      box-shadow 0.08s ease;
-    color: var(--ink);
+      color 0.15s ease;
   }
   .sb-item:hover {
-    background: var(--paper-2);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--gmx-text);
   }
   .sb-item.active {
-    background: var(--ink);
-    border-color: var(--ink);
-    box-shadow: 3px 3px 0 var(--ink);
-    transform: translate(-1px, -1px);
+    background: var(--gmx-primary-soft);
+    color: var(--gmx-primary);
   }
   .sb-icon {
-    font-size: 22px;
-    line-height: 1;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    display: grid;
-    place-items: center;
-    background: var(--paper-2);
-    border: 2px solid var(--ink);
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .sb-foot {
+    margin-top: auto;
+    padding: 12px 4px 4px;
+    border-top: 1px solid var(--gmx-line);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sb-back {
+    color: var(--gmx-text-3);
+    text-decoration: none;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+  }
+  .sb-back:hover {
+    color: var(--gmx-text);
+    background: rgba(255, 255, 255, 0.04);
+    text-decoration: none;
+  }
+
+  /* ─── Main column ──────────────────────────────────────────── */
+  .gmx-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ─── Topbar ───────────────────────────────────────────────── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--gmx-line);
+    min-height: 64px;
+    background: var(--gmx-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--gmx-card);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-md);
+    flex-shrink: 0;
+  }
+  .pair-icon {
+    display: inline-flex;
+    align-items: center;
+  }
+  .pair-name {
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: -0.01em;
+  }
+  .pair-tag {
+    font-size: 11.5px;
+    color: var(--gmx-text-2);
+    font-weight: 500;
+  }
+
+  .topbar-metrics {
+    display: flex;
+    gap: 32px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .topbar-metrics::-webkit-scrollbar {
+    display: none;
+  }
+  .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .metric .m-k {
+    font-size: 10.5px;
+    color: var(--gmx-text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+  .metric .m-v {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gmx-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .metric .m-u {
+    font-size: 11.5px;
+    color: var(--gmx-text-2);
+    font-weight: 500;
+    margin-left: 4px;
+  }
+  .metric.vrf-metric .m-v {
+    color: var(--gmx-primary);
+    text-shadow: 0 0 12px rgba(48, 66, 255, 0.5);
+  }
+
+  .connect {
+    appearance: none;
+    background: var(--gmx-primary);
+    color: white;
+    border: 0;
+    border-radius: var(--r-md);
+    padding: 9px 18px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: -0.005em;
     flex-shrink: 0;
     transition: background 0.15s ease;
   }
-  .sb-item.active .sb-icon {
-    background: var(--butter);
+  .connect:hover:not(:disabled) {
+    background: var(--gmx-primary-hover);
   }
-  .sb-text {
+  .connect:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  /* ─── Content scaffold ─────────────────────────────────────── */
+  .content {
+    padding: 20px 24px 40px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 16px;
     min-width: 0;
   }
-  .sb-label {
-    font-family: 'Fredoka', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    color: var(--ink);
-  }
-  .sb-sub {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--ink-soft);
-    letter-spacing: 0.02em;
-  }
-  .sb-item.active .sb-label {
-    color: #fff;
-  }
-  .sb-item.active .sb-sub {
-    color: rgba(255, 255, 255, 0.7);
-  }
 
-  .sb-mini {
-    margin-top: 4px;
-    border-top: 2px dashed var(--ink-faint);
-    padding-top: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .sb-mini-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
-    padding: 0 4px;
-    font-size: 11px;
-  }
-  .sb-mini-row .k {
-    color: var(--ink-soft);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 9px;
-  }
-  .sb-mini-row .v {
-    color: var(--ink);
-    font-weight: 600;
-  }
-  .sb-mini-row .v.vrf-v {
-    color: #1a8a5a;
-  }
-
-  /* Leaderboard */
-  .leaderboard-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    padding: 24px 14px 8px;
-  }
-  .lb-trophy {
-    font-size: 56px;
-    line-height: 1;
-    filter: drop-shadow(0 3px 0 var(--ink));
-    animation: lb-bob 2.4s ease-in-out infinite;
-  }
-  @keyframes lb-bob {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-6px);
-    }
-  }
-  .lb-msg {
-    font-family: 'Nunito', sans-serif;
-    font-size: 14px;
-    color: var(--ink-soft);
-    line-height: 1.6;
-    text-align: center;
-    max-width: 520px;
-  }
-  .lb-preview {
-    width: 100%;
-    margin-top: 6px;
-    opacity: 0.55;
-  }
-
-  .dfi-head {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-  .dfi-head .mascot {
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
-    background: var(--tk-blue);
-    border: 2.5px solid var(--ink);
-    box-shadow: 3px 3px 0 var(--ink);
+  /* ─── Game grid (chart + slip) ─────────────────────────────── */
+  .game-grid {
     display: grid;
-    place-items: center;
-    flex-shrink: 0;
-  }
-  .dfi-head h2 {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 28px;
-    letter-spacing: -0.02em;
-    margin-right: auto;
-  }
-  .dfi-head .contract-pill {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    background: var(--paper);
-    border: 2px solid var(--ink);
-    box-shadow: 2px 2px 0 var(--ink);
-    padding: 6px 10px;
-    border-radius: 999px;
-    color: var(--ink-soft);
-  }
-  .dfi-head .contract-pill b {
-    color: var(--ink);
-    font-weight: 600;
-    margin-right: 6px;
-  }
-
-  .kpi-strip {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 14px;
-  }
-  .kpi {
-    background: var(--paper);
-    border: 3px solid var(--ink);
-    box-shadow: 4px 4px 0 var(--ink);
-    border-radius: 16px;
-    padding: 14px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .kpi .k {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-  }
-  .kpi .v {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--ink);
-    letter-spacing: -0.01em;
-  }
-  .kpi .v .u {
-    font-size: 13px;
-    color: var(--ink-soft);
-    margin-left: 4px;
-    font-weight: 500;
-  }
-  .kpi.blue {
-    background: var(--tk-blue);
-    color: #fff;
-  }
-  .kpi.blue .k {
-    color: rgba(255, 255, 255, 0.75);
-  }
-  .kpi.blue .v {
-    color: #fff;
-  }
-  .kpi.blue .v .u {
-    color: rgba(255, 255, 255, 0.75);
-  }
-  .kpi.vrf {
-    background: #0e1740;
-    color: #7fe3ad;
-    position: relative;
-    overflow: hidden;
-  }
-  .kpi.vrf::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 80% 20%, rgba(127, 227, 173, 0.18), transparent 60%);
-  }
-  .kpi.vrf > * {
-    position: relative;
-  }
-  .kpi.vrf .k {
-    color: rgba(127, 227, 173, 0.85);
-  }
-  .kpi.vrf .v {
-    color: #e8fff3;
-    text-shadow: 0 0 10px rgba(127, 227, 173, 0.5);
-  }
-  .kpi.vrf .v .u {
-    color: rgba(127, 227, 173, 0.7);
-  }
-  .kpi.vrf .pulse-dot {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #7fe3ad;
-    box-shadow: 0 0 10px #7fe3ad;
-    animation: vrf-pulse 1.2s infinite;
-  }
-  @keyframes vrf-pulse {
-    0%,
-    100% {
-      opacity: 0.35;
-      transform: scale(0.8);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.2);
-    }
-  }
-
-  .session-strip {
-    border: 3px solid var(--ink);
-    border-radius: 16px;
-    background: var(--paper);
-    box-shadow: 4px 4px 0 var(--ink);
-    padding: 14px 18px;
-    display: flex;
+    grid-template-columns: minmax(0, 1fr) 380px;
     gap: 16px;
-    align-items: center;
-    flex-wrap: wrap;
   }
-  .session-strip .status-badge {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    padding: 5px 11px;
-    border-radius: 999px;
-    border: 2px solid var(--ink);
-    background: var(--butter);
-    color: var(--ink);
-    flex-shrink: 0;
-  }
-  .session-strip .status-badge.idle {
-    background: var(--butter);
-  }
-  .session-strip .status-badge.active {
-    background: var(--mint);
-  }
-  .session-strip .status-badge.expired {
-    background: var(--coral);
-  }
-  .session-chips {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    flex: 1;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-  }
-  .session-chip {
-    background: var(--paper-2);
-    border: 2px solid var(--ink);
-    border-radius: 10px;
-    padding: 6px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 110px;
-  }
-  .session-chip .k {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    font-weight: 700;
-  }
-  .session-chip .v {
-    font-weight: 600;
-    color: var(--ink);
-    font-size: 13px;
-  }
-  .session-chip.hl {
-    background: var(--tk-blue);
-    color: #fff;
-    border-color: #000;
-  }
-  .session-chip.hl .k {
-    color: rgba(255, 255, 255, 0.7);
-  }
-  .session-chip.hl .v {
-    color: #fff;
-  }
-  .session-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .s-btn {
-    font-family: 'Fredoka', sans-serif;
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    padding: 8px 14px;
-    border-radius: 10px;
-    border: 2px solid var(--ink);
-    box-shadow: 2px 2px 0 var(--ink);
-    background: var(--paper);
-    color: var(--ink);
-    cursor: pointer;
-    transition:
-      transform 0.08s ease,
-      box-shadow 0.08s ease,
-      background 0.15s ease;
-  }
-  .s-btn:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0 var(--ink);
-  }
-  .s-btn:active {
-    transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0 var(--ink);
-  }
-  .s-btn.primary {
-    background: var(--tk-blue);
-    color: #fff;
-  }
-  .s-btn.primary:hover {
-    background: var(--tk-blue-deep);
-  }
-  .s-btn.warn {
-    background: var(--coral);
-  }
-
-  .dfi-tabs {
-    display: inline-flex;
-    padding: 4px;
-    border: 3px solid var(--ink);
-    border-radius: 999px;
-    background: var(--paper);
-    box-shadow: 3px 3px 0 var(--ink);
-    gap: 4px;
-    align-self: flex-start;
-  }
-  .dfi-tab {
-    appearance: none;
-    border: 0;
-    padding: 9px 20px;
-    border-radius: 999px;
-    font-family: 'Fredoka', sans-serif;
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--ink-soft);
-    background: transparent;
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      color 0.15s ease;
-  }
-  .dfi-tab.active {
-    background: var(--ink);
-    color: #fff;
-  }
-  .dfi-tab:hover:not(.active) {
-    color: var(--ink);
-  }
-
-  .play-grid,
-  .liq-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
-    gap: 18px;
-  }
-  @media (max-width: 820px) {
-    .play-grid,
-    .liq-grid {
+  @media (max-width: 980px) {
+    .game-grid {
       grid-template-columns: 1fr;
     }
   }
 
-  .panel {
-    background: var(--paper);
-    border: 3px solid var(--ink);
-    border-radius: 20px;
-    padding: 22px;
-    box-shadow: 5px 5px 0 var(--ink);
+  .board-panel,
+  .slip-panel {
+    background: var(--gmx-surface);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-lg);
+    padding: 16px;
   }
-  .panel.dim {
-    background: var(--paper-2);
-  }
-  .panel .h {
+  .slip-panel {
+    padding: 16px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-  .panel .h h3 {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 16px;
-    font-weight: 700;
-  }
-  .panel .h .tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--ink-soft);
-  }
-  .panel.cabinet-wrap {
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-    padding: 0;
+    flex-direction: column;
+    gap: 14px;
   }
 
-  /* Arcade cabinet */
+  /* ─── Arcade cabinet (GMX-fied) ────────────────────────────── */
   .arcade-cabinet {
-    background: linear-gradient(180deg, #1a2352 0%, #0e1740 100%);
-    border: 3px solid #000;
-    border-radius: 22px;
-    padding: 8px;
-    box-shadow:
-      5px 5px 0 #000,
-      inset 0 0 0 2px rgba(111, 168, 255, 0.15);
+    background: linear-gradient(180deg, #0e1530 0%, #050a1c 100%);
+    border: 1px solid var(--gmx-line-2);
+    border-radius: var(--r-md);
+    padding: 6px;
     position: relative;
   }
   .cabinet-marquee {
-    background: linear-gradient(180deg, var(--tk-blue) 0%, var(--tk-blue-deep) 100%);
-    border: 2px solid #000;
-    border-radius: 12px 12px 8px 8px;
-    padding: 10px 16px;
+    background: linear-gradient(180deg, var(--gmx-primary) 0%, #1a2bb8 100%);
+    border: 1px solid rgba(0, 0, 0, 0.4);
+    border-radius: 8px 8px 4px 4px;
+    padding: 8px 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
   }
   .cabinet-marquee .mt {
-    font-family: 'Fredoka', sans-serif;
     font-weight: 700;
     letter-spacing: 0.32em;
-    font-size: 15px;
+    font-size: 13px;
     color: #fff;
     text-shadow:
       0 0 10px rgba(255, 255, 255, 0.6),
-      0 0 18px rgba(111, 168, 255, 0.6);
+      0 0 18px rgba(48, 66, 255, 0.6);
   }
   .cabinet-marquee .ml {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: #ffe29a;
     box-shadow:
@@ -1859,43 +1588,24 @@
       0 0 4px #fff;
     animation: marquee-blink 1.3s infinite;
   }
-  .cabinet-marquee .ml:nth-child(1) {
-    animation-delay: 0s;
-  }
-  .cabinet-marquee .ml:nth-child(2) {
-    animation-delay: 0.15s;
-  }
-  .cabinet-marquee .ml:nth-child(3) {
-    animation-delay: 0.3s;
-  }
-  .cabinet-marquee .ml:nth-child(5) {
-    animation-delay: 0.45s;
-  }
-  .cabinet-marquee .ml:nth-child(6) {
-    animation-delay: 0.6s;
-  }
-  .cabinet-marquee .ml:nth-child(7) {
-    animation-delay: 0.75s;
-  }
+  .cabinet-marquee .ml:nth-child(1) { animation-delay: 0s; }
+  .cabinet-marquee .ml:nth-child(2) { animation-delay: 0.15s; }
+  .cabinet-marquee .ml:nth-child(3) { animation-delay: 0.3s; }
+  .cabinet-marquee .ml:nth-child(5) { animation-delay: 0.45s; }
+  .cabinet-marquee .ml:nth-child(6) { animation-delay: 0.6s; }
+  .cabinet-marquee .ml:nth-child(7) { animation-delay: 0.75s; }
   @keyframes marquee-blink {
-    0%,
-    100% {
-      opacity: 0.35;
-      transform: scale(0.8);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.15);
-    }
+    0%, 100% { opacity: 0.35; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.15); }
   }
 
   .cabinet-screen {
-    margin: 8px 4px 4px;
+    margin: 6px 2px 2px;
     background: radial-gradient(ellipse at center, #0d1a40 0%, #050b22 100%);
-    border: 2px solid #000;
-    border-radius: 10px;
-    padding: 20px 18px 16px;
-    min-height: 300px;
+    border: 1px solid rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+    padding: 24px 20px 18px;
+    min-height: 380px;
     position: relative;
     overflow: hidden;
   }
@@ -1913,26 +1623,17 @@
     pointer-events: none;
     z-index: 2;
   }
-  .cabinet-screen::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.6);
-    border-radius: 10px;
-    pointer-events: none;
-    z-index: 2;
-  }
 
   .jk-stage {
     position: relative;
     z-index: 1;
-    width: min(320px, 78vw);
+    width: min(360px, 80vw);
     aspect-ratio: 1;
     margin: 0 auto;
   }
   .jk-pointer {
     position: absolute;
-    top: -2px;
+    top: -4px;
     left: 50%;
     transform: translateX(-50%);
     width: 0;
@@ -1947,10 +1648,10 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 4px solid #000;
+    border: 3px solid #000;
     box-shadow:
-      0 0 0 3px rgba(0, 0, 0, 0.2),
-      0 0 26px rgba(31, 111, 235, 0.45),
+      0 0 0 2px rgba(0, 0, 0, 0.4),
+      0 0 30px rgba(48, 66, 255, 0.45),
       inset 0 0 20px rgba(0, 0, 0, 0.25);
     background: conic-gradient(
       from -18deg,
@@ -1978,7 +1679,7 @@
     inset: 28%;
     border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #cff0db 0%, #b5ead7 60%, #8fd6b9 100%);
-    border: 3px solid #000;
+    border: 2px solid #000;
     box-shadow:
       0 0 16px rgba(143, 214, 185, 0.35),
       inset 0 0 14px rgba(0, 0, 0, 0.15);
@@ -1987,9 +1688,9 @@
   .jk-display {
     position: absolute;
     inset: 37%;
-    border-radius: 10px;
+    border-radius: 8px;
     background: radial-gradient(circle at 50% 50%, #3a0c0c 0%, #150303 85%);
-    border: 3px solid #000;
+    border: 2px solid #000;
     box-shadow:
       inset 0 0 24px rgba(255, 40, 40, 0.35),
       0 0 22px rgba(255, 40, 40, 0.4);
@@ -2011,7 +1712,7 @@
   .jk-display-emoji {
     position: relative;
     z-index: 1;
-    font-size: clamp(44px, 9.5vw, 64px);
+    font-size: clamp(48px, 9vw, 72px);
     line-height: 1;
     filter: drop-shadow(0 0 6px #ff2a2a) drop-shadow(0 0 12px #ff4040) saturate(1.4);
     transition: transform 0.08s ease;
@@ -2020,55 +1721,51 @@
     animation: display-flicker 0.12s infinite;
   }
   @keyframes display-flicker {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.82;
-    }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.82; }
   }
   .jk-display.result-win {
     box-shadow:
-      inset 0 0 24px rgba(127, 227, 173, 0.45),
-      0 0 22px rgba(127, 227, 173, 0.55);
+      inset 0 0 24px rgba(0, 186, 114, 0.45),
+      0 0 22px rgba(0, 186, 114, 0.55);
   }
   .jk-display.result-lose {
     box-shadow:
-      inset 0 0 24px rgba(255, 138, 138, 0.45),
-      0 0 22px rgba(255, 138, 138, 0.55);
+      inset 0 0 24px rgba(255, 92, 92, 0.45),
+      0 0 22px rgba(255, 92, 92, 0.55);
   }
   .jk-display.result-draw {
     box-shadow:
-      inset 0 0 24px rgba(255, 226, 154, 0.45),
-      0 0 22px rgba(255, 226, 154, 0.55);
+      inset 0 0 24px rgba(255, 200, 87, 0.45),
+      0 0 22px rgba(255, 200, 87, 0.55);
   }
 
   .status-line {
     position: relative;
     z-index: 3;
-    margin-top: 14px;
+    margin-top: 16px;
     background: #000;
-    border: 1px solid rgba(181, 234, 215, 0.3);
+    border: 1px solid rgba(0, 186, 114, 0.3);
     border-radius: 6px;
-    padding: 10px 14px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    padding: 9px 14px;
+    font-size: 11.5px;
     font-weight: 600;
-    color: #7fe3ad;
-    letter-spacing: 0.14em;
+    color: var(--gmx-success);
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     text-shadow: 0 0 10px currentColor;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    min-height: 38px;
+    min-height: 36px;
     text-align: center;
+    font-family: 'Inter', monospace;
+    font-variant-numeric: tabular-nums;
   }
   .status-line .status-dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: currentColor;
     box-shadow: 0 0 10px currentColor;
@@ -2076,548 +1773,754 @@
     flex-shrink: 0;
   }
   @keyframes dot-blink {
-    50% {
-      opacity: 0.25;
-    }
-  }
-  .status-line :global(b) {
-    color: #fff;
-    font-weight: 700;
-    text-shadow: 0 0 10px currentColor;
+    50% { opacity: 0.25; }
   }
   .status-line.win {
-    color: #7fe3ad;
-    border-color: rgba(127, 227, 173, 0.4);
+    color: var(--gmx-success);
+    border-color: rgba(0, 186, 114, 0.5);
   }
   .status-line.lose {
-    color: #ff8a8a;
-    border-color: rgba(255, 138, 138, 0.4);
+    color: var(--gmx-error);
+    border-color: rgba(255, 92, 92, 0.5);
   }
   .status-line.draw {
-    color: #ffe29a;
-    border-color: rgba(255, 226, 154, 0.4);
+    color: var(--gmx-warn);
+    border-color: rgba(255, 200, 87, 0.5);
   }
 
-  .cabinet-controls {
+  /* ─── Session row (slip top strip) ─────────────────────────── */
+  .session-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--gmx-bg);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-md);
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  .session-row .badge {
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .session-row .badge.idle {
+    background: var(--gmx-warn-soft);
+    color: var(--gmx-warn);
+  }
+  .session-row .badge.active {
+    background: var(--gmx-success-soft);
+    color: var(--gmx-success);
+  }
+  .session-row .badge.expired {
+    background: var(--gmx-error-soft);
+    color: var(--gmx-error);
+  }
+  .session-row .credits {
+    font-weight: 600;
+    color: var(--gmx-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .session-row .exp {
+    color: var(--gmx-text-2);
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+  }
+  .session-row .actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+
+  /* ─── Hand toggle (Long/Short/Swap equivalent) ─────────────── */
+  .hand-toggle {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 12px;
-    margin: 4px;
-    background: linear-gradient(180deg, #3b4680 0%, #2b3558 100%);
-    border-radius: 10px;
-    border: 2px solid #000;
-  }
-  .arcade-btn {
-    appearance: none;
-    cursor: pointer;
-    height: 92px;
-    border-radius: 14px;
-    border: 3px solid #000;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     gap: 4px;
-    font-family: 'Fredoka', sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    box-shadow:
-      0 6px 0 rgba(0, 0, 0, 0.6),
-      inset 0 6px 12px rgba(255, 255, 255, 0.25),
-      inset 0 -6px 10px rgba(0, 0, 0, 0.18);
-    transition:
-      transform 0.08s ease,
-      box-shadow 0.08s ease;
-    color: var(--ink);
+    background: var(--gmx-bg);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-md);
+    padding: 4px;
   }
-  .arcade-btn.rock {
-    background: linear-gradient(180deg, #ffa494 0%, #ff7b6a 100%);
-  }
-  .arcade-btn.paper {
-    background: linear-gradient(180deg, #ffe29a 0%, #ffcb4d 100%);
-  }
-  .arcade-btn.sci {
-    background: linear-gradient(180deg, #9dd3f5 0%, #5fb8e6 100%);
-  }
-  .arcade-btn:hover {
-    filter: brightness(1.06);
-  }
-  .arcade-btn:active {
-    transform: translateY(5px);
-    box-shadow:
-      0 1px 0 rgba(0, 0, 0, 0.6),
-      inset 0 6px 12px rgba(255, 255, 255, 0.25),
-      inset 0 -4px 10px rgba(0, 0, 0, 0.18);
-  }
-  .arcade-btn.selected {
-    outline: 3px solid #ffe29a;
-    outline-offset: 3px;
-    box-shadow:
-      0 6px 0 rgba(0, 0, 0, 0.6),
-      inset 0 6px 12px rgba(255, 255, 255, 0.25),
-      inset 0 -6px 10px rgba(0, 0, 0, 0.18),
-      0 0 18px rgba(255, 226, 154, 0.8);
-  }
-  .arcade-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-  .arcade-btn .cap {
-    font-size: 32px;
-    line-height: 1;
-    filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.15));
-  }
-  .arcade-btn .tab {
-    font-size: 11px;
-  }
-
-  .slip-body {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .input-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    background: var(--paper-2);
-    border: 3px solid var(--ink);
-    border-radius: 14px;
-    padding: 10px 12px;
-  }
-  .input-row input[type='number'] {
+  .ht-btn {
     appearance: none;
     border: 0;
     background: transparent;
-    outline: none;
-    flex: 1;
-    min-width: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 22px;
+    color: var(--gmx-text-2);
+    padding: 9px 6px;
+    border-radius: 6px;
+    font: inherit;
     font-weight: 600;
-    color: var(--ink);
-  }
-  .input-row .unit {
-    font-family: 'Fredoka', sans-serif;
-    font-weight: 600;
-    color: var(--ink-soft);
-    font-size: 14px;
-  }
-  .preset-row {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .preset {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 2px solid var(--ink);
-    background: var(--paper);
-    box-shadow: 2px 2px 0 var(--ink);
+    font-size: 12.5px;
     cursor: pointer;
-    color: var(--ink);
-  }
-  .preset:hover {
-    background: var(--butter);
-  }
-
-  .payout-table {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    border: 2px dashed var(--ink-faint);
-    border-radius: 12px;
-    padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.5);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .payout-table .hdr {
-    display: flex;
-    justify-content: space-between;
-    color: var(--ink-soft);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    font-weight: 700;
-    padding-bottom: 4px;
-    border-bottom: 1px solid var(--ink-faint);
-  }
-  .payout-table .row {
-    display: grid;
-    grid-template-columns: 34px 1fr auto;
-    gap: 8px;
-    align-items: center;
-  }
-  .payout-table .row .p {
-    color: var(--ink-soft);
-  }
-  .payout-table .row .m {
-    color: var(--ink);
-    font-weight: 600;
-  }
-  .payout-table .row .amt {
-    color: var(--tk-blue-deep);
-    font-weight: 600;
-  }
-  .payout-table .ev {
-    margin-top: 4px;
-    padding-top: 6px;
-    border-top: 1px solid var(--ink-faint);
-    display: flex;
-    justify-content: space-between;
-    color: var(--ink-soft);
-    font-size: 11px;
-  }
-  .payout-table .ev .val.neg {
-    color: #c84a4a;
-    font-weight: 600;
-  }
-
-  .big-play-btn {
-    appearance: none;
-    cursor: pointer;
-    width: 100%;
-    padding: 16px 18px;
-    border-radius: 14px;
-    border: 3px solid var(--ink);
-    background: var(--tk-blue);
-    color: #fff;
-    font-family: 'Fredoka', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    box-shadow: 5px 5px 0 var(--ink);
-    transition:
-      transform 0.08s ease,
-      box-shadow 0.08s ease,
-      background 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 6px;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
   }
-  .big-play-btn:hover {
-    background: var(--tk-blue-deep);
-    transform: translate(-1px, -1px);
-    box-shadow: 6px 6px 0 var(--ink);
+  .ht-btn:hover:not(:disabled):not(.active) {
+    color: var(--gmx-text);
+    background: rgba(255, 255, 255, 0.03);
   }
-  .big-play-btn:active {
-    transform: translate(3px, 3px);
-    box-shadow: 1px 1px 0 var(--ink);
-  }
-  .big-play-btn:disabled {
-    background: var(--ink-faint);
+  .ht-btn:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .ht-btn.active {
+    background: var(--gmx-primary);
+    color: white;
+  }
+  .ht-btn.active.rock {
+    background: #ff5c5c;
+  }
+  .ht-btn.active.paper {
+    background: #ffc857;
+    color: #1a1a1a;
+  }
+  .ht-btn.active.sci {
+    background: #3042ff;
+  }
+  .ht-cap {
+    font-size: 16px;
+    line-height: 1;
   }
 
-  .dist-list {
+  /* ─── Slip field ───────────────────────────────────────────── */
+  .slip-field {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    gap: 6px;
   }
-  .dist-row {
-    display: grid;
-    grid-template-columns: 46px 1fr 54px;
-    gap: 10px;
-    align-items: center;
-  }
-  .dist-row .m {
-    font-weight: 700;
-    color: var(--ink);
-  }
-  .dist-row .bar {
-    height: 14px;
-    border: 2px solid var(--ink);
-    border-radius: 6px;
-    background: var(--paper-2);
-    position: relative;
-    overflow: hidden;
-  }
-  .dist-row .bar span {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, var(--tk-blue), var(--tk-blue-deep));
-  }
-  .dist-row.m1 .bar span {
-    background: var(--sky-deep);
-  }
-  .dist-row.m2 .bar span {
-    background: var(--mint-deep);
-  }
-  .dist-row.m4 .bar span {
-    background: var(--butter-deep);
-  }
-  .dist-row.m7 .bar span {
-    background: var(--lavender-deep);
-  }
-  .dist-row.m20 .bar span {
-    background: var(--coral-deep);
-  }
-  .dist-row .pct {
-    text-align: right;
-    color: var(--ink-soft);
-  }
-
-  .rounds-table {
-    width: 100%;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    border-collapse: separate;
-    border-spacing: 0 6px;
-  }
-  .rounds-table thead th {
-    text-align: left;
-    font-weight: 700;
-    color: var(--ink-soft);
-    font-size: 10px;
-    letter-spacing: 0.1em;
+  .slip-field-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
     text-transform: uppercase;
-    padding: 0 10px 4px;
-    font-family: 'Fredoka', sans-serif;
+    color: var(--gmx-text-2);
+    letter-spacing: 0.08em;
+    font-weight: 500;
   }
-  .rounds-table tbody td {
-    background: var(--paper);
-    border-top: 2px solid var(--ink);
-    border-bottom: 2px solid var(--ink);
-    padding: 10px;
+  .slip-field-tag {
+    color: var(--gmx-text-3);
   }
-  .rounds-table tbody td:first-child {
-    border-left: 2px solid var(--ink);
-    border-radius: 10px 0 0 10px;
+  .slip-input {
+    display: flex;
+    align-items: center;
+    background: var(--gmx-bg);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-md);
+    padding: 10px 12px;
+    transition: border-color 0.15s ease;
   }
-  .rounds-table tbody td:last-child {
-    border-right: 2px solid var(--ink);
-    border-radius: 0 10px 10px 0;
+  .slip-input:focus-within {
+    border-color: var(--gmx-line-3);
   }
-  .rounds-table .outcome {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-family: 'Fredoka', sans-serif;
-    font-size: 11px;
-  }
-  .rounds-table .outcome.win {
-    background: var(--mint);
-    color: var(--ink);
-  }
-  .rounds-table .outcome.draw {
-    background: var(--butter);
-    color: var(--ink);
-  }
-  .rounds-table .outcome.lose {
-    background: var(--coral);
-    color: var(--ink);
-  }
-  .rounds-table .hash {
-    color: var(--tk-blue-deep);
-  }
-  .rounds-table .empty td {
-    text-align: center;
-    color: var(--ink-faint);
+  .slip-input input {
+    flex: 1;
     background: transparent;
-    border: 2px dashed var(--ink-faint);
-    border-radius: 10px;
-    padding: 24px;
+    border: 0;
+    outline: 0;
+    color: var(--gmx-text);
+    font: inherit;
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    min-width: 0;
+  }
+  .slip-input .unit {
+    color: var(--gmx-text-2);
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .preset-row {
+    display: flex;
+    gap: 4px;
+  }
+  .preset {
+    appearance: none;
+    background: var(--gmx-card);
+    border: 1px solid var(--gmx-line);
+    color: var(--gmx-text-2);
+    padding: 5px 10px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition:
+      color 0.15s ease,
+      border-color 0.15s ease,
+      background 0.15s ease;
+  }
+  .preset:hover {
+    color: var(--gmx-text);
+    border-color: var(--gmx-line-2);
+  }
+  .preset.inline {
+    margin-left: 4px;
   }
 
-  .position-card {
+  /* ─── Mult grid ────────────────────────────────────────────── */
+  .mult-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+  }
+  .mult {
+    background: var(--gmx-bg);
+    border: 1px solid var(--gmx-line);
+    border-radius: 6px;
+    padding: 7px 4px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mult .mm {
+    color: var(--gmx-text);
+    font-weight: 600;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .mult .mp {
+    color: var(--gmx-text-3);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─── Big CTA ──────────────────────────────────────────────── */
+  .big-cta {
+    appearance: none;
+    width: 100%;
+    background: var(--gmx-primary);
+    color: white;
+    border: 0;
+    border-radius: var(--r-md);
+    padding: 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: -0.005em;
+    transition: background 0.15s ease;
+  }
+  .big-cta:not(:disabled):hover {
+    background: var(--gmx-primary-hover);
+  }
+  .big-cta:disabled {
+    background: var(--gmx-card);
+    color: var(--gmx-text-3);
+    cursor: not-allowed;
+  }
+  .big-cta.success {
+    background: var(--gmx-success);
+  }
+  .big-cta.success:hover {
+    background: #00d181;
+  }
+  .big-cta.danger {
+    background: transparent;
+    border: 1px solid var(--gmx-error);
+    color: var(--gmx-error);
+  }
+  .big-cta.danger:hover {
+    background: var(--gmx-error-soft);
+  }
+
+  /* ─── Execution details rows ───────────────────────────────── */
+  .exec {
+    border-top: 1px solid var(--gmx-line);
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .exec-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    align-items: baseline;
+  }
+  .exec-row .k {
+    color: var(--gmx-text-2);
+  }
+  .exec-row .v {
+    color: var(--gmx-text);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .exec-row .v.neg {
+    color: var(--gmx-error);
+  }
+  .exec-row .v.pos {
+    color: var(--gmx-success);
+  }
+  .mono {
+    font-family: 'Inter', monospace;
+    font-feature-settings: 'tnum';
+  }
+
+  /* ─── Small button (s-btn) ─────────────────────────────────── */
+  .s-btn {
+    appearance: none;
+    background: var(--gmx-card);
+    border: 1px solid var(--gmx-line);
+    color: var(--gmx-text);
+    padding: 6px 12px;
+    border-radius: var(--r-md);
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .s-btn:hover:not(:disabled) {
+    background: var(--gmx-card-2);
+  }
+  .s-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .s-btn.primary {
+    background: var(--gmx-primary);
+    border-color: var(--gmx-primary);
+    color: white;
+  }
+  .s-btn.primary:hover:not(:disabled) {
+    background: var(--gmx-primary-hover);
+  }
+  .s-btn.warn {
+    background: transparent;
+    border-color: var(--gmx-error);
+    color: var(--gmx-error);
+    width: 28px;
+    padding: 6px;
+  }
+  .s-btn.warn:hover {
+    background: var(--gmx-error-soft);
+  }
+
+  /* ─── LP grid ──────────────────────────────────────────────── */
+  .lp-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) 380px;
+    gap: 16px;
+  }
+  @media (max-width: 980px) {
+    .lp-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .lp-card {
+    background: var(--gmx-surface);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-lg);
+    padding: 18px;
+  }
+  .lp-card.slim {
+    padding: 18px;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 14px;
   }
-  .pos-chip {
-    border: 2px solid var(--ink);
-    border-radius: 12px;
-    background: var(--paper-2);
-    padding: 10px 14px;
+  .card-head h3 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--gmx-text);
+  }
+  .card-tag {
+    font-size: 11px;
+    color: var(--gmx-text-2);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .kpis-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .kpi-item {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    background: var(--gmx-bg);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-md);
+    padding: 10px 12px;
   }
-  .pos-chip .k {
+  .kpi-item .m-k {
     font-size: 10px;
-    letter-spacing: 0.12em;
+    color: var(--gmx-text-2);
     text-transform: uppercase;
-    color: var(--ink-soft);
-    font-family: 'Fredoka', sans-serif;
-    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-weight: 500;
   }
-  .pos-chip .v {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 16px;
+  .kpi-item .m-v {
+    font-size: 15px;
     font-weight: 600;
-    color: var(--ink);
+    color: var(--gmx-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .kpi-item .m-u {
+    font-size: 11.5px;
+    color: var(--gmx-text-2);
+    margin-left: 4px;
+    font-weight: 500;
+  }
+
+  .pool-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pool-bar-head,
+  .pool-bar-foot {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--gmx-text-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .pool-bar-head {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .pool-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--gmx-card);
+    overflow: hidden;
+    display: flex;
+  }
+  .pool-bar .mine {
+    background: var(--gmx-primary);
+  }
+  .pool-bar .rest {
+    background: var(--gmx-card-2);
+  }
+
+  .defi-note {
+    font-size: 12px;
+    color: var(--gmx-text-2);
+    line-height: 1.6;
+    padding: 10px 12px;
+    border-left: 2px solid var(--gmx-primary);
+    background: var(--gmx-primary-soft);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    margin-top: 14px;
+  }
+  .defi-note :global(b) {
+    color: var(--gmx-text);
+  }
+  .defi-note :global(code) {
+    background: rgba(48, 66, 255, 0.18);
+    color: var(--gmx-text);
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    font-size: 0.92em;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
   }
 
   .lp-form {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
   }
-  .lp-form hr {
-    border: 0;
-    border-top: 2px dashed var(--ink-faint);
-    margin: 6px 0;
-  }
-  .lp-hint {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--ink-soft);
-    padding: 2px 0;
-  }
-
-  .pool-bar {
-    height: 24px;
-    border: 2.5px solid var(--ink);
-    border-radius: 999px;
-    background: var(--paper);
-    overflow: hidden;
-    display: flex;
-  }
-  .pool-bar .mine {
-    background: var(--tk-blue);
-  }
-  .pool-bar .rest {
-    background: var(--paper-2);
-  }
-  .pool-head {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'Fredoka', sans-serif;
-    font-size: 11px;
-    color: var(--ink-soft);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .pool-foot {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--ink-soft);
-    margin-top: 6px;
-  }
-
-  .defi-note {
-    font-family: 'Nunito', sans-serif;
-    font-size: 13px;
-    color: var(--ink-soft);
-    line-height: 1.6;
-    padding: 12px 14px;
-    border-left: 3px solid var(--tk-blue);
-    background: rgba(31, 111, 235, 0.06);
-    border-radius: 0 10px 10px 0;
-  }
-  .defi-note :global(b) {
-    color: var(--ink);
-  }
-
-  .raw-label {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 10px;
-    color: var(--ink-soft);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .hex-block {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--ink-soft);
-    word-break: break-all;
-    line-height: 1.55;
-    background: var(--paper-2);
-    border: 2px dashed var(--ink-faint);
-    padding: 8px 12px;
-    border-radius: 10px;
-  }
-
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background: rgba(10, 18, 48, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-  .modal {
-    background: var(--paper);
-    border: 3px solid var(--ink);
-    border-radius: 22px;
-    box-shadow: 6px 6px 0 var(--ink);
-    width: 100%;
-    max-width: 440px;
-    padding: 24px;
-  }
-  .modal h3 {
-    font-family: 'Fredoka', sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-  .modal .sub {
-    font-size: 13px;
-    color: var(--ink-soft);
-    margin-bottom: 18px;
-    line-height: 1.55;
-  }
-  .modal .field {
+  .lp-section {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 14px;
   }
-  .modal .field label {
-    font-family: 'Fredoka', sans-serif;
+  .lp-hint {
     font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    font-weight: 700;
+    color: var(--gmx-text-2);
   }
-  .modal .hint {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--ink-soft);
-  }
-  .modal .actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 18px;
+  .lp-divider {
+    height: 1px;
+    background: var(--gmx-line);
   }
 
-  .tokamak-back {
+  /* ─── Leaderboard placeholder ──────────────────────────────── */
+  .lb-empty {
+    display: flex;
+  }
+  .lb-card {
+    flex: 1;
+    background: var(--gmx-surface);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-lg);
+    padding: 24px;
+  }
+  .lb-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 6px 0 6px;
+  }
+  .lb-card p {
+    font-size: 13px;
+    color: var(--gmx-text-2);
+    line-height: 1.55;
+    max-width: 60ch;
+    margin-bottom: 18px;
+  }
+
+  /* ─── Bottom positions panel ───────────────────────────────── */
+  .positions-panel {
+    background: var(--gmx-surface);
+    border: 1px solid var(--gmx-line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+  .pos-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--gmx-line);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pos-tabs {
+    display: flex;
+  }
+  .pt-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--gmx-text-2);
+    padding: 12px 0;
+    margin-right: 18px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ink-soft);
-    text-decoration: none;
-    margin-bottom: 8px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    transition: color 0.15s ease;
-    align-self: flex-start;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition:
+      color 0.15s ease,
+      border-color 0.15s ease;
   }
-  .tokamak-back:hover {
-    color: var(--tk-blue);
-    text-decoration: none;
+  .pt-btn:hover {
+    color: var(--gmx-text);
+  }
+  .pt-btn.active {
+    color: var(--gmx-text);
+    border-bottom-color: var(--gmx-primary);
+  }
+  .pt-count {
+    background: var(--gmx-card);
+    color: var(--gmx-text-2);
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-raw {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--gmx-text-3);
+    padding: 8px 0;
+  }
+  .pos-raw .raw-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .pos-raw code {
+    color: var(--gmx-text-2);
+    background: var(--gmx-card);
+    padding: 3px 7px;
+    border-radius: var(--r-sm);
+    font-size: 10.5px;
+    font-family: 'Inter', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-table-wrap {
+    overflow-x: auto;
+  }
+  .pos-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 10.5px;
+    color: var(--gmx-text-3);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: var(--gmx-bg);
+    border-bottom: 1px solid var(--gmx-line);
+  }
+  .pos-table td {
+    padding: 12px 16px;
+    border-top: 1px solid var(--gmx-line);
+    font-size: 13px;
+    color: var(--gmx-text);
+  }
+  .pos-table tr.empty td {
+    text-align: center;
+    color: var(--gmx-text-3);
+    padding: 36px 16px;
+    font-size: 12.5px;
+  }
+  .pos-table .muted {
+    color: var(--gmx-text-3);
+    margin: 0 4px;
+    font-size: 11px;
+  }
+  .pos-table .pos {
+    color: var(--gmx-success);
+    font-weight: 600;
+  }
+  .pos-table .neg {
+    color: var(--gmx-error);
+    font-weight: 600;
+  }
+  .pos-table .hash {
+    color: var(--gmx-primary);
+    font-size: 11.5px;
+  }
+  .outcome-pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: var(--r-sm);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+  }
+  .outcome-pill.win {
+    background: var(--gmx-success-soft);
+    color: var(--gmx-success);
+  }
+  .outcome-pill.draw {
+    background: var(--gmx-warn-soft);
+    color: var(--gmx-warn);
+  }
+  .outcome-pill.lose {
+    background: var(--gmx-error-soft);
+    color: var(--gmx-error);
+  }
+
+  /* ─── Modal ────────────────────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 16, 0.7);
+    backdrop-filter: blur(4px);
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    z-index: 100;
+  }
+  .modal {
+    background: var(--gmx-surface);
+    border: 1px solid var(--gmx-line-2);
+    border-radius: var(--r-xl);
+    padding: 24px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  }
+  .modal h3 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+  .modal .sub {
+    font-size: 12.5px;
+    color: var(--gmx-text-2);
+    line-height: 1.55;
+    margin-bottom: 18px;
+  }
+  .modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .modal-field label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gmx-text-2);
+    font-weight: 500;
+  }
+  .modal .hint {
+    font-size: 11px;
+    color: var(--gmx-text-3);
+    font-family: inherit;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  /* ─── Mobile collapse ──────────────────────────────────────── */
+  @media (max-width: 720px) {
+    .gmx-shell {
+      grid-template-columns: 1fr;
+    }
+    .sb {
+      position: static;
+      height: auto;
+      flex-direction: row;
+      align-items: center;
+      padding: 8px 12px;
+      flex-wrap: wrap;
+    }
+    .sb-brand {
+      padding: 4px 8px 4px 0;
+    }
+    .sb-nav {
+      flex-direction: row;
+      flex: 1;
+    }
+    .sb-item {
+      padding: 8px 10px;
+    }
+    .sb-item span:not(.sb-icon) {
+      display: none;
+    }
+    .sb-foot {
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+    .topbar {
+      padding: 12px 16px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .content {
+      padding: 16px 12px 32px;
+    }
   }
 </style>
