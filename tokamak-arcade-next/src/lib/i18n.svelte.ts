@@ -31,12 +31,12 @@ const DICT: Record<Lang, Record<string, string>> = {
       'L2 컨트랙트가 <code>VRF.getRandomness()</code>를 한 번 호출하면 끝. 오라클도, 콜백도, 수상한 서버도 없이 — 단일 트랜잭션 안에서 결과가 확정됩니다.',
     'landing.cta.enter': 'Get Started',
     'landing.cta.how': '어떻게 작동하나요?',
-    'landing.f1.t': 'L2에 박힌 난수',
+    'landing.f1.t': 'L2에 내장된 난수',
     'landing.f1.b':
       'VRF는 프리디플로이 컨트랙트 주소로 네이티브하게 살아 있어요. 외부 oracle도, off-chain callback도 없이 opcode처럼 호출됩니다.',
     'landing.f2.t': '한 트랜잭션, 한 결과',
     'landing.f2.b':
-      '주사위를 굴린다 → 즉시 결과. 콜백 대기나 request/fulfill 왕복 없이 플레이 트랜잭션 안에서 결과가 확정됩니다.',
+      '주사위를 굴리는 즉시 결과가 나옵니다. request/fulfill 왕복이나 콜백 대기 없이, 플레이 트랜잭션 한 번으로 결과가 확정됩니다.',
     'landing.f3.t': '누구나 검증 가능',
     'landing.f3.b':
       '각 난수는 시퀀서가 사전 커밋한 뒤 공개되는 방식이라, 누구든 트랜잭션 해시만 있으면 공정성을 재연산할 수 있어요.',
