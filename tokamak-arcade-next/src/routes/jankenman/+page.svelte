@@ -6,7 +6,6 @@
   import { CONFIG } from '$lib/config';
   import { TOKAMAK_SYMBOL_DATA_URI } from '$lib/brand';
   import LangToggle from '$lib/components/LangToggle.svelte';
-  import { jankenMascot } from '$lib/mascots';
   import {
     JANKENMAN_ABI as ABI,
     VRF_ABI,
@@ -17,6 +16,7 @@
     WHEEL_SEGMENTS
   } from '$lib/jankenman/abi';
   import { getSessionKey } from '$lib/jankenman/session.svelte';
+  import Cabinet3D from '$lib/jankenman/Cabinet3D.svelte';
 
   // ─── State ────────────────────────────────────────────────────────
   let selectedHand = $state<number | null>(null);
@@ -817,9 +817,10 @@
   <div class="gmx-main">
     <header class="topbar">
       <div class="pair">
-        <span class="pair-icon">{@html jankenMascot({ size: 24 })}</span>
-        <span class="pair-name">JANKENMAN</span>
-        <span class="pair-tag">[RPS-ETH]</span>
+        <span class="pair-icon">
+          <img src={TOKAMAK_SYMBOL_DATA_URI} alt="Tokamak Network" />
+        </span>
+        <span class="pair-name">Jankenman</span>
       </div>
 
       <div class="topbar-metrics">
@@ -863,34 +864,16 @@
               </div>
               <div class="cabinet-screen">
                 <div class="jk-stage">
-                  <div class="jk-pointer"></div>
-                  <div
-                    class="jk-ring"
-                    style="transform: rotate({wheelRotation}deg); transition: transform {wheelTransitionMs}ms cubic-bezier(0.18, 0.9, 0.24, 1);"
-                  >
-                    <svg viewBox="0 0 200 200">
-                      {#each wheelLabels as l}
-                        <text
-                          x="100"
-                          y="28"
-                          text-anchor="middle"
-                          dominant-baseline="middle"
-                          fill="#ffffff"
-                          font-weight="800"
-                          font-size="17"
-                          font-family="system-ui, -apple-system, sans-serif"
-                          transform="rotate({l.angle} 100 100)"
-                          style="paint-order: stroke; stroke: rgba(0,0,0,0.35); stroke-width: 1px;"
-                        >
-                          {l.m}×
-                        </text>
-                      {/each}
-                    </svg>
-                  </div>
-                  <div class="jk-hub-ring"></div>
-                  <div class="jk-display {displayCycling ? 'cycling' : ''} {displayResultClass}">
-                    <span class="jk-display-emoji">{displayEmoji}</span>
-                  </div>
+                  <Cabinet3D
+                    targetRotationDeg={wheelRotation}
+                    {displayEmoji}
+                    resultKind={(displayResultClass.replace('result-', '') || '') as
+                      | ''
+                      | 'win'
+                      | 'lose'
+                      | 'draw'}
+                    cycling={displayCycling}
+                  />
                 </div>
                 <div class="status-line {statusKind}">
                   <span class="status-dot"></span>
@@ -1442,16 +1425,20 @@
   .pair-icon {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+  }
+  .pair-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
   }
   .pair-name {
     font-weight: 700;
     font-size: 13.5px;
     letter-spacing: -0.01em;
-  }
-  .pair-tag {
-    font-size: 11.5px;
-    color: var(--gmx-text-2);
-    font-weight: 500;
   }
 
   .topbar-metrics {
