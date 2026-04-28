@@ -49,8 +49,8 @@
   let statusText = $state<string>('');
   let statusHtml = $state<boolean>(false);
 
-  // Tab
-  let activeTab = $state<'play' | 'liquidity'>('play');
+  // Sidebar navigation
+  let activeView = $state<'game' | 'lp' | 'leaderboard'>('game');
 
   // KPIs / pool
   let kpiTvl = $state('—');
@@ -758,86 +758,115 @@
     </span>
   </div>
 
-  <!-- KPI strip -->
-  <div class="kpi-strip">
-    <div class="kpi">
-      <span class="k">{i18n.t('janken.kpi.tvl')}</span>
-      <span class="v">{kpiTvl}<span class="u">ETH</span></span>
-    </div>
-    <div class="kpi vrf">
-      <span class="pulse-dot"></span>
-      <span class="k">{i18n.t('janken.kpi.vrf')}</span>
-      <span class="v">#{kpiVrf}</span>
-    </div>
-    <div class="kpi blue">
-      <span class="k">{i18n.t('janken.kpi.houseEdge')}</span>
-      <span class="v">7.00<span class="u">%</span></span>
-    </div>
-    <div class="kpi">
-      <span class="k">{i18n.t('janken.kpi.sharePrice')}</span>
-      <span class="v">{kpiPrice}<span class="u">Ξ / share</span></span>
-    </div>
-  </div>
-
-  <!-- Session strip -->
-  <div class="session-strip">
-    <span class="status-badge {sessionBadge.cls}">{sessionBadge.text}</span>
-    <div class="session-chips">
-      <div class="session-chip hl">
-        <span class="k">{i18n.t('janken.session.credits')}</span>
-        <span class="v">{Number(formatEther(sessionCredits)).toFixed(4)} ETH</span>
-      </div>
-      <div class="session-chip">
-        <span class="k">{i18n.t('janken.session.key')}</span>
-        <span class="v" title={sessionKeyFull}>{sessionKeyAddr}</span>
-      </div>
-      <div class="session-chip">
-        <span class="k">{i18n.t('janken.session.expires')}</span>
-        <span class="v">{sessionRemainingLabel}</span>
-      </div>
-      <div class="session-chip">
-        <span class="k">{i18n.t('janken.session.gas')}</span>
-        <span class="v">{Number(formatEther(sessionGas)).toFixed(4)} ETH</span>
-      </div>
-    </div>
-    <div class="session-actions">
-      {#if !sessionActive}
-        <button class="s-btn primary" onclick={openSessionModal}>
-          {i18n.t('janken.session.start')}
+  <div class="dfi-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sb-section">{i18n.t('janken.nav.section')}</div>
+      <nav class="sb-nav">
+        <button
+          class="sb-item"
+          class:active={activeView === 'game'}
+          onclick={() => (activeView = 'game')}
+        >
+          <span class="sb-icon" aria-hidden="true">🎮</span>
+          <span class="sb-text">
+            <span class="sb-label">{i18n.t('janken.nav.game')}</span>
+            <span class="sb-sub">{i18n.t('janken.nav.gameSub')}</span>
+          </span>
         </button>
-      {:else}
-        <button class="s-btn" onclick={topUp}>{i18n.t('janken.session.topup')}</button>
-      {/if}
-      {#if sessionActive || sessionCredits > 0n}
-        <button class="s-btn warn" onclick={endSession}>
-          {i18n.t('janken.session.end')}
+        <button
+          class="sb-item"
+          class:active={activeView === 'lp'}
+          onclick={() => (activeView = 'lp')}
+        >
+          <span class="sb-icon" aria-hidden="true">💧</span>
+          <span class="sb-text">
+            <span class="sb-label">{i18n.t('janken.nav.lp')}</span>
+            <span class="sb-sub">{i18n.t('janken.nav.lpSub')}</span>
+          </span>
         </button>
-      {/if}
-    </div>
-  </div>
+        <button
+          class="sb-item"
+          class:active={activeView === 'leaderboard'}
+          onclick={() => (activeView = 'leaderboard')}
+        >
+          <span class="sb-icon" aria-hidden="true">🏆</span>
+          <span class="sb-text">
+            <span class="sb-label">{i18n.t('janken.nav.leaderboard')}</span>
+            <span class="sb-sub">{i18n.t('janken.nav.leaderboardSub')}</span>
+          </span>
+        </button>
+      </nav>
 
-  <!-- Tabs -->
-  <div class="dfi-tabs" role="tablist">
-    <button
-      class="dfi-tab"
-      class:active={activeTab === 'play'}
-      onclick={() => (activeTab = 'play')}
-    >
-      {i18n.t('janken.tab.play')}
-    </button>
-    <button
-      class="dfi-tab"
-      class:active={activeTab === 'liquidity'}
-      onclick={() => (activeTab = 'liquidity')}
-    >
-      {i18n.t('janken.tab.liquidity')}
-    </button>
-  </div>
+      <div class="sb-mini">
+        <div class="sb-mini-row">
+          <span class="k">{i18n.t('janken.kpi.tvl')}</span>
+          <span class="v">{kpiTvl} ETH</span>
+        </div>
+        <div class="sb-mini-row">
+          <span class="k">{i18n.t('janken.kpi.vrf')}</span>
+          <span class="v vrf-v">#{kpiVrf}</span>
+        </div>
+        <div class="sb-mini-row">
+          <span class="k">{i18n.t('janken.kpi.sharePrice')}</span>
+          <span class="v">{kpiPrice} Ξ</span>
+        </div>
+      </div>
+    </aside>
 
-  <!-- Play tab -->
-  {#if activeTab === 'play'}
-    <div class="tab-panel active">
-      <div class="play-grid">
+    <!-- Main content -->
+    <div class="dfi-main">
+      <!-- Game view -->
+      {#if activeView === 'game'}
+        <div class="kpi-strip game-kpis">
+          <div class="kpi vrf">
+            <span class="pulse-dot"></span>
+            <span class="k">{i18n.t('janken.kpi.vrf')}</span>
+            <span class="v">#{kpiVrf}</span>
+          </div>
+          <div class="kpi blue">
+            <span class="k">{i18n.t('janken.kpi.houseEdge')}</span>
+            <span class="v">7.00<span class="u">%</span></span>
+          </div>
+        </div>
+
+        <div class="session-strip">
+          <span class="status-badge {sessionBadge.cls}">{sessionBadge.text}</span>
+          <div class="session-chips">
+            <div class="session-chip hl">
+              <span class="k">{i18n.t('janken.session.credits')}</span>
+              <span class="v">{Number(formatEther(sessionCredits)).toFixed(4)} ETH</span>
+            </div>
+            <div class="session-chip">
+              <span class="k">{i18n.t('janken.session.key')}</span>
+              <span class="v" title={sessionKeyFull}>{sessionKeyAddr}</span>
+            </div>
+            <div class="session-chip">
+              <span class="k">{i18n.t('janken.session.expires')}</span>
+              <span class="v">{sessionRemainingLabel}</span>
+            </div>
+            <div class="session-chip">
+              <span class="k">{i18n.t('janken.session.gas')}</span>
+              <span class="v">{Number(formatEther(sessionGas)).toFixed(4)} ETH</span>
+            </div>
+          </div>
+          <div class="session-actions">
+            {#if !sessionActive}
+              <button class="s-btn primary" onclick={openSessionModal}>
+                {i18n.t('janken.session.start')}
+              </button>
+            {:else}
+              <button class="s-btn" onclick={topUp}>{i18n.t('janken.session.topup')}</button>
+            {/if}
+            {#if sessionActive || sessionCredits > 0n}
+              <button class="s-btn warn" onclick={endSession}>
+                {i18n.t('janken.session.end')}
+              </button>
+            {/if}
+          </div>
+        </div>
+
+        <div class="play-grid">
         <div class="panel cabinet-wrap">
           <div class="arcade-cabinet">
             <div class="cabinet-marquee">
@@ -991,13 +1020,87 @@
           </div>
         </div>
       </div>
-    </div>
-  {/if}
 
-  <!-- Liquidity tab -->
-  {#if activeTab === 'liquidity'}
-    <div class="tab-panel active">
-      <div class="liq-grid">
+        <!-- Recent rounds (game-only) -->
+        <div class="panel">
+          <div class="h">
+            <h3>{i18n.t('janken.recent')}</h3>
+            <span class="tag">{history.length}</span>
+          </div>
+          <table class="rounds-table">
+            <thead>
+              <tr>
+                <th>{i18n.t('janken.col.outcome')}</th>
+                <th>{i18n.t('janken.col.hand')}</th>
+                <th>{i18n.t('janken.col.bet')}</th>
+                <th>{i18n.t('janken.col.payout')}</th>
+                <th>{i18n.t('janken.col.tx')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#if history.length === 0}
+                <tr class="empty">
+                  <td colspan="5">{i18n.t('janken.noRounds')}</td>
+                </tr>
+              {:else}
+                {#each history as { result: r, hash } (hash)}
+                  <tr>
+                    <td>
+                      <span
+                        class="outcome {r.outcome === 2
+                          ? 'win'
+                          : r.outcome === 1
+                            ? 'draw'
+                            : 'lose'}"
+                      >
+                        {r.outcome === 2
+                          ? `win ${r.mult}×`
+                          : r.outcome === 1
+                            ? 'draw'
+                            : 'lose'}
+                      </span>
+                    </td>
+                    <td>
+                      {HAND_NAMES[r.pHand]}
+                      <span style="color: var(--ink-faint)">vs</span>
+                      {HAND_NAMES[r.hHand]}
+                    </td>
+                    <td>{formatEther(r.bet)} ETH</td>
+                    <td>
+                      {r.outcome === 2
+                        ? `+${formatEther(r.payout)}`
+                        : r.outcome === 1
+                          ? '±0'
+                          : `−${formatEther(r.bet)}`}
+                      ETH
+                    </td>
+                    <td><span class="hash">{hash.slice(0, 10)}…</span></td>
+                  </tr>
+                {/each}
+              {/if}
+            </tbody>
+          </table>
+          <div style="margin-top: 12px">
+            <div class="raw-label">{i18n.t('common.raw')}</div>
+            <div class="hex-block">{randHex}</div>
+          </div>
+        </div>
+      {/if}
+
+      <!-- LP Pool view -->
+      {#if activeView === 'lp'}
+        <div class="kpi-strip lp-kpis">
+          <div class="kpi">
+            <span class="k">{i18n.t('janken.kpi.tvl')}</span>
+            <span class="v">{kpiTvl}<span class="u">ETH</span></span>
+          </div>
+          <div class="kpi">
+            <span class="k">{i18n.t('janken.kpi.sharePrice')}</span>
+            <span class="v">{kpiPrice}<span class="u">Ξ / share</span></span>
+          </div>
+        </div>
+
+        <div class="liq-grid">
         <div class="panel">
           <div class="h">
             <h3>{i18n.t('janken.yourPos')}</h3>
@@ -1086,63 +1189,37 @@
           </div>
         </div>
       </div>
-    </div>
-  {/if}
+    {/if}
 
-  <!-- Recent rounds -->
-  <div class="panel">
-    <div class="h">
-      <h3>{i18n.t('janken.recent')}</h3>
-      <span class="tag">{history.length}</span>
-    </div>
-    <table class="rounds-table">
-      <thead>
-        <tr>
-          <th>{i18n.t('janken.col.outcome')}</th>
-          <th>{i18n.t('janken.col.hand')}</th>
-          <th>{i18n.t('janken.col.bet')}</th>
-          <th>{i18n.t('janken.col.payout')}</th>
-          <th>{i18n.t('janken.col.tx')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#if history.length === 0}
-          <tr class="empty">
-            <td colspan="5">{i18n.t('janken.noRounds')}</td>
-          </tr>
-        {:else}
-          {#each history as { result: r, hash } (hash)}
-            <tr>
-              <td>
-                <span
-                  class="outcome {r.outcome === 2 ? 'win' : r.outcome === 1 ? 'draw' : 'lose'}"
-                >
-                  {r.outcome === 2 ? `win ${r.mult}×` : r.outcome === 1 ? 'draw' : 'lose'}
-                </span>
-              </td>
-              <td>
-                {HAND_NAMES[r.pHand]}
-                <span style="color: var(--ink-faint)">vs</span>
-                {HAND_NAMES[r.hHand]}
-              </td>
-              <td>{formatEther(r.bet)} ETH</td>
-              <td>
-                {r.outcome === 2
-                  ? `+${formatEther(r.payout)}`
-                  : r.outcome === 1
-                    ? '±0'
-                    : `−${formatEther(r.bet)}`}
-                ETH
-              </td>
-              <td><span class="hash">{hash.slice(0, 10)}…</span></td>
-            </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
-    <div style="margin-top: 12px">
-      <div class="raw-label">{i18n.t('common.raw')}</div>
-      <div class="hex-block">{randHex}</div>
+      <!-- Leaderboard view -->
+      {#if activeView === 'leaderboard'}
+        <div class="panel">
+          <div class="h">
+            <h3>{i18n.t('janken.leaderboard.title')}</h3>
+            <span class="tag">{i18n.t('janken.leaderboard.tag')}</span>
+          </div>
+          <div class="leaderboard-empty">
+            <div class="lb-trophy" aria-hidden="true">🏆</div>
+            <div class="lb-msg">{i18n.t('janken.leaderboard.soon')}</div>
+            <table class="rounds-table lb-preview">
+              <thead>
+                <tr>
+                  <th>{i18n.t('janken.leaderboard.col.rank')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.player')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.pnl')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.rounds')}</th>
+                  <th>{i18n.t('janken.leaderboard.col.best')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="empty">
+                  <td colspan="5">— — —</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -1218,12 +1295,198 @@
   }
 
   .dfi-shell {
-    max-width: 1120px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 0 32px;
     display: flex;
     flex-direction: column;
     gap: 20px;
+  }
+
+  .dfi-body {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .dfi-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+  @media (max-width: 900px) {
+    .dfi-body {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    border-radius: 20px;
+    box-shadow: 5px 5px 0 var(--ink);
+    padding: 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: sticky;
+    top: 88px;
+  }
+  @media (max-width: 900px) {
+    .sidebar {
+      position: static;
+    }
+  }
+  .sb-section {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 700;
+    padding: 0 4px;
+  }
+  .sb-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sb-item {
+    appearance: none;
+    border: 2px solid transparent;
+    background: transparent;
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease,
+      transform 0.08s ease,
+      box-shadow 0.08s ease;
+    color: var(--ink);
+  }
+  .sb-item:hover {
+    background: var(--paper-2);
+  }
+  .sb-item.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    transform: translate(-1px, -1px);
+  }
+  .sb-icon {
+    font-size: 22px;
+    line-height: 1;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: var(--paper-2);
+    border: 2px solid var(--ink);
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+  }
+  .sb-item.active .sb-icon {
+    background: var(--butter);
+  }
+  .sb-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .sb-label {
+    font-family: 'Fredoka', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .sb-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  .sb-item.active .sb-label {
+    color: #fff;
+  }
+  .sb-item.active .sb-sub {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .sb-mini {
+    margin-top: 4px;
+    border-top: 2px dashed var(--ink-faint);
+    padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .sb-mini-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 0 4px;
+    font-size: 11px;
+  }
+  .sb-mini-row .k {
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 9px;
+  }
+  .sb-mini-row .v {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sb-mini-row .v.vrf-v {
+    color: #1a8a5a;
+  }
+
+  /* Leaderboard */
+  .leaderboard-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 24px 14px 8px;
+  }
+  .lb-trophy {
+    font-size: 56px;
+    line-height: 1;
+    filter: drop-shadow(0 3px 0 var(--ink));
+    animation: lb-bob 2.4s ease-in-out infinite;
+  }
+  @keyframes lb-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+  .lb-msg {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    text-align: center;
+    max-width: 520px;
+  }
+  .lb-preview {
+    width: 100%;
+    margin-top: 6px;
+    opacity: 0.55;
   }
 
   .dfi-head {
