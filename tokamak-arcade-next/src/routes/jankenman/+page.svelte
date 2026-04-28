@@ -739,11 +739,11 @@
 </svelte:head>
 
 <div id="topbar">
-  <Topbar hubHref="/games/" brand={true} />
+  <Topbar hubHref="/" brand={true} />
 </div>
 
 <div class="dfi-shell">
-  <a class="tokamak-back" href="/games/">{i18n.t('common.back.games')}</a>
+  <a class="tokamak-back" href="/">{i18n.t('common.back.landing')}</a>
 
   <div class="dfi-head">
     <div class="mascot">{@html jankenMascot({ size: 44 })}</div>

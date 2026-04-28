@@ -15,7 +15,6 @@ const DICT: Record<Lang, Record<string, string>> = {
     'common.vrf.waking': 'waking up…',
     'common.vrf.offline': 'RPC offline',
     'common.back.landing': '← 랜딩으로',
-    'common.back.games': '← 게임 목록으로',
     'common.raw': '최근 VRF randomness (raw)',
     'common.playnow': 'play now',
     'common.backedBy': 'Backed by Tokamak Network',
@@ -42,13 +41,6 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.featured.t': 'Neverness to Everness',
     'landing.seeAll': 'See all',
     'landing.upcoming': 'Upcoming Games',
-
-    'hub.title': 'Games · Tokamak Arcade',
-    'hub.eyebrow': 'Pick your game',
-    'hub.h1': '어떤 걸로 한번 놀아볼까요?',
-    'hub.lede':
-      '모든 게임은 L2 컨트랙트가 <code>VRF.getRandomness()</code>를 직접 호출해 단일 트랜잭션에서 결과가 정해집니다. 오라클 · 콜백 · 중앙 서버 없음.',
-    'hub.allGames': '모든 게임',
 
     'games.janken.desc': '가위바위보 + 룰렛 + LP 풀. VRF 1콜 + AA 세션키로 서명 없는 플레이.',
 
@@ -148,7 +140,6 @@ const DICT: Record<Lang, Record<string, string>> = {
     'common.vrf.waking': 'waking up…',
     'common.vrf.offline': 'RPC offline',
     'common.back.landing': '← back to landing',
-    'common.back.games': '← back to games',
     'common.raw': 'latest VRF randomness (raw)',
     'common.playnow': 'play now',
     'common.backedBy': 'Backed by Tokamak Network',
@@ -175,13 +166,6 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.featured.t': 'Featured games',
     'landing.seeAll': 'See all',
     'landing.upcoming': 'Upcoming Games',
-
-    'hub.title': 'Games · Tokamak Arcade',
-    'hub.eyebrow': 'Pick your game',
-    'hub.h1': 'Which one today?',
-    'hub.lede':
-      'Every game calls <code>VRF.getRandomness()</code> directly from its L2 contract — the outcome settles in a single transaction. No oracle, no callback, no central server.',
-    'hub.allGames': 'All games',
 
     'games.janken.desc':
       'Rock-paper-scissors + roulette + LP pool. One VRF call per round; AA session keys for zero-sig play.',
