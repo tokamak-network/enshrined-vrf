@@ -11,8 +11,6 @@
     selectedHand: number | null;
     onSelectHand?: (hand: number) => void;
     busy?: boolean;
-    kpiTvl: string;
-    kpiVrf: string;
   };
 
   let {
@@ -22,9 +20,7 @@
     cycling = true,
     selectedHand = null,
     onSelectHand,
-    busy = false,
-    kpiTvl = '—',
-    kpiVrf = '—'
+    busy = false
   }: Props = $props();
 
   // Wheel layout — same on-chain weighting, photo-style red/green/yellow palette
@@ -244,18 +240,6 @@
         </div>
       </div>
 
-      <!-- Right info panel (mimics 누적금액 / 잔액 in the photo) -->
-      <div class="cab-info">
-        <div class="cab-info-block">
-          <span class="cab-info-label">POOL TVL</span>
-          <div class="cab-info-value">{kpiTvl}<small>ETH</small></div>
-        </div>
-        <div class="cab-info-block">
-          <span class="cab-info-label">VRF COMMIT</span>
-          <div class="cab-info-value">#{kpiVrf}</div>
-        </div>
-        <div class="cab-info-action">SELECT A HAND</div>
-      </div>
     </div>
   </div>
 
@@ -361,10 +345,11 @@
   /* ─── Wheel block ─────────────────────────────────────────── */
   .cab-wheel-wrap {
     position: absolute;
-    left: 4%;
-    top: 22%;
-    width: 56%;
+    left: 50%;
+    top: 54%;
+    width: 70%;
     aspect-ratio: 1;
+    transform: translate(-50%, -50%);
   }
   .cab-wheel {
     position: absolute;
@@ -420,63 +405,6 @@
     display: block;
     width: 100%;
     height: 100%;
-  }
-
-  /* ─── Right info panel ────────────────────────────────────── */
-  .cab-info {
-    position: absolute;
-    right: 4%;
-    top: 18%;
-    width: 32%;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 1;
-  }
-  .cab-info-block {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .cab-info-label {
-    font-family: 'Pretendard', system-ui, sans-serif;
-    font-weight: 700;
-    font-size: clamp(9px, 1.4cqw, 12px);
-    color: #ffffff;
-    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .cab-info-value {
-    background: #1a0808;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    padding: 4px 8px;
-    color: #ff4040;
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-weight: 700;
-    font-size: clamp(13px, 2.4cqw, 18px);
-    text-shadow: 0 0 6px rgba(255, 64, 64, 0.6);
-    text-align: center;
-    line-height: 1.2;
-  }
-  .cab-info-value small {
-    font-size: 0.6em;
-    margin-left: 4px;
-    color: rgba(255, 64, 64, 0.7);
-  }
-  .cab-info-action {
-    margin-top: 4px;
-    background: #ffffff;
-    color: #0b0f17;
-    font-family: 'Pretendard', system-ui, sans-serif;
-    font-weight: 800;
-    font-size: clamp(10px, 1.5cqw, 13px);
-    text-align: center;
-    padding: 6px;
-    border-radius: 4px;
-    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
-    letter-spacing: 0.06em;
   }
 
   /* ─── Speaker / strip row ────────────────────────────────── */

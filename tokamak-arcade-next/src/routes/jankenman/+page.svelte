@@ -2401,6 +2401,21 @@
 
   /* ─── Modal ────────────────────────────────────────────────── */
   .modal-backdrop {
+    /* Modal renders outside .gmx-shell, so re-map the GMX tokens here
+       — otherwise the modal/inputs lose their background and borders. */
+    --gmx-bg: var(--cream);
+    --gmx-surface: var(--paper);
+    --gmx-card: var(--paper-2);
+    --gmx-line: var(--line-1);
+    --gmx-line-2: var(--line-2);
+    --gmx-line-3: var(--line-3);
+    --gmx-text: var(--ink);
+    --gmx-text-2: var(--ink-soft);
+    --gmx-text-3: var(--ink-faint);
+    --gmx-primary: var(--tk-blue);
+    --r-md: var(--radius-md);
+    --r-xl: var(--radius-xl);
+
     position: fixed;
     inset: 0;
     background: rgba(5, 8, 16, 0.7);
@@ -2409,6 +2424,8 @@
     place-items: center;
     padding: 20px;
     z-index: 100;
+    color: var(--gmx-text);
+    font-family: var(--font-sans);
   }
   .modal {
     background: var(--gmx-surface);
