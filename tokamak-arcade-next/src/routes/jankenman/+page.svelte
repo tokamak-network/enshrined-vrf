@@ -864,8 +864,6 @@
                 {selectedHand}
                 {busy}
                 onSelectHand={setHand}
-                {kpiTvl}
-                {kpiVrf}
               />
               <div class="status-line {statusKind}">
                 <span class="status-dot"></span>
