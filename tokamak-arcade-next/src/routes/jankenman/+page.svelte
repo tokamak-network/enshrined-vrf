@@ -44,6 +44,8 @@
 
   let wheelRotation = $state(0);
   let wheelTransitionMs = $state(3800);
+  // Index of the segment the wheel just landed on (0..9), or null while idle.
+  let winningSegment = $state<number | null>(null);
 
   // Status LED
   let statusKind = $state<'' | 'win' | 'lose' | 'draw'>('');
@@ -136,12 +138,16 @@
       (i) => i >= 0
     );
     const segIdx = matches[Math.floor(Math.random() * matches.length)];
-    const finalAngle = -(segIdx * 36 + 18);
+    // Cabinet2D's wheel has segment 0 centered at the top, so rotating
+    // by -segIdx * 36° puts segIdx's centre directly under the pointer.
+    const finalAngle = -(segIdx * 36);
     const base = Math.ceil(wheelRotation / 360) * 360;
     const target = base + 360 * 5 + finalAngle;
     wheelTransitionMs = 3600;
     wheelRotation = target;
     await new Promise((r) => setTimeout(r, 3700));
+    // Light up the bulbs of the segment we just landed on.
+    winningSegment = segIdx;
   }
 
   // ─── Healthcheck on mount ─────────────────────────────────────────
@@ -341,6 +347,8 @@
     }
 
     busy = true;
+    // Clear the previous round's winning bulbs before the new spin starts.
+    winningSegment = null;
     lockDisplay(HANDS[0], '');
     startCycling(80);
     setStatus('', i18n.t('janken.playing'));
@@ -863,6 +871,7 @@
                 cycling={displayCycling}
                 {selectedHand}
                 {busy}
+                {winningSegment}
                 onSelectHand={setHand}
               />
               <div class="status-line {statusKind}">

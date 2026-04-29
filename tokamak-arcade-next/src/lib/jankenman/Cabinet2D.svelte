@@ -11,6 +11,8 @@
     selectedHand: number | null;
     onSelectHand?: (hand: number) => void;
     busy?: boolean;
+    /** Segment index (0..9) the wheel just landed on — its bulbs blink. */
+    winningSegment?: number | null;
   };
 
   let {
@@ -20,7 +22,8 @@
     cycling = true,
     selectedHand = null,
     onSelectHand,
-    busy = false
+    busy = false,
+    winningSegment = null
   }: Props = $props();
 
   // Bulb ring — 30 lights, 3 per segment (one at each segment boundary +
@@ -236,13 +239,16 @@
               stroke="#000000"
               stroke-width="2"
             />
-            <!-- Bulb ring — part of the wheel, rotates with each segment -->
+            <!-- Bulb ring — part of the wheel, rotates with each segment.
+                 When winningSegment is set, the 3 bulbs of that segment
+                 leave the chase animation and steady-blink in win colour. -->
             {#each BULBS as b (b.i)}
               <circle
                 cx={b.cx}
                 cy={b.cy}
                 r="3.6"
                 class="bulb"
+                class:winning={winningSegment === b.seg}
                 data-seg={b.seg}
                 style="--i:{b.i};"
               />
@@ -417,6 +423,26 @@
     14% {
       fill: var(--base);
       filter: none;
+    }
+  }
+
+  /* Winning segment — overrides the chase with a steady fast blink */
+  .cab-wheel .bulb.winning {
+    --base: #fff8b8;
+    --lit: #ffffff;
+    --glow: #ff6b35;
+    animation: bulb-win 0.45s ease-in-out infinite alternate;
+    animation-delay: 0s;
+    fill: var(--base);
+  }
+  @keyframes bulb-win {
+    from {
+      fill: var(--base);
+      filter: drop-shadow(0 0 5px var(--glow)) drop-shadow(0 0 9px var(--glow));
+    }
+    to {
+      fill: var(--lit);
+      filter: drop-shadow(0 0 9px var(--glow)) drop-shadow(0 0 18px var(--glow));
     }
   }
 
