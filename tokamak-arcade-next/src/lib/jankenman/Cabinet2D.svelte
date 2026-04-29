@@ -23,9 +23,23 @@
     busy = false
   }: Props = $props();
 
-  // Bulb ring — 24 lights chasing around the outer rim
-  const BULB_COUNT = 24;
-  const BULBS = Array.from({ length: BULB_COUNT }, (_, i) => i);
+  // Bulb ring — 30 lights, 3 per segment (one at each segment boundary +
+  // one at each segment center). The bulbs live inside the rotating wheel
+  // SVG so they spin together with their segment.
+  const BULB_COUNT = 30;
+  const BULBS = Array.from({ length: BULB_COUNT }, (_, i) => {
+    // Each segment is 36° wide and centered at i*36°. Place bulbs at
+    // -12°, 0°, +12° within each segment so 3 bulbs sit cleanly inside.
+    const angTop = i * 12 - 12; // degrees clockwise from the wheel's top
+    const seg = Math.floor((((angTop % 360) + 360) % 360 + 18) / 36) % 10;
+    const rad = ((angTop - 90) * Math.PI) / 180;
+    return {
+      i,
+      seg,
+      cx: +(Math.cos(rad) * 93).toFixed(2),
+      cy: +(Math.sin(rad) * 93).toFixed(2)
+    };
+  });
 
   // Wheel layout — same on-chain weighting, photo-style red/green/yellow palette
   const SEGMENTS = [
@@ -222,22 +236,19 @@
               stroke="#000000"
               stroke-width="2"
             />
+            <!-- Bulb ring — part of the wheel, rotates with each segment -->
+            {#each BULBS as b (b.i)}
+              <circle
+                cx={b.cx}
+                cy={b.cy}
+                r="3.6"
+                class="bulb"
+                data-seg={b.seg}
+                style="--i:{b.i};"
+              />
+            {/each}
           </svg>
         </div>
-
-        <!-- Bulb ring — stationary, chases around the outer green band -->
-        <svg class="cab-bulbs" viewBox="-100 -100 200 200" aria-hidden="true">
-          {#each BULBS as i}
-            {@const ang = (i * (360 / BULB_COUNT) - 90) * (Math.PI / 180)}
-            <circle
-              cx={(Math.cos(ang) * 93).toFixed(2)}
-              cy={(Math.sin(ang) * 93).toFixed(2)}
-              r="3.8"
-              class="bulb"
-              style="--i:{i}"
-            />
-          {/each}
-        </svg>
 
         <!-- Korean rim labels (don't rotate) -->
         {#each RIM_LABELS as l (l.text + l.ang)}
@@ -380,26 +391,18 @@
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
   }
 
-  /* Bulb ring — fixed (does not rotate with the wheel) */
-  .cab-bulbs {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 1;
-  }
-  .cab-bulbs .bulb {
+  /* Bulb ring — lives inside the rotating wheel SVG, so each bulb stays
+     pinned to its segment as the wheel spins. The chase animation runs
+     independently of the wheel rotation. */
+  .cab-wheel .bulb {
     --base: #432a14;
     --lit: #fff8b8;
     --glow: #ffd24a;
     fill: var(--base);
     stroke: rgba(0, 0, 0, 0.55);
     stroke-width: 1;
-    animation: bulb-chase 1.6s linear infinite;
-    animation-delay: calc(var(--i) * -0.066s);
-    transform-box: fill-box;
-    transform-origin: center;
+    animation: bulb-chase 1.8s linear infinite;
+    animation-delay: calc(var(--i) * -0.06s);
   }
   @keyframes bulb-chase {
     0%,
