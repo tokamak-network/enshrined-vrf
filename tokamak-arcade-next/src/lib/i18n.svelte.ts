@@ -48,6 +48,14 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.featured.t': 'Neverness to Everness',
     'landing.seeAll': 'See all',
     'landing.upcoming': 'Upcoming Games',
+    'landing.dialog.title': '지갑을 연결해 주세요',
+    'landing.dialog.body':
+      '바로 게임을 시작하려면 지갑 연결이 필요해요. 데브넷에는 테스트 ETH가 미리 들어 있어요.',
+    'landing.dialog.cancel': '취소',
+    'landing.dialog.connect': '연결하고 입장',
+    'landing.dialog.connecting': '연결 중…',
+    'landing.dialog.noWallet':
+      '지갑이 감지되지 않았어요. MetaMask 같은 EIP-1193 지갑을 설치한 뒤 다시 시도해 주세요.',
 
     'games.janken.desc': '가위바위보 + 룰렛 + LP 풀. VRF 1콜 + AA 세션키로 서명 없는 플레이.',
 
@@ -102,7 +110,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'janken.slip.tag': '네이티브 ETH',
     'janken.slip.payout': '승리 시 payout',
     'janken.slip.odds': '확률',
-    'janken.slip.ev': '기대 손익 (7% 하우스 엣지)',
+    'janken.slip.ev': '기대 손익',
     'janken.dist': '승리 시 배율 분포',
     'janken.yourPos': '내 포지션',
     'janken.poolShare': '풀 지분율',
@@ -149,7 +157,13 @@ const DICT: Record<Lang, Record<string, string>> = {
     'janken.modal.key': '세션키 주소',
     'janken.modal.cancel': '취소',
     'janken.modal.confirm': '서명 후 시작',
-    'janken.modal.signing': '지갑 서명 중…'
+    'janken.modal.signing': '지갑 서명 중…',
+    'janken.modal.walletTimeout':
+      '지갑이 응답하지 않았어요. 지갑 확장 팝업이 차단되지 않았는지, 다른 지갑 확장과 충돌하지 않는지 확인 후 다시 시도해 주세요.',
+    'janken.modal.receiptTimeout':
+      '트랜잭션은 보냈지만 30초 안에 마이닝되지 않았어요. anvil이 실행 중인지 확인하고, MetaMask → 설정 → 고급 → "활동 데이터 초기화"로 nonce 캐시를 리셋한 뒤 다시 시도해 주세요.',
+    'janken.modal.chainMismatch':
+      'MetaMask가 anvil 네트워크가 아닌 다른 체인에 있어요. MetaMask 상단 네트워크 드롭다운에서 "Enshrined VRF Devnet" (chainId 31337) 으로 전환한 뒤 다시 시도해 주세요.'
   },
 
   en: {
@@ -195,6 +209,14 @@ const DICT: Record<Lang, Record<string, string>> = {
     'landing.featured.t': 'Featured games',
     'landing.seeAll': 'See all',
     'landing.upcoming': 'Upcoming Games',
+    'landing.dialog.title': 'Connect your wallet',
+    'landing.dialog.body':
+      'Connect a wallet to step straight into the arcade. Devnet test ETH is already pre-funded for you.',
+    'landing.dialog.cancel': 'Cancel',
+    'landing.dialog.connect': 'Connect & enter',
+    'landing.dialog.connecting': 'Connecting…',
+    'landing.dialog.noWallet':
+      'No wallet detected. Install an EIP-1193 wallet such as MetaMask, then try again.',
 
     'games.janken.desc':
       'Rock-paper-scissors + roulette + LP pool. One VRF call per round; AA session keys for zero-sig play.',
@@ -250,7 +272,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'janken.slip.tag': 'native ETH',
     'janken.slip.payout': 'if you win',
     'janken.slip.odds': 'odds',
-    'janken.slip.ev': 'expected P/L (7% house edge)',
+    'janken.slip.ev': 'expected P/L',
     'janken.dist': 'Multiplier distribution (on win)',
     'janken.yourPos': 'Your position',
     'janken.poolShare': 'pool share',
@@ -297,7 +319,13 @@ const DICT: Record<Lang, Record<string, string>> = {
     'janken.modal.key': 'Session key address',
     'janken.modal.cancel': 'Cancel',
     'janken.modal.confirm': 'Sign & start',
-    'janken.modal.signing': 'signing in wallet…'
+    'janken.modal.signing': 'signing in wallet…',
+    'janken.modal.walletTimeout':
+      "Wallet didn't respond. Check that the extension popup wasn't blocked and that no other wallet extension is conflicting, then try again.",
+    'janken.modal.receiptTimeout':
+      'Transaction was broadcast but did not mine within 30s. Make sure anvil is running, then in MetaMask go to Settings → Advanced → "Clear activity tab data" to reset the nonce cache, and try again.',
+    'janken.modal.chainMismatch':
+      'MetaMask is on a different chain than anvil. Switch the network dropdown at the top of MetaMask to "Enshrined VRF Devnet" (chainId 31337) and try again.'
   }
 };
 

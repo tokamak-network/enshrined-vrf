@@ -1,8 +1,51 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { i18n } from '$lib/i18n.svelte';
   import Topbar from '$lib/components/Topbar.svelte';
   import { jankenMascot } from '$lib/mascots';
   import { TOKAMAK_SYMBOL_DATA_URI } from '$lib/brand';
+  import { wallet } from '$lib/wallet.svelte';
+
+  let walletDialogOpen = $state(false);
+  let walletDialogError = $state<string | null>(null);
+
+  const ARCADE_HREF = '/jankenman/';
+
+  async function onEnterArcade(e: MouseEvent) {
+    e.preventDefault();
+    if (wallet.account) {
+      await goto(ARCADE_HREF);
+      return;
+    }
+    walletDialogError = null;
+    walletDialogOpen = true;
+  }
+
+  function closeWalletDialog() {
+    if (wallet.connecting) return;
+    walletDialogOpen = false;
+    walletDialogError = null;
+  }
+
+  async function connectAndEnter() {
+    walletDialogError = null;
+    if (!wallet.hasProvider) {
+      walletDialogError = i18n.t('landing.dialog.noWallet');
+      return;
+    }
+    try {
+      await wallet.connect();
+      walletDialogOpen = false;
+      await goto(ARCADE_HREF);
+    } catch (err) {
+      const e = err as { message?: string };
+      walletDialogError = e?.message ?? String(err);
+    }
+  }
+
+  function onWindowKeydown(e: KeyboardEvent) {
+    if (walletDialogOpen && e.key === 'Escape') closeWalletDialog();
+  }
 
   // ─── Feature card icons (How it works) ────────────────────────────
   // Stroke = currentColor so they pick up the tk-blue from `.feature .icon`.
@@ -128,7 +171,7 @@
       <h1>{@html i18n.t('landing.h1')}</h1>
       <p class="lede">{@html i18n.t('landing.lede')}</p>
       <div class="cta-row">
-        <a class="btn-primary" href="/jankenman/">
+        <a class="btn-primary" href={ARCADE_HREF} onclick={onEnterArcade}>
           <span>{i18n.t('landing.cta.enter')}</span>
           <span aria-hidden="true">→</span>
         </a>
@@ -142,7 +185,12 @@
         </a>
       </div>
     </div>
-    <a class="hero-feature" href="/jankenman/" aria-label="Jankenman — featured game">
+    <a
+      class="hero-feature"
+      href={ARCADE_HREF}
+      onclick={onEnterArcade}
+      aria-label="Jankenman — featured game"
+    >
       <span class="badge">Featured</span>
       <div class="mascot">{@html jankenMascot({ size: 200 })}</div>
       <div class="meta">
@@ -250,6 +298,63 @@
   </footer>
 </main>
 
+<svelte:window onkeydown={onWindowKeydown} />
+
+{#if walletDialogOpen}
+  <div
+    class="wallet-dialog-backdrop"
+    role="presentation"
+    onclick={closeWalletDialog}
+  >
+    <div
+      class="wallet-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wallet-dialog-title"
+      onclick={(e) => e.stopPropagation()}
+      tabindex="-1"
+    >
+      <div class="wd-icon" aria-hidden="true">
+        <span class="logo-chip">
+          <img src={TOKAMAK_SYMBOL_DATA_URI} alt="" />
+        </span>
+      </div>
+      <h3 id="wallet-dialog-title">{i18n.t('landing.dialog.title')}</h3>
+      <p class="wd-body">{i18n.t('landing.dialog.body')}</p>
+
+      {#if walletDialogError}
+        <div class="wd-error" role="alert">{walletDialogError}</div>
+      {/if}
+
+      <div class="wd-actions">
+        <button
+          type="button"
+          class="btn-ghost"
+          onclick={closeWalletDialog}
+          disabled={wallet.connecting}
+        >
+          {i18n.t('landing.dialog.cancel')}
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          onclick={connectAndEnter}
+          disabled={wallet.connecting}
+        >
+          <span>
+            {wallet.connecting
+              ? i18n.t('landing.dialog.connecting')
+              : i18n.t('landing.dialog.connect')}
+          </span>
+          {#if !wallet.connecting}
+            <span aria-hidden="true">→</span>
+          {/if}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   :global(body) {
     background:
@@ -265,7 +370,7 @@
     background: rgba(11, 15, 23, 0.85);
     backdrop-filter: saturate(140%) blur(12px);
     -webkit-backdrop-filter: saturate(140%) blur(12px);
-    padding: 0 32px;
+    padding: 14px 32px 0;
   }
   :global(body > #topbar .tokamak-topbar) {
     margin: 0 auto;
@@ -955,7 +1060,7 @@
       padding: 0 16px;
     }
     :global(body > #topbar) {
-      padding: 0 16px;
+      padding: 10px 16px 0;
     }
     .hero {
       padding: 32px 20px 40px;
@@ -976,5 +1081,120 @@
 
   section {
     scroll-margin-top: 80px;
+  }
+
+  /* ─── Wallet connect dialog ───────────────────────────────────── */
+  .wallet-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(7, 10, 16, 0.7);
+    backdrop-filter: saturate(140%) blur(8px);
+    -webkit-backdrop-filter: saturate(140%) blur(8px);
+    animation: wd-fade 0.18s ease;
+  }
+  .wallet-dialog {
+    width: 100%;
+    max-width: 440px;
+    padding: 32px 28px 24px;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--line-2);
+    background:
+      radial-gradient(420px 220px at 100% 0%, rgba(42, 114, 229, 0.18), transparent 65%),
+      linear-gradient(160deg, #131927 0%, #0b0f17 100%);
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(42, 114, 229, 0.18);
+    color: var(--ink);
+    outline: none;
+    animation: wd-pop 0.2s ease;
+  }
+  .wallet-dialog .wd-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(42, 114, 229, 0.12);
+    border: 1px solid rgba(42, 114, 229, 0.28);
+    margin-bottom: 16px;
+  }
+  .wallet-dialog .wd-icon .logo-chip {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+  }
+  .wallet-dialog .wd-icon .logo-chip img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+  }
+  .wallet-dialog h3 {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .wallet-dialog .wd-body {
+    font-family: var(--font-sans);
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .wallet-dialog .wd-error {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: rgba(229, 78, 78, 0.1);
+    border: 1px solid rgba(229, 78, 78, 0.32);
+    color: #ffb3b3;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .wallet-dialog .wd-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 22px;
+    flex-wrap: wrap;
+  }
+  .wallet-dialog .wd-actions .btn-primary,
+  .wallet-dialog .wd-actions .btn-ghost {
+    padding: 12px 20px;
+    font-size: 13.5px;
+  }
+  .wallet-dialog .wd-actions .btn-primary[disabled],
+  .wallet-dialog .wd-actions .btn-ghost[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  @keyframes wd-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes wd-pop {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 </style>
