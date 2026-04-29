@@ -23,6 +23,10 @@
     busy = false
   }: Props = $props();
 
+  // Bulb ring — 24 lights chasing around the outer rim
+  const BULB_COUNT = 24;
+  const BULBS = Array.from({ length: BULB_COUNT }, (_, i) => i);
+
   // Wheel layout — same on-chain weighting, photo-style red/green/yellow palette
   const SEGMENTS = [
     { m: 1, color: '#3FB95F' },
@@ -183,18 +187,18 @@
             <!-- 10 weighted segments -->
             {#each SEGMENTS as seg, i}
               <path
-                d={segmentPath(i, 92)}
+                d={segmentPath(i, 88)}
                 fill={seg.color}
                 stroke="rgba(0,0,0,0.45)"
                 stroke-width="1.2"
               />
             {/each}
             <!-- Multiplier numbers — placed at the radial midpoint of
-                 each segment (inner hub r=38, outer r=92 → middle r≈64). -->
+                 each segment (inner hub r=38, outer r=88 → middle r≈63). -->
             {#each SEGMENTS as seg, i}
               <text
                 x="0"
-                y="-62"
+                y="-60"
                 transform="rotate({i * 36 - 18} 0 0)"
                 text-anchor="middle"
                 dominant-baseline="middle"
@@ -220,6 +224,20 @@
             />
           </svg>
         </div>
+
+        <!-- Bulb ring — stationary, chases around the outer green band -->
+        <svg class="cab-bulbs" viewBox="-100 -100 200 200" aria-hidden="true">
+          {#each BULBS as i}
+            {@const ang = (i * (360 / BULB_COUNT) - 90) * (Math.PI / 180)}
+            <circle
+              cx={(Math.cos(ang) * 93).toFixed(2)}
+              cy={(Math.sin(ang) * 93).toFixed(2)}
+              r="3.8"
+              class="bulb"
+              style="--i:{i}"
+            />
+          {/each}
+        </svg>
 
         <!-- Korean rim labels (don't rotate) -->
         {#each RIM_LABELS as l (l.text + l.ang)}
@@ -360,6 +378,43 @@
     width: 100%;
     height: 100%;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+  }
+
+  /* Bulb ring — fixed (does not rotate with the wheel) */
+  .cab-bulbs {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .cab-bulbs .bulb {
+    --base: #432a14;
+    --lit: #fff8b8;
+    --glow: #ffd24a;
+    fill: var(--base);
+    stroke: rgba(0, 0, 0, 0.55);
+    stroke-width: 1;
+    animation: bulb-chase 1.6s linear infinite;
+    animation-delay: calc(var(--i) * -0.066s);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes bulb-chase {
+    0%,
+    100% {
+      fill: var(--base);
+      filter: none;
+    }
+    7% {
+      fill: var(--lit);
+      filter: drop-shadow(0 0 5px var(--glow)) drop-shadow(0 0 10px var(--glow));
+    }
+    14% {
+      fill: var(--base);
+      filter: none;
+    }
   }
 
   .cab-rim {
