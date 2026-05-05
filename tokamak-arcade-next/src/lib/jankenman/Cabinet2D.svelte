@@ -26,23 +26,9 @@
     winningSegment = null
   }: Props = $props();
 
-  // Bulb ring — 30 lights, 3 per segment (one at each segment boundary +
-  // one at each segment center). The bulbs live inside the rotating wheel
-  // SVG so they spin together with their segment.
-  const BULB_COUNT = 30;
-  const BULBS = Array.from({ length: BULB_COUNT }, (_, i) => {
-    // Each segment is 36° wide and centered at i*36°. Place bulbs at
-    // -12°, 0°, +12° within each segment so 3 bulbs sit cleanly inside.
-    const angTop = i * 12 - 12; // degrees clockwise from the wheel's top
-    const seg = Math.floor((((angTop % 360) + 360) % 360 + 18) / 36) % 10;
-    const rad = ((angTop - 90) * Math.PI) / 180;
-    return {
-      i,
-      seg,
-      cx: +(Math.cos(rad) * 93).toFixed(2),
-      cy: +(Math.sin(rad) * 93).toFixed(2)
-    };
-  });
+  // No more 30 little bulbs — each segment now gets a single arc strip at
+  // its outer edge, drawn in arcEdgePath() below. The strip is dim by
+  // default and lights up bright when winningSegment matches.
 
   // Wheel layout — same on-chain weighting, photo-style red/green/yellow palette
   const SEGMENTS = [
@@ -66,12 +52,14 @@
     { text: '졌다', ang: 125, color: '#E84A4A' }
   ];
 
-  // Photo button order (left → right): 가위(red) / 바위(yellow) / 보(green).
+  // Layout left → right: Rock / Paper / Scissors, matching the hand-toggle
+  // order in the right slip. Each hand keeps its arcade-cap color
+  // (Rock=yellow, Paper=green, Scissors=red).
   // hand index from contract: 0=rock, 1=paper, 2=scissors.
   const BUTTONS = [
-    { idx: 2, cls: 'red', label: '가위' },
-    { idx: 0, cls: 'yellow', label: '바위' },
-    { idx: 1, cls: 'green', label: '보' }
+    { idx: 0, cls: 'yellow', label: 'Rock', emoji: '✊' },
+    { idx: 1, cls: 'green', label: 'Paper', emoji: '✋' },
+    { idx: 2, cls: 'red', label: 'Scissors', emoji: '✌️' }
   ];
 
   let ledCanvas: HTMLCanvasElement | null = null;
@@ -86,6 +74,19 @@
     const x1 = r * Math.cos(a1);
     const y1 = r * Math.sin(a1);
     return `M 0 0 L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
+  }
+
+  // Outer-edge arc path — used as a stroke for each segment's bulb strip.
+  // Same angular range as the segment (−18°..+18° from its centre) but at
+  // a larger radius so the strip sits in the green outer band.
+  function arcEdgePath(i: number, r = 94): string {
+    const a0 = ((i * 36 - 18 - 90) * Math.PI) / 180;
+    const a1 = (((i + 1) * 36 - 18 - 90) * Math.PI) / 180;
+    const x0 = r * Math.cos(a0);
+    const y0 = r * Math.sin(a0);
+    const x1 = r * Math.cos(a1);
+    const y1 = r * Math.sin(a1);
+    return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
   }
 
   // ─── LED dot-matrix renderer ──────────────────────────────────────
@@ -192,9 +193,6 @@
   <!-- ─── Screen ───────────────────────────────────────────────── -->
   <div class="cab-bezel">
     <div class="cab-screen">
-      <h2 class="cab-title">JANKENMAN</h2>
-      <span class="cab-subtitle">메달게임</span>
-
       <!-- Wheel + LED -->
       <div class="cab-wheel-wrap">
         <div class="cab-wheel" style="transform: rotate({targetRotationDeg}deg);">
@@ -211,12 +209,14 @@
               />
             {/each}
             <!-- Multiplier numbers — placed at the radial midpoint of
-                 each segment (inner hub r=38, outer r=88 → middle r≈63). -->
+                 each segment (inner hub r=38, outer r=88 → middle r≈63),
+                 rotated by i*36° so each number sits in its segment's
+                 centre rather than on the boundary with the next one. -->
             {#each SEGMENTS as seg, i}
               <text
                 x="0"
                 y="-60"
-                transform="rotate({i * 36 - 18} 0 0)"
+                transform="rotate({i * 36} 0 0)"
                 text-anchor="middle"
                 dominant-baseline="middle"
                 font-size="24"
@@ -239,18 +239,16 @@
               stroke="#000000"
               stroke-width="2"
             />
-            <!-- Bulb ring — part of the wheel, rotates with each segment.
-                 When winningSegment is set, the 3 bulbs of that segment
-                 leave the chase animation and steady-blink in win colour. -->
-            {#each BULBS as b (b.i)}
-              <circle
-                cx={b.cx}
-                cy={b.cy}
-                r="3.6"
-                class="bulb"
-                class:winning={winningSegment === b.seg}
-                data-seg={b.seg}
-                style="--i:{b.i};"
+            <!-- Bulb strips — one curved arc per segment at the outer edge.
+                 Dim by default; the matching segment lights up bright when
+                 winningSegment is set. -->
+            {#each SEGMENTS as _seg, i}
+              <path
+                d={arcEdgePath(i, 94)}
+                class="bulb-strip"
+                class:winning={winningSegment === i}
+                fill="none"
+                stroke-linecap="butt"
               />
             {/each}
           </svg>
@@ -298,7 +296,9 @@
         disabled={busy}
         onclick={() => onClickButton(b.idx)}
       >
-        <span class="cab-cap"></span>
+        <span class="cab-cap">
+          <span class="cab-emoji" aria-hidden="true">{b.emoji}</span>
+        </span>
         <span class="cab-label">{b.label}</span>
       </button>
     {/each}
@@ -352,37 +352,14 @@
     pointer-events: none;
   }
 
-  .cab-title {
-    position: absolute;
-    top: 14px;
-    left: 18px;
-    font-family: 'Pretendard', system-ui, sans-serif;
-    font-weight: 900;
-    font-size: clamp(20px, 4.2cqw, 32px);
-    color: #ffe74e;
-    -webkit-text-stroke: 2.5px #0b0f17;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    text-shadow: 2px 3px 0 rgba(0, 0, 0, 0.25);
-  }
-  .cab-subtitle {
-    position: absolute;
-    top: 22px;
-    left: 36%;
-    font-family: 'Pretendard', system-ui, sans-serif;
-    font-weight: 700;
-    font-size: clamp(11px, 1.8cqw, 14px);
-    color: #ffffff;
-    -webkit-text-stroke: 1px #0b0f17;
-    letter-spacing: -0.01em;
-  }
-
   /* ─── Wheel block ─────────────────────────────────────────── */
   .cab-wheel-wrap {
     position: absolute;
     left: 50%;
-    top: 54%;
-    width: 70%;
+    top: 50%;
+    /* Slightly narrower than the screen so the wheel has equal cyan
+       margins above and below within the 4:3 screen. */
+    width: 62%;
     aspect-ratio: 1;
     transform: translate(-50%, -50%);
   }
@@ -397,52 +374,30 @@
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
   }
 
-  /* Bulb ring — lives inside the rotating wheel SVG, so each bulb stays
-     pinned to its segment as the wheel spins. The chase animation runs
-     independently of the wheel rotation. */
-  .cab-wheel .bulb {
-    --base: #432a14;
-    --lit: #fff8b8;
-    --glow: #ffd24a;
-    fill: var(--base);
-    stroke: rgba(0, 0, 0, 0.55);
-    stroke-width: 1;
-    animation: bulb-chase 1.8s linear infinite;
-    animation-delay: calc(var(--i) * -0.06s);
+  /* Bulb strip — one curved arc per segment, sitting in the green outer
+     band. Drawn as a stroke so each segment's strip is a single SVG path. */
+  .cab-wheel .bulb-strip {
+    stroke: #6b4a1a; /* dim warm idle */
+    stroke-width: 9;
+    transition:
+      stroke 0.2s ease,
+      filter 0.2s ease;
   }
-  @keyframes bulb-chase {
-    0%,
-    100% {
-      fill: var(--base);
-      filter: none;
-    }
-    7% {
-      fill: var(--lit);
-      filter: drop-shadow(0 0 5px var(--glow)) drop-shadow(0 0 10px var(--glow));
-    }
-    14% {
-      fill: var(--base);
-      filter: none;
-    }
+  .cab-wheel .bulb-strip.winning {
+    stroke: #fff8b8; /* lit warm white */
+    filter:
+      drop-shadow(0 0 6px #ffd24a)
+      drop-shadow(0 0 14px #ff8a1a);
+    animation: bulb-strip-blink 0.5s ease-in-out infinite alternate;
   }
-
-  /* Winning segment — overrides the chase with a steady fast blink */
-  .cab-wheel .bulb.winning {
-    --base: #fff8b8;
-    --lit: #ffffff;
-    --glow: #ff6b35;
-    animation: bulb-win 0.45s ease-in-out infinite alternate;
-    animation-delay: 0s;
-    fill: var(--base);
-  }
-  @keyframes bulb-win {
+  @keyframes bulb-strip-blink {
     from {
-      fill: var(--base);
-      filter: drop-shadow(0 0 5px var(--glow)) drop-shadow(0 0 9px var(--glow));
+      stroke: #fff8b8;
+      filter: drop-shadow(0 0 6px #ffd24a) drop-shadow(0 0 12px #ff8a1a);
     }
     to {
-      fill: var(--lit);
-      filter: drop-shadow(0 0 9px var(--glow)) drop-shadow(0 0 18px var(--glow));
+      stroke: #ffffff;
+      filter: drop-shadow(0 0 10px #ffe14a) drop-shadow(0 0 22px #ff8a1a);
     }
   }
 
@@ -578,6 +533,8 @@
     border-radius: 50%;
     border: 3px solid #0b0f17;
     position: relative;
+    display: grid;
+    place-items: center;
     box-shadow:
       0 6px 0 rgba(0, 0, 0, 0.55),
       0 8px 14px rgba(0, 0, 0, 0.25),
@@ -599,6 +556,15 @@
     background: rgba(255, 255, 255, 0.55);
     filter: blur(2px);
     pointer-events: none;
+  }
+  .cab-emoji {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(22px, 6.5cqw, 34px);
+    line-height: 1;
+    filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35));
+    pointer-events: none;
+    user-select: none;
   }
   .cab-btn.red .cab-cap {
     background: radial-gradient(circle at 35% 30%, #ff8a7a 0%, #e84a4a 60%, #b81e1e 100%);
