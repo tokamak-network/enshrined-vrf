@@ -478,6 +478,48 @@ func TestPreparePayloadAttributes(t *testing.T) {
 			require.Equal(t, minBaseFee, *attrs.MinBaseFee)
 			require.Equal(t, l1InfoTx, []byte(attrs.Transactions[0]))
 		})
+
+		t.Run("enshrined vrf public key from l1 receipts", func(t *testing.T) {
+			cfg := mkCfg()
+			cfg.ActivateAtGenesis(forks.EnshrainedVRF)
+			rng := rand.New(rand.NewSource(1234))
+			l1Fetcher := &testutils.MockL1Source{}
+			defer l1Fetcher.AssertExpectations(t)
+			l2Parent := testutils.RandomL2BlockRef(rng)
+			l1CfgFetcher := &testutils.MockL2Client{}
+			l1CfgFetcher.ExpectSystemConfigByL2Hash(l2Parent.Hash, testSysCfg, nil)
+			defer l1CfgFetcher.AssertExpectations(t)
+
+			l1Info := testutils.RandomBlockInfo(rng)
+			l1Info.InfoParentHash = l2Parent.L1Origin.Hash
+			l1Info.InfoNum = l2Parent.L1Origin.Number + 1
+			epoch := l1Info.ID()
+
+			inner, err := bytesArgs.Pack(vrfPublicKey)
+			require.NoError(t, err)
+			data, err := bytesArgs.Pack(inner)
+			require.NoError(t, err)
+			receipt := &types.Receipt{
+				Status: types.ReceiptStatusSuccessful,
+				Logs: []*types.Log{
+					{
+						Address: cfg.L1SystemConfigAddress,
+						Topics: []common.Hash{
+							ConfigUpdateEventABIHash,
+							ConfigUpdateEventVersion0,
+							SystemConfigUpdateVRFPublicKey,
+						},
+						Data: data,
+					},
+				},
+			}
+			l1Fetcher.ExpectFetchReceipts(epoch.Hash, l1Info, []*types.Receipt{receipt}, nil)
+
+			attrBuilder := NewFetchingAttributesBuilder(cfg, params.MergedTestChainConfig, nil, l1Fetcher, l1CfgFetcher)
+			attrs, err := attrBuilder.PreparePayloadAttributes(context.Background(), l2Parent, epoch)
+			require.NoError(t, err)
+			require.Equal(t, eth.Data(vrfPublicKey), attrs.VRFPublicKey)
+		})
 	})
 }
 

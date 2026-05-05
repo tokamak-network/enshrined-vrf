@@ -1,6 +1,7 @@
 package derive
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -39,6 +40,7 @@ var (
 	eip1559Params     = []byte{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8}
 	operatorFeeParams = []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7, 0xd, 0x8}
 	minBaseFee        = uint64(1e9)
+	vrfPublicKey      = append([]byte{0x02}, bytes.Repeat([]byte{0x42}, 32)...)
 )
 
 // TestProcessSystemConfigUpdateLogEvent tests the parsing of an event and mutating the
@@ -347,6 +349,48 @@ func TestProcessSystemConfigUpdateLogEvent(t *testing.T) {
 				DAFootprintGasScalar: 100,
 			},
 			err: false,
+		},
+		{
+			name: "VRFPublicKey",
+			log: &types.Log{
+				Topics: []common.Hash{
+					ConfigUpdateEventABIHash,
+					ConfigUpdateEventVersion0,
+					SystemConfigUpdateVRFPublicKey,
+				},
+			},
+			hook: func(t *testing.T, log *types.Log) *types.Log {
+				inner, err := bytesArgs.Pack(vrfPublicKey)
+				require.NoError(t, err)
+				data, err := bytesArgs.Pack(inner)
+				require.NoError(t, err)
+				log.Data = data
+				return log
+			},
+			config: eth.SystemConfig{
+				VRFPublicKey: vrfPublicKey,
+			},
+			err: false,
+		},
+		{
+			name: "VRFPublicKeyInvalidLength",
+			log: &types.Log{
+				Topics: []common.Hash{
+					ConfigUpdateEventABIHash,
+					ConfigUpdateEventVersion0,
+					SystemConfigUpdateVRFPublicKey,
+				},
+			},
+			hook: func(t *testing.T, log *types.Log) *types.Log {
+				inner, err := bytesArgs.Pack(bytes.Repeat([]byte{0x42}, 32))
+				require.NoError(t, err)
+				data, err := bytesArgs.Pack(inner)
+				require.NoError(t, err)
+				log.Data = data
+				return log
+			},
+			config: eth.SystemConfig{},
+			err:    true,
 		},
 	}
 

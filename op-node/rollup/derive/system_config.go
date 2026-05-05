@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -307,11 +308,15 @@ func parseSystemConfigUpdateDAFootprintGasScalar(data []byte) (uint16, error) {
 
 func parseSystemConfigUpdateVRFPublicKey(data []byte) ([]byte, error) {
 	reader := bytes.NewReader(data)
-	// ABI encoding: pointer (32) + length (32) + data (padded)
+	// ConfigUpdate emits bytes data. For VRF public keys, data itself is
+	// abi.encode(bytes pk), so the event payload is a dynamic bytes wrapper
+	// around another dynamic bytes value.
 	if pointer, err := solabi.ReadUint64(reader); err != nil || pointer != 32 {
 		return nil, fmt.Errorf("%w: invalid pointer field", ErrParsingSystemConfig)
 	}
-	// The inner bytes: offset (32) + length (32) + data (padded to 64 for 33 bytes)
+	if outerLength, err := solabi.ReadUint64(reader); err != nil || outerLength != 128 {
+		return nil, fmt.Errorf("%w: invalid VRF public key data length: %d", ErrParsingSystemConfig, outerLength)
+	}
 	if innerPointer, err := solabi.ReadUint64(reader); err != nil || innerPointer != 32 {
 		return nil, fmt.Errorf("%w: invalid inner pointer field", ErrParsingSystemConfig)
 	}
@@ -324,6 +329,17 @@ func parseSystemConfigUpdateVRFPublicKey(data []byte) ([]byte, error) {
 	n, err := reader.Read(pk)
 	if err != nil || n != 33 {
 		return nil, fmt.Errorf("%w: could not read VRF public key", ErrParsingSystemConfig)
+	}
+	var padding [31]byte
+	if _, err := io.ReadFull(reader, padding[:]); err != nil {
+		return nil, fmt.Errorf("%w: could not read VRF public key padding", ErrParsingSystemConfig)
+	}
+	var emptyPadding [31]byte
+	if !bytes.Equal(padding[:], emptyPadding[:]) {
+		return nil, fmt.Errorf("%w: VRF public key padding was not empty", ErrParsingSystemConfig)
+	}
+	if !solabi.EmptyReader(reader) {
+		return nil, fmt.Errorf("%w: too many bytes", ErrParsingSystemConfig)
 	}
 	return pk, nil
 }

@@ -523,13 +523,13 @@ type PayloadAttributes struct {
 	MinBaseFee *uint64 `json:"minBaseFee,omitempty"`
 	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1),
 	// to be specified only post-EnshrainedVRF
-	VRFPublicKey []byte `json:"vrfPublicKey,omitempty"`
+	VRFPublicKey Data `json:"vrfPublicKey,omitempty"`
 	// VRFSeed is the VRF seed (32 bytes) = sha256(blockNumber, nonce), computed by op-node.
-	VRFSeed []byte `json:"vrfSeed,omitempty"`
+	VRFSeed Data `json:"vrfSeed,omitempty"`
 	// VRFProofBeta is the VRF output hash (32 bytes), computed by op-node.
-	VRFProofBeta []byte `json:"vrfProofBeta,omitempty"`
+	VRFProofBeta Data `json:"vrfProofBeta,omitempty"`
 	// VRFProofPi is the VRF proof (81 bytes), computed by op-node.
-	VRFProofPi []byte `json:"vrfProofPi,omitempty"`
+	VRFProofPi Data `json:"vrfProofPi,omitempty"`
 	// VRFNonce is the commitment nonce for this VRF result.
 	VRFNonce *uint64 `json:"vrfNonce,omitempty"`
 }
@@ -630,7 +630,7 @@ type SystemConfig struct {
 	DAFootprintGasScalar uint16 `json:"daFootprintGasScalar"`
 	// VRFPublicKey is the sequencer's VRF public key (33 bytes compressed SEC1).
 	// Set via SystemConfig.setVRFPublicKey() on L1.
-	VRFPublicKey []byte `json:"vrfPublicKey,omitempty"`
+	VRFPublicKey Data `json:"vrfPublicKey,omitempty"`
 	// More fields can be added for future SystemConfig versions.
 
 	// MarshalPreHolocene indicates whether or not this struct should be

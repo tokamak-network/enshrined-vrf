@@ -1,6 +1,8 @@
 package eth
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -112,6 +114,50 @@ func TestSystemConfigMarshaling(t *testing.T) {
 	j, err = json.Marshal(sysConfig)
 	require.NoError(t, err)
 	require.Equal(t, `{"batcherAddr":"0x4100000000000000000000000000000000000000","overhead":"0x0405060000000000000000000000000000000000000000000000000000000000","scalar":"0x0708090000000000000000000000000000000000000000000000000000000000","gasLimit":1234}`, string(j))
+}
+
+func TestSystemConfigVRFPublicKeyJSONUsesHex(t *testing.T) {
+	sysConfig := SystemConfig{
+		BatcherAddr:        common.Address{'A'},
+		Overhead:           Bytes32{0x4, 0x5, 0x6},
+		Scalar:             Bytes32{0x7, 0x8, 0x9},
+		GasLimit:           1234,
+		VRFPublicKey:       append([]byte{0x02}, bytes.Repeat([]byte{0x11}, 32)...),
+		MarshalPreHolocene: false,
+	}
+
+	out, err := json.Marshal(sysConfig)
+	require.NoError(t, err)
+	require.Contains(t, string(out), `"vrfPublicKey":"0x021111111111111111111111111111111111111111111111111111111111111111"`)
+	require.NotContains(t, string(out), base64.StdEncoding.EncodeToString(sysConfig.VRFPublicKey))
+}
+
+func TestPayloadAttributesVRFJSONUsesHex(t *testing.T) {
+	nonce := uint64(7)
+	attrs := PayloadAttributes{
+		Timestamp:             1,
+		PrevRandao:            Bytes32{0x01},
+		SuggestedFeeRecipient: common.Address{0x02},
+		VRFPublicKey:          append([]byte{0x02}, bytes.Repeat([]byte{0x11}, 32)...),
+		VRFSeed:               bytes.Repeat([]byte{0x22}, 32),
+		VRFProofBeta:          bytes.Repeat([]byte{0x33}, 32),
+		VRFProofPi:            bytes.Repeat([]byte{0x44}, 81),
+		VRFNonce:              &nonce,
+	}
+
+	out, err := json.Marshal(attrs)
+	require.NoError(t, err)
+	require.Contains(t, string(out), `"vrfSeed":"0x2222222222222222222222222222222222222222222222222222222222222222"`)
+	require.NotContains(t, string(out), base64.StdEncoding.EncodeToString(attrs.VRFSeed))
+
+	var decoded PayloadAttributes
+	require.NoError(t, json.Unmarshal(out, &decoded))
+	require.Equal(t, attrs.VRFPublicKey, decoded.VRFPublicKey)
+	require.Equal(t, attrs.VRFSeed, decoded.VRFSeed)
+	require.Equal(t, attrs.VRFProofBeta, decoded.VRFProofBeta)
+	require.Equal(t, attrs.VRFProofPi, decoded.VRFProofPi)
+	require.NotNil(t, decoded.VRFNonce)
+	require.Equal(t, nonce, *decoded.VRFNonce)
 }
 
 func TestStorageKey(t *testing.T) {
