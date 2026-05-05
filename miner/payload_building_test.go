@@ -481,6 +481,7 @@ func genTxs(startNonce, count uint64) types.Transactions {
 func TestPayloadId(t *testing.T) {
 	t.Parallel()
 	ids := make(map[string]int)
+	vrfNonce := uint64(0)
 	for i, tt := range []*BuildPayloadArgs{
 		{
 			Parent:       common.Hash{1},
@@ -553,12 +554,93 @@ func TestPayloadId(t *testing.T) {
 			FeeRecipient: common.Address{0x2},
 			MinBaseFee:   &zero,
 		},
+		// Different VRF payload attributes
+		{
+			Parent:       common.Hash{2},
+			Timestamp:    2,
+			Random:       common.Hash{0x2},
+			FeeRecipient: common.Address{0x2},
+			VRFPublicKey: append([]byte{0x02}, bytes.Repeat([]byte{0x11}, 32)...),
+			VRFSeed:      bytes.Repeat([]byte{0x22}, 32),
+			VRFProofBeta: bytes.Repeat([]byte{0x33}, 32),
+			VRFProofPi:   bytes.Repeat([]byte{0x44}, 81),
+			VRFNonce:     &vrfNonce,
+		},
 	} {
 		id := tt.Id().String()
 		if prev, exists := ids[id]; exists {
 			t.Errorf("ID collision, case %d and case %d: id %v", prev, i, id)
 		}
 		ids[id] = i
+	}
+}
+
+func TestPayloadIdIncludesVRFAttributes(t *testing.T) {
+	t.Parallel()
+
+	nonce := uint64(7)
+	base := &BuildPayloadArgs{
+		Parent:       common.Hash{2},
+		Timestamp:    2,
+		Random:       common.Hash{0x2},
+		FeeRecipient: common.Address{0x2},
+		VRFPublicKey: append([]byte{0x02}, bytes.Repeat([]byte{0x11}, 32)...),
+		VRFSeed:      bytes.Repeat([]byte{0x22}, 32),
+		VRFProofBeta: bytes.Repeat([]byte{0x33}, 32),
+		VRFProofPi:   bytes.Repeat([]byte{0x44}, 81),
+		VRFNonce:     &nonce,
+	}
+	baseID := base.Id()
+
+	for _, tt := range []struct {
+		name string
+		edit func(*BuildPayloadArgs)
+	}{
+		{
+			name: "public key",
+			edit: func(args *BuildPayloadArgs) {
+				args.VRFPublicKey = append([]byte{0x03}, bytes.Repeat([]byte{0x11}, 32)...)
+			},
+		},
+		{
+			name: "seed",
+			edit: func(args *BuildPayloadArgs) {
+				args.VRFSeed = bytes.Repeat([]byte{0x55}, 32)
+			},
+		},
+		{
+			name: "beta",
+			edit: func(args *BuildPayloadArgs) {
+				args.VRFProofBeta = bytes.Repeat([]byte{0x66}, 32)
+			},
+		},
+		{
+			name: "proof",
+			edit: func(args *BuildPayloadArgs) {
+				args.VRFProofPi = bytes.Repeat([]byte{0x77}, 81)
+			},
+		},
+		{
+			name: "nonce",
+			edit: func(args *BuildPayloadArgs) {
+				nextNonce := uint64(8)
+				args.VRFNonce = &nextNonce
+			},
+		},
+		{
+			name: "missing nonce",
+			edit: func(args *BuildPayloadArgs) {
+				args.VRFNonce = nil
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			args := *base
+			copiedNonce := *base.VRFNonce
+			args.VRFNonce = &copiedNonce
+			tt.edit(&args)
+			require.NotEqual(t, baseID, args.Id())
+		})
 	}
 }
 

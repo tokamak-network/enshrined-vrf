@@ -202,8 +202,22 @@ func (miner *Miner) generateWork(genParam *generateParams, witness bool) *newPay
 		}
 	}
 
-	// EnshrainedVRF: inject VRF deposit tx after forced deposits
-	// VRF proof is pre-computed by op-node and passed via PayloadAttributes
+	// EnshrainedVRF: sync the sequencer public key from L1 SystemConfig before
+	// committing randomness, so the L2 predeploy exposes verification material.
+	if miner.chainConfig.IsEnshrainedVRF(work.header.Time) && len(genParam.vrfPublicKey) > 0 {
+		keyTx, keyErr := miner.buildVRFPublicKeyDepositTx(work, genParam.vrfPublicKey)
+		if keyErr != nil {
+			return &newPayloadResult{err: fmt.Errorf("failed to build VRF public key deposit tx: %w", keyErr)}
+		} else if keyTx != nil {
+			work.state.SetTxContext(keyTx.Hash(), work.tcount)
+			if keyErr = miner.commitTransaction(work, keyTx); keyErr != nil {
+				return &newPayloadResult{err: fmt.Errorf("failed to commit VRF public key deposit tx: %w", keyErr)}
+			}
+		}
+	}
+
+	// EnshrainedVRF: inject VRF deposit tx after forced deposits. VRF proof is
+	// pre-computed by op-node and passed via PayloadAttributes.
 	if miner.chainConfig.IsEnshrainedVRF(work.header.Time) && genParam.vrfProofBeta != nil {
 		vrfTx, vrfErr := miner.buildVRFDepositTx(work, genParam)
 		if vrfErr != nil {

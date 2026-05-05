@@ -103,6 +103,10 @@ type payloadAttributesMarshaling struct {
 	Transactions  []hexutil.Bytes
 	GasLimit      *hexutil.Uint64
 	EIP1559Params hexutil.Bytes
+	VRFPublicKey  hexutil.Bytes
+	VRFSeed       hexutil.Bytes
+	VRFProofBeta  hexutil.Bytes
+	VRFProofPi    hexutil.Bytes
 	Timestamp     hexutil.Uint64
 	SlotNumber    *hexutil.Uint64
 }

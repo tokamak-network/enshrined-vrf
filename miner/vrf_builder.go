@@ -20,7 +20,41 @@ var (
 	// Function selectors
 	// commitRandomness(uint256,bytes32,bytes32,bytes)
 	commitRandomnessSelector = crypto.Keccak256([]byte("commitRandomness(uint256,bytes32,bytes32,bytes)"))[:4]
+	// setSequencerPublicKey(bytes)
+	setSequencerPublicKeySelector = crypto.Keccak256([]byte("setSequencerPublicKey(bytes)"))[:4]
 )
+
+// buildVRFPublicKeyDepositTx creates a system deposit transaction that syncs
+// the sequencer VRF public key from L1 SystemConfig into the L2 predeploy.
+func (miner *Miner) buildVRFPublicKeyDepositTx(env *environment, pk []byte) (*types.Transaction, error) {
+	if !miner.chainConfig.IsEnshrainedVRF(env.header.Time) {
+		return nil, nil // fork not active
+	}
+	if len(pk) == 0 {
+		return nil, nil // key not configured on L1 SystemConfig yet
+	}
+	if len(pk) != 33 {
+		return nil, fmt.Errorf("invalid VRF public key length: %d", len(pk))
+	}
+
+	log.Info("VRF public key deposit tx",
+		"blockNumber", env.header.Number,
+		"publicKey", common.Bytes2Hex(pk[:4]),
+	)
+
+	depositTx := types.NewTx(&types.DepositTx{
+		SourceHash:          computeVRFPublicKeySourceHash(env.header.Number.Uint64()),
+		From:                vrfDepositorAddr,
+		To:                  &enshrainedVRFAddr,
+		Mint:                big.NewInt(0),
+		Value:               big.NewInt(0),
+		Gas:                 300_000,
+		IsSystemTransaction: false, // Must be false post-Regolith
+		Data:                encodeSetSequencerPublicKey(pk),
+	})
+
+	return depositTx, nil
+}
 
 // buildVRFDepositTx creates a system deposit transaction that commits VRF
 // randomness to the PredeployedVRF contract. The VRF proof is pre-computed
@@ -73,14 +107,44 @@ func (miner *Miner) buildVRFDepositTx(env *environment, genParam *generateParams
 
 // computeVRFSourceHash creates a unique source hash for VRF deposit txs.
 func computeVRFSourceHash(blockNumber, nonce uint64) common.Hash {
-	// Domain separator for VRF deposits (distinct from L1Info deposits)
-	domain := common.Hash{0x02} // 0x02 = VRF deposit domain
+	return computeVRFSystemSourceHash(0x02, blockNumber, nonce)
+}
+
+// computeVRFPublicKeySourceHash creates a unique source hash for VRF public
+// key update deposit txs.
+func computeVRFPublicKeySourceHash(blockNumber uint64) common.Hash {
+	return computeVRFSystemSourceHash(0x03, blockNumber, 0)
+}
+
+func computeVRFSystemSourceHash(domainByte byte, blockNumber, value uint64) common.Hash {
+	// Domain separator for VRF system deposits (distinct from L1Info deposits)
+	domain := common.Hash{domainByte}
 	data := crypto.Keccak256(
 		domain.Bytes(),
 		common.BigToHash(new(big.Int).SetUint64(blockNumber)).Bytes(),
-		common.BigToHash(new(big.Int).SetUint64(nonce)).Bytes(),
+		common.BigToHash(new(big.Int).SetUint64(value)).Bytes(),
 	)
 	return common.BytesToHash(data)
+}
+
+// encodeSetSequencerPublicKey ABI-encodes setSequencerPublicKey(bytes).
+func encodeSetSequencerPublicKey(pk []byte) []byte {
+	data := make([]byte, 0, 4+32+32+64)
+	data = append(data, setSequencerPublicKeySelector...)
+
+	// bytes pk (dynamic type), offset to dynamic data = 32
+	offset := common.BigToHash(big.NewInt(32))
+	data = append(data, offset.Bytes()...)
+
+	pkLen := common.BigToHash(new(big.Int).SetUint64(uint64(len(pk))))
+	data = append(data, pkLen.Bytes()...)
+
+	// 33-byte compressed SEC1 key padded to 64 bytes.
+	pkPadded := make([]byte, 64)
+	copy(pkPadded, pk)
+	data = append(data, pkPadded...)
+
+	return data
 }
 
 // encodeCommitRandomness ABI-encodes commitRandomness(uint256,bytes32,bytes32,bytes)

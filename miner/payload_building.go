@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"hash"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -93,11 +94,28 @@ func (args *BuildPayloadArgs) Id() engine.PayloadID {
 	if args.MinBaseFee != nil {
 		binary.Write(hasher, binary.BigEndian, *args.MinBaseFee)
 	}
+	if len(args.VRFPublicKey) != 0 || len(args.VRFSeed) != 0 || len(args.VRFProofBeta) != 0 || len(args.VRFProofPi) != 0 || args.VRFNonce != nil {
+		writePayloadIDBytes(hasher, args.VRFPublicKey)
+		writePayloadIDBytes(hasher, args.VRFSeed)
+		writePayloadIDBytes(hasher, args.VRFProofBeta)
+		writePayloadIDBytes(hasher, args.VRFProofPi)
+		if args.VRFNonce != nil {
+			binary.Write(hasher, binary.BigEndian, true)
+			binary.Write(hasher, binary.BigEndian, *args.VRFNonce)
+		} else {
+			binary.Write(hasher, binary.BigEndian, false)
+		}
+	}
 
 	var out engine.PayloadID
 	copy(out[:], hasher.Sum(nil)[:8])
 	out[0] = byte(args.Version)
 	return out
+}
+
+func writePayloadIDBytes(hasher hash.Hash, b []byte) {
+	binary.Write(hasher, binary.BigEndian, uint64(len(b)))
+	hasher.Write(b)
 }
 
 // Payload wraps the built payload(block waiting for sealing). According to the
