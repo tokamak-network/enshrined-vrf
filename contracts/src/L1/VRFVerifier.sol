@@ -2,21 +2,22 @@
 pragma solidity 0.8.28;
 
 /// @title VRFVerifier
-/// @notice On-chain ECVRF proof verifier for L1 dispute resolution.
-///         Verifies ECVRF-SECP256K1-SHA256-TAI proofs without requiring
-///         the L2 precompile, enabling fault proof challenges on L1.
+/// @notice L1 dispute helper for Enshrined VRF commitments.
+///         Checks seed construction and proof-to-hash consistency for
+///         ECVRF-SECP256K1-SHA256-TAI proof material.
 ///
-/// @dev    This contract provides a pure Solidity implementation of ECVRF
-///         verification. It is used during fault proof disputes to verify
-///         that the sequencer's VRF output was correctly computed.
+/// @dev    This contract intentionally performs partial verification only.
+///         It validates:
+///         1. public-key and proof lengths
+///         2. the proof scalar bound
+///         3. proof-to-hash(pi) == beta
+///         4. seed reconstruction from blockNumber and nonce
 ///
-///         The verification checks:
-///         1. The proof (pi) is valid for the given (pk, seed) pair
-///         2. The output (beta) matches what was committed on L2
+///         Full elliptic-curve ECVRF verification is delegated to the
+///         fault-proof VM via op-program re-execution, which has access to
+///         the L2 ECVRF verify precompile at 0x0101.
 ///
-///         This is NOT used during normal operation — only during disputes.
-///         For gas efficiency, it uses the secp256k1 ecrecover trick for
-///         scalar multiplication verification.
+///         This is NOT used during normal operation.
 contract VRFVerifier {
     /// @notice The secp256k1 curve order.
     uint256 internal constant N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
@@ -30,7 +31,7 @@ contract VRFVerifier {
     /// @notice Thrown when the proof has invalid length.
     error InvalidProofLength();
 
-    /// @notice Result of a VRF verification.
+    /// @notice Decoded structure of an ECVRF proof.
     struct VrfProof {
         bytes32 gammaX;  // x-coordinate of Gamma point
         uint8 gammaPrefix; // 0x02 or 0x03 prefix byte
