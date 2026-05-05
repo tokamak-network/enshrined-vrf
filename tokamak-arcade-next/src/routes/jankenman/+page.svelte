@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { decodeEventLog, formatEther, parseEther, type Hash } from 'viem';
   import { i18n } from '$lib/i18n.svelte';
-  import { wallet, pub, shortAddr } from '$lib/wallet.svelte';
+  import { wallet, pub, anvil, shortAddr } from '$lib/wallet.svelte';
   import { CONFIG } from '$lib/config';
   import LangToggle from '$lib/components/LangToggle.svelte';
   import { jankenMascot } from '$lib/mascots';
@@ -99,6 +99,9 @@
   let pollPool: ReturnType<typeof setInterval> | null = null;
   let pollSession: ReturnType<typeof setInterval> | null = null;
   let pollVrf: ReturnType<typeof setInterval> | null = null;
+  // Auto-reset timer — clears the cabinet back to idle a few seconds after
+  // a round resolves so it's ready for the next play.
+  let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Lazily resolved session key (browser-only)
   let session = $state<ReturnType<typeof getSessionKey> | null>(null);
@@ -196,14 +199,19 @@
           : Promise.resolve(0n)
       ]);
       const poolEth = Number(formatEther(pool));
+      // Shares are minted at 1e18-scale on-chain (1 share-unit ≈ 1 ETH at
+      // first deposit) — convert via formatEther so the UI shows them on
+      // an ETH-like scale instead of dumping the raw wei integer.
+      const sharesEth = Number(formatEther(shares));
+      const myShareEth = Number(formatEther(myShares));
       const myClaim = shares === 0n || myShares === 0n ? 0n : (myShares * pool) / shares;
       const myClaimEth = Number(formatEther(myClaim));
       const myPct = poolEth === 0 ? 0 : (myClaimEth / poolEth) * 100;
 
       kpiTvl = poolEth.toFixed(4);
-      kpiPrice = (shares === 0n ? 1 : poolEth / Number(shares)).toFixed(6);
+      kpiPrice = sharesEth === 0 ? '1.000000' : (poolEth / sharesEth).toFixed(6);
 
-      posShares = myShares.toString();
+      posShares = myShareEth.toFixed(4);
       posClaimEth = myClaimEth.toFixed(6);
       posPct = myPct.toFixed(2) + '%';
 
@@ -215,21 +223,22 @@
       const amt = Number(lpAmount || 0);
       let depPrev = '—';
       if (amt > 0) {
-        if (shares === 0n || pool === 0n)
-          depPrev = `≈ ${Math.floor(amt * 1e18)} shares (first deposit)`;
-        else
-          depPrev = `≈ ${Math.floor((amt * Number(shares)) / Number(formatEther(pool)))} shares`;
+        if (shares === 0n || pool === 0n) {
+          depPrev = `≈ ${amt.toFixed(4)} shares (first deposit)`;
+        } else {
+          // shares minted = (amt * totalShares) / poolEth, expressed in
+          // ETH-scale so a 0.5 ETH deposit reads as ~0.5 shares.
+          depPrev = `≈ ${((amt * sharesEth) / poolEth).toFixed(4)} shares`;
+        }
       }
       depositPreview = depPrev;
 
-      let wShares = 0n;
-      try {
-        wShares = BigInt(lpWithdrawShares || '0');
-      } catch {}
+      // The withdraw input is now ETH-scale too — parse as a decimal.
+      const wEth = Number(lpWithdrawShares || '0');
       let wdPrev = '—';
-      if (wShares > 0n && shares > 0n) {
-        const amtWei = (wShares * pool) / shares;
-        wdPrev = `≈ ${Number(formatEther(amtWei)).toFixed(6)} ETH`;
+      if (wEth > 0 && sharesEth > 0) {
+        // share fraction × poolEth = ETH returned
+        wdPrev = `≈ ${((wEth / sharesEth) * poolEth).toFixed(6)} ETH`;
       }
       withdrawPreview = wdPrev;
     } catch (err) {
@@ -347,6 +356,11 @@
     }
 
     busy = true;
+    // Cancel any pending reset from the previous round.
+    if (resetTimer) {
+      clearTimeout(resetTimer);
+      resetTimer = null;
+    }
     // Clear the previous round's winning bulbs before the new spin starts.
     winningSegment = null;
     lockDisplay(HANDS[0], '');
@@ -398,14 +412,41 @@
       lastResult = result;
       randHex = '0x' + (evArgs.randomness as bigint).toString(16).padStart(64, '0');
 
+      // Reveal the RPS outcome immediately — lock the LED on the house's
+      // hand so the player can see the matchup BEFORE the wheel spins.
+      const kind = result.outcome === 2 ? 'win' : result.outcome === 1 ? 'draw' : 'lose';
+      lockDisplay(HANDS[result.hHand], kind);
+
       if (result.outcome === 2) {
-        setStatus('win', `🎲 SPINNING FOR ${result.mult}× …`);
+        // RPS win is decided; the wheel now spins for the payout multiplier.
+        setStatus('win', `WIN! 🎲 spinning for ${result.mult}× …`);
         await spinWheel(result.mult);
+        setStatus('win', `WIN ${result.mult}× · +${formatEther(result.payout)} ETH`);
+      } else if (result.outcome === 1) {
+        setStatus('draw', `DRAW · ${formatEther(result.bet)} ETH refunded`);
+      } else {
+        setStatus('lose', `LOSS · −${formatEther(result.bet)} ETH → pool`);
       }
-      paintResult();
+
+      // Always clear the hand selection after the round resolves.
+      selectedHand = null;
+
       history = [{ result, hash }, ...history].slice(0, 10);
       await refreshPool();
       await refreshSession();
+
+      // Auto-reset the cabinet to idle ~3s after the result is shown so
+      // the player sees the outcome briefly, then the LED returns to its
+      // cycling "ready" state and the winning bulb stops blinking.
+      if (resetTimer) clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        resetTimer = null;
+        lastResult = null;
+        winningSegment = null;
+        displayResultClass = '';
+        startCycling();
+        setStatus('', i18n.t('janken.ready'));
+      }, 3000);
     } catch (err: any) {
       console.error('[play]', err);
       stopCycling();
@@ -429,7 +470,15 @@
     }
     const { outcome, mult, bet, payout, hHand } = lastResult;
     const kind = outcome === 2 ? 'win' : outcome === 1 ? 'draw' : 'lose';
+    // The LED display in the centre of the wheel is the *house's* side
+    // of the game — the player's hand is shown on the cabinet's button
+    // (the one they pressed), so the LED freezes on the house's hand.
+    // E.g. player presses Rock and wins → the LED shows Scissors.
     lockDisplay(HANDS[hHand], kind);
+
+    // Always clear the hand selection after the round resolves — the
+    // player picks fresh next time, regardless of win / lose / draw.
+    selectedHand = null;
 
     if (outcome === 1) {
       setStatus('draw', `DRAW · ${formatEther(bet)} ETH refunded`);
@@ -483,24 +532,62 @@
     const total = depositWei + gasFundWei;
 
     modalSigning = true;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
     try {
-      const hash = await wallet.wallet!.writeContract({
+      await wallet.ensureChain();
+      const walletChain = (await wallet.provider!.request({ method: 'eth_chainId' })) as string;
+      const expectedChain = '0x' + CONFIG.chainId.toString(16);
+      console.log('[startSession] wallet chainId:', walletChain, 'expected:', expectedChain);
+      if (walletChain.toLowerCase() !== expectedChain.toLowerCase()) {
+        throw new Error('CHAIN_MISMATCH');
+      }
+      console.log('[startSession] calling writeContract', {
+        account: wallet.account,
+        sessionKey: session.account.address,
+        validUntil: validUntil.toString(),
+        gasFundWei: gasFundWei.toString(),
+        valueWei: total.toString()
+      });
+      const writePromise = wallet.wallet!.writeContract({
         account: wallet.account!,
-        chain: null,
+        chain: anvil,
         address: CONFIG.jankenman,
         abi: ABI,
         functionName: 'startSession',
         args: [session.account.address, validUntil, gasFundWei],
         value: total
       });
-      await pub.waitForTransactionReceipt({ hash });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error('WALLET_TIMEOUT')), 60_000);
+      });
+      const hash = await Promise.race([writePromise, timeoutPromise]);
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      console.log('[startSession] tx hash:', hash);
+      try {
+        await pub.waitForTransactionReceipt({ hash, timeout: 30_000 });
+      } catch (e: any) {
+        if (e?.name === 'WaitForTransactionReceiptTimeoutError') {
+          throw new Error('RECEIPT_TIMEOUT');
+        }
+        throw e;
+      }
+      console.log('[startSession] receipt mined');
       modalOpen = false;
       await refreshSession();
       await refreshPool();
       setStatus('', i18n.t('janken.session.ready'));
     } catch (err: any) {
-      console.error('[startSession]', err);
-      alert(err?.shortMessage || err?.message || 'failed');
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (err?.message === 'WALLET_TIMEOUT') {
+        alert(i18n.t('janken.modal.walletTimeout'));
+      } else if (err?.message === 'RECEIPT_TIMEOUT') {
+        alert(i18n.t('janken.modal.receiptTimeout'));
+      } else if (err?.message === 'CHAIN_MISMATCH') {
+        alert(i18n.t('janken.modal.chainMismatch'));
+      } else {
+        console.error('[startSession]', err);
+        alert(err?.shortMessage || err?.message || 'failed');
+      }
     } finally {
       modalSigning = false;
     }
@@ -633,9 +720,11 @@
   }
 
   async function lpWithdraw() {
+    // The input is ETH-scale (decimal, e.g. "0.5" shares). Parse it
+    // back to wei-scale before calling the contract.
     let sharesBig = 0n;
     try {
-      sharesBig = BigInt(lpWithdrawShares || '0');
+      sharesBig = parseEther(String(lpWithdrawShares || '0'));
     } catch {
       alert('Invalid shares');
       return;
@@ -679,7 +768,9 @@
       functionName: 'sharesOf',
       args: [wallet.account!]
     });
-    lpWithdrawShares = myShares.toString();
+    // Set the input to ETH-scale (decimal) so it matches what the user sees
+    // in the position card. lpWithdraw() converts back via parseEther.
+    lpWithdrawShares = formatEther(myShares);
     await refreshPool();
   }
 
@@ -745,11 +836,22 @@
     pollVrf = setInterval(refreshVrf, 1000);
   });
 
+  // After a refresh, the wallet store silently restores `wallet.account`
+  // from MetaMask. Re-pull session state the moment the address resolves
+  // so the badge flips from "idle" → "active" without waiting for the
+  // 2.5s poll.
+  $effect(() => {
+    if (wallet.account && session) {
+      void refreshSession();
+    }
+  });
+
   onDestroy(() => {
     if (cycleTimer) clearInterval(cycleTimer);
     if (pollPool) clearInterval(pollPool);
     if (pollSession) clearInterval(pollSession);
     if (pollVrf) clearInterval(pollVrf);
+    if (resetTimer) clearTimeout(resetTimer);
   });
 
   // ─── Wheel labels (built once) ────────────────────────────────────
@@ -822,22 +924,10 @@
 
   <div class="gmx-main">
     <header class="topbar">
-      <div class="pair">
-        <span class="pair-name">Jankenman</span>
-      </div>
-
       <div class="topbar-metrics">
         <div class="metric">
           <span class="m-k">POOL TVL</span>
           <span class="m-v">{kpiTvl}<span class="m-u">ETH</span></span>
-        </div>
-        <div class="metric">
-          <span class="m-k">HOUSE EDGE</span>
-          <span class="m-v">7.00<span class="m-u">%</span></span>
-        </div>
-        <div class="metric">
-          <span class="m-k">SHARE PRICE</span>
-          <span class="m-v">{kpiPrice}<span class="m-u">Ξ</span></span>
         </div>
         <div class="metric vrf-metric">
           <span class="m-k">VRF COMMIT</span>
@@ -985,29 +1075,6 @@
               {/if}
             </button>
 
-            <!-- Execution details -->
-            <div class="exec">
-              <div class="exec-row">
-                <span class="k">{i18n.t('janken.slip.payout')}</span>
-                <span class="v">{fmt(expectedPayoutOnWin)} ETH</span>
-              </div>
-              <div class="exec-row">
-                <span class="k">House edge</span>
-                <span class="v">7.00%</span>
-              </div>
-              <div class="exec-row">
-                <span class="k">{i18n.t('janken.slip.ev')}</span>
-                <span class="v" class:neg={evNum < 0}>{fmt(evNum)} ETH</span>
-              </div>
-              <div class="exec-row">
-                <span class="k">{i18n.t('janken.session.key')}</span>
-                <span class="v mono" title={sessionKeyFull}>{sessionKeyAddr}</span>
-              </div>
-              <div class="exec-row">
-                <span class="k">{i18n.t('janken.session.gas')}</span>
-                <span class="v">{Number(formatEther(sessionGas)).toFixed(4)} ETH</span>
-              </div>
-            </div>
           </aside>
         </section>
       {:else if activeView === 'lp'}
@@ -1076,7 +1143,7 @@
                   <input
                     type="number"
                     min="0"
-                    step="1"
+                    step="0.0001"
                     placeholder="shares"
                     bind:value={lpWithdrawShares}
                   />
@@ -1114,7 +1181,9 @@
         </section>
       {/if}
 
-      <!-- Bottom positions panel — recent rounds -->
+      <!-- Bottom positions panel — recent rounds. Hidden in the LP view
+           since liquidity providers don't need the play history here. -->
+      {#if activeView !== 'lp'}
       <section class="positions-panel">
         <header class="pos-head">
           <div class="pos-tabs">
@@ -1181,6 +1250,7 @@
           </table>
         </div>
       </section>
+      {/if}
     </main>
   </div>
 </div>
@@ -1501,7 +1571,7 @@
   /* ─── Game grid (chart + slip) ─────────────────────────────── */
   .game-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-columns: minmax(0, 1fr) 460px;
     gap: 16px;
   }
   @media (max-width: 980px) {
@@ -1518,10 +1588,10 @@
     padding: 16px;
   }
   .slip-panel {
-    padding: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
   }
 
   /* ─── 3D arcade cabinet host ─────────────────────────────── */
@@ -1773,17 +1843,17 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
+    padding: 10px 12px;
     background: var(--gmx-bg);
     border: 1px solid var(--gmx-line);
     border-radius: var(--r-md);
-    font-size: 12px;
+    font-size: 13.5px;
     flex-wrap: wrap;
   }
   .session-row .badge {
-    padding: 3px 8px;
+    padding: 4px 9px;
     border-radius: 999px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -1808,7 +1878,7 @@
   .session-row .exp {
     color: var(--gmx-text-2);
     font-variant-numeric: tabular-nums;
-    font-size: 11.5px;
+    font-size: 13px;
   }
   .session-row .actions {
     margin-left: auto;
@@ -1831,16 +1901,16 @@
     border: 0;
     background: transparent;
     color: var(--gmx-text-2);
-    padding: 9px 6px;
+    padding: 11px 8px;
     border-radius: 6px;
     font: inherit;
     font-weight: 600;
-    font-size: 12.5px;
+    font-size: 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
     transition:
       background 0.15s ease,
       color 0.15s ease;
@@ -1857,18 +1927,22 @@
     background: var(--gmx-primary);
     color: white;
   }
+  /* Active slip toggle colors mirror the cabinet button caps:
+     Rock=yellow, Paper=green, Scissors=red. */
   .ht-btn.active.rock {
-    background: #ff5c5c;
-  }
-  .ht-btn.active.paper {
-    background: #ffc857;
+    background: #ffc83c;
     color: #1a1a1a;
   }
+  .ht-btn.active.paper {
+    background: #3fb95f;
+    color: white;
+  }
   .ht-btn.active.sci {
-    background: var(--tk-blue);
+    background: #e84a4a;
+    color: white;
   }
   .ht-cap {
-    font-size: 16px;
+    font-size: 20px;
     line-height: 1;
   }
 
@@ -1881,7 +1955,7 @@
   .slip-field-head {
     display: flex;
     justify-content: space-between;
-    font-size: 10.5px;
+    font-size: 12px;
     text-transform: uppercase;
     color: var(--gmx-text-2);
     letter-spacing: 0.08em;
@@ -1909,7 +1983,7 @@
     outline: 0;
     color: var(--gmx-text);
     font: inherit;
-    font-size: 17px;
+    font-size: 22px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
@@ -1917,22 +1991,22 @@
   }
   .slip-input .unit {
     color: var(--gmx-text-2);
-    font-size: 12.5px;
+    font-size: 14px;
     font-weight: 500;
   }
   .preset-row {
     display: flex;
-    gap: 4px;
+    gap: 6px;
   }
   .preset {
     appearance: none;
     background: var(--gmx-card);
     border: 1px solid var(--gmx-line);
     color: var(--gmx-text-2);
-    padding: 5px 10px;
+    padding: 6px 12px;
     border-radius: 999px;
     font: inherit;
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 500;
     cursor: pointer;
     font-variant-numeric: tabular-nums;
@@ -1959,21 +2033,21 @@
     background: var(--gmx-bg);
     border: 1px solid var(--gmx-line);
     border-radius: 6px;
-    padding: 7px 4px;
+    padding: 9px 4px;
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
   }
   .mult .mm {
     color: var(--gmx-text);
     font-weight: 600;
-    font-size: 12.5px;
+    font-size: 14.5px;
     font-variant-numeric: tabular-nums;
   }
   .mult .mp {
     color: var(--gmx-text-3);
-    font-size: 10px;
+    font-size: 11.5px;
     font-variant-numeric: tabular-nums;
   }
 
@@ -1985,9 +2059,9 @@
     color: white;
     border: 0;
     border-radius: var(--r-md);
-    padding: 14px;
+    padding: 16px;
     font: inherit;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     letter-spacing: -0.005em;
@@ -2027,8 +2101,9 @@
   .exec-row {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
+    font-size: 13.5px;
     align-items: baseline;
+    padding: 2px 0;
   }
   .exec-row .k {
     color: var(--gmx-text-2);
