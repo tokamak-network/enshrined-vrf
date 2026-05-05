@@ -1,152 +1,120 @@
-# Enshrined VRF — Security Audit Checklist
+# Enshrined VRF Security Audit Checklist
 
-**Date**: 2026-04-03  
+**Date**: 2026-05-05
 **Status**: Pre-audit
 
----
+This checklist targets the current implementation described in [op-stack-customizations.md](op-stack-customizations.md).
 
-## 1. Cryptographic Implementation (CRITICAL)
+## 1. Cryptographic Implementation
 
-### ECVRF-SECP256K1-SHA256-TAI (`crypto/ecvrf/`)
+### ECVRF-SECP256K1-SHA256-TAI (`crypto/ecvrf/`, `op-geth/crypto/ecvrf/`)
 
-- [ ] **RFC 9381 Compliance**: Verify algorithm matches RFC 9381 sections 5.1-5.4
-- [ ] **encode_to_curve_TAI**: Confirm try-and-increment implementation is correct
-  - Counter range [0, 255)
-  - SHA-256 hash includes suite_string, 0x01, PK, alpha, ctr, 0x00
-  - Even y-coordinate (0x02 prefix)
-- [ ] **challenge_generation**: 5-point hash with correct ordering (Y, H, Gamma, U, V)
-- [ ] **proof_to_hash**: SHA-256(suite_string || 0x03 || cofactor*Gamma || 0x00)
-  - Cofactor = 1 for secp256k1 (no cofactor multiplication needed)
-- [ ] **Nonce generation**: RFC 6979 via `secp256k1.NonceRFC6979`
-- [ ] **Scalar arithmetic**: All operations use `ModNScalar` (constant-time)
-- [ ] **Secret key zeroization**: `sk.Key.Bytes()` zeroed after use
-- [ ] **Nonce `k` zeroization**: `k.Zero()` called after use
-- [ ] **No timing side channels**: No branch on secret data, no big.Int for secret scalars
-- [ ] **Proof validation**: `s < N` check in `decodeProof` via `SetByteSlice` overflow
+- [ ] RFC 9381 flow is followed for prove, verify, and proof-to-hash.
+- [ ] `suite_string` is consistently `0xFE`.
+- [ ] try-and-increment encode-to-curve includes suite string, public key, alpha, counter, and separator bytes in the expected order.
+- [ ] challenge generation hashes `(Y, H, Gamma, U, V)` in the documented order.
+- [ ] proof-to-hash computes `SHA256(suite_string || 0x03 || Gamma || 0x00)`.
+- [ ] RFC6979 nonce generation is deterministic and secret-key dependent.
+- [ ] scalar operations use `ModNScalar`; secret scalar handling avoids `big.Int`.
+- [ ] proof decoding rejects invalid compressed points and `s >= N`.
+- [ ] independent test vectors or a second implementation have been used for cross-validation.
 
-### Cross-validation
+## 2. L2 Predeploy
 
-- [ ] **Known test vector**: Verify against independent ECVRF implementation (Python/Rust)
-- [ ] **Solidity consistency**: `proofToHash` in VRFVerifier.sol matches Go `ProofToHash`
+### `EnshrainedVRF` (`optimism/packages/contracts-bedrock/src/L2/EnshrainedVRF.sol`)
 
----
+- [ ] `commitRandomness(uint256,bytes32,bytes32,bytes)` is callable only by `DEPOSITOR_ACCOUNT`.
+- [ ] `setSequencerPublicKey(bytes)` is callable only by `DEPOSITOR_ACCOUNT`.
+- [ ] `setSequencerPublicKey` enforces a 33-byte compressed SEC1 key.
+- [ ] `commitRandomness` enforces an 81-byte proof.
+- [ ] `_commitNonce` increments exactly once for each accepted commitment.
+- [ ] The external `nonce` parameter is documented as seed/audit material; storage uses internal `_commitNonce`.
+- [ ] `_callCounter` resets on each commitment and increments on every `getRandomness()`.
+- [ ] `getRandomness()` reverts when `_currentBlock != block.number`.
+- [ ] No external calls are made from state-mutating functions.
+- [ ] Storage layout is compatible with predeploy genesis allocation and future upgrades.
+- [ ] Events are emitted for randomness commits and public-key updates.
 
-## 2. Smart Contracts (HIGH)
+## 3. L1 `SystemConfig` Extension
 
-### PredeployedVRF (`contracts/src/PredeployedVRF.sol`)
+- [ ] `VRF_PUBLIC_KEY_SLOT = bytes32(uint256(keccak256("systemconfig.vrfpublickey")) - 1)` does not collide with existing slots.
+- [ ] `setVRFPublicKey(bytes)` is `onlyOwner`.
+- [ ] 33-byte key length is enforced.
+- [ ] The first 32 bytes and final byte are stored and reconstructed exactly.
+- [ ] The emitted `ConfigUpdate(VERSION, UpdateType.VRF_PUBLIC_KEY, abi.encode(pk))` payload matches op-node parsing.
+- [ ] Empty key behavior is intentional and documented.
 
-- [ ] **Access control**: Only `DEPOSITOR_ACCOUNT` can call `commitRandomness` and `setSequencerPublicKey`
-- [ ] **Nonce monotonicity**: `_commitNonce` strictly increments, `NonceMismatch` on skip
-- [ ] **No reentrancy**: No external calls in `getRandomness()` or `commitRandomness()`
-- [ ] **Storage layout**: No collisions between `_nonce`, `_sequencerPublicKey`, `_results` mapping
-- [ ] **Proof length validation**: `pi.length == 81` enforced
-- [ ] **Public key length validation**: `pk.length == 33` enforced
-- [ ] **Consume nonce overflow**: `unchecked { _consumeNonce++ }` — safe if nonce < 2^256
-- [ ] **Event emission**: Events emitted for all state changes
+## 4. Fork Activation
 
-### VRFVerifier (`contracts/src/L1/VRFVerifier.sol`)
+- [ ] `EnshrainedVRFTime` is ordered after Interop in op-node fork metadata.
+- [ ] op-geth `ChainConfig` exposes `EnshrainedVRFTime` and `IsEnshrainedVRF`.
+- [ ] op-node rollup config exposes `enshrined_vrf_time`.
+- [ ] op-chain-ops deploy config exposes `l2GenesisEnshrinedVRFTimeOffset`.
+- [ ] `0x0101` is active only when EnshrainedVRF rules are active.
+- [ ] `0x42...f0` predeploy code is present in EnshrainedVRF genesis allocs.
+- [ ] Pre-fork payload attributes with VRF fields are rejected where applicable.
 
-- [ ] **Honest documentation**: Contract clearly states it only performs proof-to-hash check
-- [ ] **No false security claims**: Full EC verification is NOT performed
-- [ ] **Input validation**: PK length (33), pi length (81), s < N
-- [ ] **Pure functions**: No state modifications, safe for arbitrary callers
+## 5. Derivation and Engine API
 
-### SystemConfig VRF Extension
+- [ ] op-node parses `SystemConfigUpdateVRFPublicKey` as a dynamic bytes wrapper around `abi.encode(bytes pk)`.
+- [ ] op-node rejects malformed VRF public-key event payloads, non-empty padding, and invalid key lengths.
+- [ ] `ComputeVRFSeed(blockNumber, nonce)` uses `SHA256(uint256(blockNumber) || uint256(nonce))` with 32-byte big-endian values.
+- [ ] op-node fills `vrfSeed`, `vrfProofBeta`, `vrfProofPi`, and `vrfNonce` only when a prover is configured.
+- [ ] A sequencer with `EnshrinedVRFTime` configured fails startup if no VRF prover is configured.
+- [ ] TEE proof failures are retried and all-retry failure halts block production.
+- [ ] VRF fields are preserved in singular batches, span batches, channel output, and attributes queue recovery.
+- [ ] VRF byte fields marshal as JSON hex, not base64, in both op-service and op-geth Engine API types.
 
-- [ ] **Storage slot**: `VRF_PUBLIC_KEY_SLOT = keccak256("systemconfig.vrfpublickey") - 1`
-- [ ] **No slot collision**: Verify against existing SystemConfig storage slots
-- [ ] **Owner-only setter**: `onlyOwner` modifier on `setVRFPublicKey`
-- [ ] **33-byte validation**: `_vrfPublicKey.length == 33` enforced
-- [ ] **2-slot encoding**: First 32 bytes in `VRF_PUBLIC_KEY_SLOT`, last byte in `VRF_PUBLIC_KEY_SLOT + 1`
+## 6. Block Building
 
----
+- [ ] op-geth includes `vrfPublicKey`, `vrfSeed`, `vrfProofBeta`, `vrfProofPi`, and `vrfNonce` in payload ID derivation.
+- [ ] Public-key sync deposit uses `setSequencerPublicKey(bytes)` and source-hash domain `0x03`.
+- [ ] Randomness commit deposit uses `commitRandomness(uint256,bytes32,bytes32,bytes)` and source-hash domain `0x02`.
+- [ ] Deposit calldata ABI encoding is tested against Solidity ABI expectations.
+- [ ] VRF deposits are inserted after forced payload transactions and before txpool transactions.
+- [ ] op-geth never receives or stores the VRF secret key.
+- [ ] Missing or malformed randomness proof attributes cannot silently create malformed deposits.
 
-## 3. Protocol Integration (HIGH)
+## 7. Verification and Fault-Proof Boundary
 
-### Fork Activation
+- [ ] The audit model explicitly recognizes that `commitRandomness` does not run ECVRF verification during normal execution.
+- [ ] Consumers, monitors, or dispute tooling can reconstruct `(pk, seed, beta, pi)` from L1/L2 state.
+- [ ] L2 `0x0101` returns `0x01` only for a valid `(pk, seed, beta, pi)` tuple.
+- [ ] op-program routes `0x0101` through the preimage-oracle-backed precompile path.
+- [ ] L1 `VRFVerifier` documentation remains honest: it verifies seed construction and proof structure / proof-to-hash, not full EC verification.
+- [ ] Operational policy requires L1 `SystemConfig.vrfPublicKey()` to match the active TEE/local prover public key before production use.
 
-- [ ] **Fork ordering**: EnshrainedVRF comes after Interop in `forks.All`
-- [ ] **ChainConfig**: `EnshrainedVRFTime` in op-geth `params/config.go`
-- [ ] **Rollup Config**: `EnshrainedVRFTime` in `op-node/rollup/types.go`
-- [ ] **Rules struct**: `IsOptimismEnshrainedVRF` propagated correctly
-- [ ] **Precompile gating**: `PrecompiledContractsEnshrainedVRF` only active when fork is active
+## 8. Threat Model
 
-### Derivation Pipeline
+| Vector | Current mitigation | Audit focus |
+|--------|--------------------|-------------|
+| Sequencer predicts future randomness | Production mode keeps `sk` inside TEE | Verify TEE attestation and key sealing |
+| Local dev key used in production | CLI exposes local mode but documents it as dev only | Deployment policy and configuration checks |
+| Wrong public key registered on L1 | Verification script checks L2 key matches L1 key; operators must match prover key | Add operational runbook / monitoring |
+| Wrong seed committed | Seed is stored and reconstructable from block number and nonce | Challenge tooling must check it |
+| Invalid beta/proof committed | Tuple can be verified with `0x0101` or dispute tooling | Ensure monitoring/challenge path is complete |
+| Missing commitment | op-node requires prover for scheduled fork; proof failures halt block production | Verify follower/reorg behavior and monitoring |
+| Payload ID collision | VRF fields included in payload ID | Test all fields independently affect ID |
+| Deposit source hash collision | VRF domains `0x02` and `0x03` are distinct | Verify no collision with OP Stack deposit domains |
 
-- [ ] **VRF public key propagation**: L1 SystemConfig → op-node → PayloadAttributes → op-geth
-- [ ] **SystemConfig event parsing**: `SystemConfigUpdateVRFPublicKey` (type 8) correctly parsed
-- [ ] **Deposit tx creation**: VRF deposit txs use correct ABI encoding
-- [ ] **Source hash uniqueness**: VRF deposit source hash is distinct from L1Info deposits
+## 9. Test Coverage to Run Before Audit
 
-### Block Building
+| Component | Command |
+|-----------|---------|
+| Root ECVRF | `go test ./crypto/ecvrf/ -v` |
+| Root contracts | `cd contracts && forge test --match-contract EnshrainedVRFTest -v && forge test --match-contract VRFVerifierTest -v` |
+| op-geth precompile | `cd op-geth && go test ./core/vm/ -run ECVRF -v` |
+| op-geth Engine API | `cd op-geth && go test ./beacon/engine/ -run VRF -v` |
+| op-geth miner | `cd op-geth && go test ./miner/ -run 'VRF|PayloadIdIncludesVRFAttributes' -v` |
+| op-service JSON | `cd optimism && go test ./op-service/eth -run VRF -v` |
+| op-node derivation | `cd optimism && go test ./op-node/rollup/derive -run 'VRF|SystemConfig|PreparePayloadAttributes' -v` |
+| Sepolia local L2 | `./scripts/devnet-sepolia-verify-random.sh` |
 
-- [ ] **Sequencer-only**: VRF prove only called in sequencer mode
-- [ ] **Deposit tx ordering**: VRF deposit tx injected after L1Info deposit, before user txs
-- [ ] **Seed construction**: `sha256(blockNumber, nonce)` matches spec
-- [ ] **Private key isolation**: SK never in calldata, storage, or EVM trace
-- [ ] **Failure handling**: VRF prove failure retried (default 3 attempts, 100ms interval); all retries exhausted → block production halted (safety over liveness)
+## 10. Recommended External Audit Focus
 
----
-
-## 4. Fault Proof Compatibility (MEDIUM)
-
-- [ ] **Deterministic re-execution**: Deposit tx with (nonce, beta, pi) produces identical state
-- [ ] **Precompile in op-program**: ECVRF verify precompile included in fault proof VM
-- [ ] **State root consistency**: Block with VRF deposits produces same state root on re-execution
-- [ ] **Seed verifiability**: Seed can be reconstructed from `sha256(blockNumber, nonce)`
-
----
-
-## 5. Threat Model
-
-### Sequencer Manipulation Vectors
-
-| Vector | Mitigation | Status |
-|--------|-----------|--------|
-| Choose favorable VRF output | TEE-protected sk prevents sequencer from computing VRF outputs | ✅ |
-| Skip VRF commitment | Nonce gap detected by verifiers | ✅ |
-| Reorder txs to front-run randomness | Randomness committed in deposit tx before user txs | ✅ |
-| Use wrong seed | Seed verifiable from L1 data via VRFVerifier.verifySeed() | ✅ |
-| Leak VRF private key | SK never enters EVM; held in Go memory only | ✅ |
-
-### Attack Surfaces
-
-| Surface | Risk | Notes |
-|---------|------|-------|
-| ECVRF algorithm bug | High | Needs independent verification against reference impl |
-| PredeployedVRF storage collision | Medium | Standard Solidity layout, no assembly tricks |
-| SystemConfig storage slot overlap | Medium | Named slots with keccak256 |
-| Deposit tx malformation | Low | ABI encoding is straightforward |
-| Timing attack on Prove | Low | ModNScalar is constant-time; Prove runs off-chain |
-
----
-
-## 6. Test Coverage Summary
-
-| Component | Tests | Fuzz | Coverage |
-|-----------|-------|------|----------|
-| ECVRF Go library | 22 | 164K+ iterations | Core algorithm |
-| ECVRF Verify precompile | 9 | — | All input variants |
-| PredeployedVRF | 31 | — | All functions + edge cases |
-| VRFVerifier | 20 | 256 runs | All functions + known vector |
-| **Total** | **82** | **164K+** | — |
-
----
-
-## 7. Recommended External Audit Focus
-
-1. **ECVRF cryptographic correctness** (highest priority)
-   - Cross-validate with independent implementation
-   - Verify no subtle bugs in EC point arithmetic
-   
-2. **PredeployedVRF access control and storage**
-   - Verify DEPOSITOR_ACCOUNT checks
-   - Storage layout collision analysis
-   
-3. **Seed construction and TEE security**
-   - Seed is deterministic (`sha256(blockNumber)`) — unpredictability relies on TEE-protected sk
-   - Confirm TEE attestation chain is valid
-
-4. **Fault proof integration**
-   - Verify deposit tx re-execution determinism
-   - Test with Cannon/Asterisc
+1. ECVRF cryptographic correctness and independent cross-validation.
+2. TEE key lifecycle, attestation, sealing, and production configuration.
+3. OP Stack derivation determinism across singular/span batches.
+4. Engine API payload attribute encoding and payload ID uniqueness.
+5. Deposit calldata/source-hash domains and ordering.
+6. Verification and dispute story for invalid `(pk, seed, beta, pi)` tuples.

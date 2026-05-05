@@ -182,6 +182,6 @@ enshrined-vrf/
 
 ## 8. Next Steps (Phase 2)
 
-1. PredeployedVRF Solidity 컨트랙트 구현
+1. EnshrinedVRF Solidity predeploy 구현
 2. op-geth/optimism 서브모듈 세팅 및 통합
 3. Fork activation config (`EnshrainedVRFTime`) 구현

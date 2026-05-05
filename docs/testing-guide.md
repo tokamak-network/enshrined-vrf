@@ -1,343 +1,222 @@
-# Enshrined VRF — Testing & Demo Guide
+# Enshrined VRF Testing Guide
 
-## 1. Unit Tests (즉시 실행 가능)
+This guide lists the checks that cover the current Enshrined VRF OP Stack integration. For the Sepolia-backed local L2 runbook, see [sepolia-devnet.md](sepolia-devnet.md).
 
-### Prerequisites
+## Prerequisites
 
 ```bash
-# Go 1.24+
-go version
-
-# Foundry (forge)
-forge --version
+go version       # Go 1.24+
+forge --version  # Foundry
+cast --version
+jq --version
 ```
 
-### 1.1 ECVRF Go Library
+## 1. Core Cryptography
+
+Run from the repository root:
 
 ```bash
-# 전체 테스트 (22 tests)
 go test ./crypto/ecvrf/ -v
-
-# 벤치마크
 go test ./crypto/ecvrf/ -bench=. -benchmem
-
-# Fuzz 테스트 (30초)
 go test ./crypto/ecvrf/ -fuzz=FuzzProveVerify -fuzztime=30s
-
-# Fuzz 테스트 (랜덤 proof 거부 확인)
 go test ./crypto/ecvrf/ -fuzz=FuzzVerifyRejectsRandom -fuzztime=30s
 ```
 
-**기대 결과:**
-- 22 tests PASS
-- Prove: ~0.35ms, Verify: ~0.42ms
-- Fuzz: 0 crashes
+These tests cover ECVRF prove/verify round trips, proof rejection, determinism, and benchmark timing for the root library.
 
-### 1.2 Verify Precompile (Standalone)
+## 2. L2 and L1 Contracts
 
-```bash
-go test ./core/vm/ -v
-```
-
-**기대 결과:** 9 tests PASS
-
-### 1.3 Solidity Contracts
+Run from the root `contracts` package:
 
 ```bash
 cd contracts
-
-# 전체 테스트
-forge test -v
-
-# 특정 컨트랙트만
 forge test --match-contract EnshrainedVRFTest -v
 forge test --match-contract VRFVerifierTest -v
-
-# 가스 측정
-forge test --match-test "test_gas" -vvv
 ```
 
-**기대 결과:**
-- EnshrainedVRFTest: 30 PASS
-- VRFVerifierTest: 20 PASS
-- getRandomness gas: ~24K
-- commitRandomness gas: ~165K
+`EnshrainedVRFTest` covers the L2 predeploy interface: `setSequencerPublicKey`, `commitRandomness`, `getRandomness`, `getResult`, `commitNonce`, and `callCounter`.
 
-### 1.4 op-geth 내부 테스트
+`VRFVerifierTest` covers the L1 dispute helper. The current helper verifies seed construction and proof structure / `proofToHash`; it is not the normal L2 commit path.
+
+## 3. op-geth Integration
 
 ```bash
 cd op-geth
 
-# ECVRF 라이브러리 (op-geth 모듈 내)
 go test ./crypto/ecvrf/ -v
-
-# 기존 precompile 테스트 포함 전체
-go test ./core/vm/ -run "TestPrecompiled" -v
+go test ./core/vm/ -run ECVRF -v
+go test ./beacon/engine/ -run VRF -v
+go test ./miner/ -run 'VRF|PayloadIdIncludesVRFAttributes' -v
 ```
 
----
+These checks cover:
 
-## 2. Devnet E2E Test (전체 플로우 검증)
+- ECVRF verify precompile at `0x0101`
+- Engine API VRF payload attribute JSON encoding as hex
+- Payload ID separation when VRF attributes differ
+- ABI encoding for `setSequencerPublicKey(bytes)` and `commitRandomness(uint256,bytes32,bytes32,bytes)`
+- op-geth deposit construction for public-key sync and randomness commitment
 
-### 2.1 Prerequisites
-
-```bash
-# Docker
-docker --version
-
-# Docker Compose
-docker compose version
-
-# Make / Just
-make --version
-# 또는
-just --version
-```
-
-### 2.2 Devnet 설정
-
-**Step 1: rollup config에 EnshrainedVRFTime 추가**
-
-devnet의 rollup config에 fork 활성화 시간을 설정합니다. `0`으로 설정하면 genesis부터 활성화됩니다.
+## 4. optimism / op-node Integration
 
 ```bash
 cd optimism
 
-# devnet config 파일 찾기
-find . -name "devnetL1-template.json" -o -name "devnet*.json" | head -5
+go test ./op-service/eth -run VRF -v
+go test ./op-node/rollup/derive -run 'VRF|SystemConfig|PreparePayloadAttributes' -v
 ```
 
-rollup config JSON에 추가:
-```json
-{
-  "enshrined_vrf_time": 0
-}
-```
+These checks cover:
 
-op-geth chain config에도 추가:
-```json
-{
-  "enshrainedVRFTime": 0
-}
-```
+- `eth.SystemConfig.VRFPublicKey` and VRF payload attributes encoding as hex
+- parsing `SystemConfig` `ConfigUpdate(UpdateType.VRF_PUBLIC_KEY, data)` logs
+- `ComputeVRFSeed(blockNumber, nonce)`
+- local and TEE-backed `VRFProver` paths
+- carrying VRF fields through singular/span batches
+- restoring VRF fields into derived payload attributes
 
-**Step 2: VRF Private Key 설정**
+## 5. Sepolia-Backed Local L2 E2E
 
-sequencer 시작 시 VRF private key를 환경변수로 전달합니다.
-테스트용 키 (절대 프로덕션에서 사용하지 마세요):
+The Sepolia devnet scripts run a local L2 execution client and op-node sequencer while reading L1 state from Sepolia. The scripts refuse non-Sepolia L1 RPC endpoints.
 
 ```bash
-export VRF_PRIVATE_KEY=c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721
+cp devnet/sepolia/.env.example devnet/sepolia/.env
+$EDITOR devnet/sepolia/.env
+
+./scripts/devnet-sepolia-preflight.sh
+./scripts/devnet-sepolia-prepare.sh
+./scripts/devnet-sepolia-start.sh
+./scripts/devnet-sepolia-verify-random.sh
 ```
 
-해당 public key:
-```
-0x02b4632d08485ff1df2db55b9dafd23347d1c47a457072a1e87be26a2c20f4b524
-```
+The verification script checks:
 
-**Step 3: Genesis 생성**
+- local L2 chain ID matches the configured `L2_CHAIN_ID`
+- `EnshrainedVRF` has bytecode at `0x42000000000000000000000000000000000000f0`
+- `commitNonce()` advances
+- `sequencerPublicKey()` is set on L2 and matches Sepolia `SystemConfig.vrfPublicKey()`
+- `getRandomness()` returns a value in a local L2 transaction
+- a `CoinFlip` consumer contract can call `flip()`
+
+For a lighter check:
 
 ```bash
-cd optimism/packages/contracts-bedrock
-
-# Forge build (EnshrainedVRF.sol 포함)
-forge build
-
-# Genesis allocs 생성
-just genesis
-# 또는
-forge script scripts/L2Genesis.s.sol:L2Genesis --sig 'runWithStateDump()'
+VERIFY_CONSUMER=0 ./scripts/devnet-sepolia-verify-random.sh
 ```
 
-**Step 4: L1에 VRF Public Key 등록**
+## 6. Manual E2E Checks
+
+Default Sepolia local L2 endpoint:
 
 ```bash
-# SystemConfig에 VRF public key 설정 (L1에서)
-cast send <SYSTEM_CONFIG_ADDR> \
-  "setVRFPublicKey(bytes)" \
-  0x02b4632d08485ff1df2db55b9dafd23347d1c47a457072a1e87be26a2c20f4b524 \
-  --rpc-url http://localhost:8546 \
-  --private-key <OWNER_PRIVATE_KEY>
+export L2_RPC_URL=http://127.0.0.1:9545
+export VRF=0x42000000000000000000000000000000000000f0
 ```
 
-**Step 5: Devnet 시작**
+Check the predeploy and public key:
 
 ```bash
-cd optimism
-make devnet-up
-# 또는
-just devnet-up
+cast code "$VRF" --rpc-url "$L2_RPC_URL"
+cast call "$VRF" "sequencerPublicKey()(bytes)" --rpc-url "$L2_RPC_URL"
+cast call "$VRF" "commitNonce()(uint256)" --rpc-url "$L2_RPC_URL"
 ```
 
-### 2.3 E2E 검증
-
-devnet이 올라간 후:
-
-**Check 1: EnshrainedVRF 컨트랙트 존재 확인**
+Query a historical result:
 
 ```bash
-cast code 0x42000000000000000000000000000000000000f0 --rpc-url http://localhost:8545
-```
-
-출력이 `0x`가 아닌 바이트코드가 나와야 합니다.
-
-**Check 2: Sequencer Public Key 확인**
-
-```bash
-cast call 0x42000000000000000000000000000000000000f0 \
-  "sequencerPublicKey()(bytes)" \
-  --rpc-url http://localhost:8545
-```
-
-**Check 3: Commit Nonce 확인 (sequencer가 VRF를 커밋하고 있는지)**
-
-```bash
-cast call 0x42000000000000000000000000000000000000f0 \
-  "commitNonce()(uint256)" \
-  --rpc-url http://localhost:8545
-```
-
-0보다 큰 값이 나와야 합니다. 블록이 생성될 때마다 증가합니다.
-
-**Check 4: 과거 VRF 결과 조회**
-
-```bash
-# nonce 0의 결과 조회
-cast call 0x42000000000000000000000000000000000000f0 \
-  "getResult(uint256)(bytes32,bytes)" \
+cast call "$VRF" \
+  "getResult(uint256)(bytes32,bytes32,bytes)" \
   0 \
-  --rpc-url http://localhost:8545
+  --rpc-url "$L2_RPC_URL"
 ```
 
-**Check 5: getRandomness() 호출 (트랜잭션 필요)**
+Call synchronous randomness:
 
 ```bash
-# 테스트 계정으로 getRandomness() 호출
-cast send 0x42000000000000000000000000000000000000f0 \
+cast send "$VRF" \
   "getRandomness()(uint256)" \
-  --rpc-url http://localhost:8545 \
+  --rpc-url "$L2_RPC_URL" \
   --private-key <TEST_PRIVATE_KEY>
 ```
 
-**Check 6: ECVRF Verify Precompile 직접 호출**
+Verify a tuple manually with the precompile by concatenating:
+
+```text
+[33-byte pk][32-byte seed][32-byte beta][81-byte pi]
+```
+
+Then call:
 
 ```bash
-# getResult로 beta, pi를 가져온 후 verify precompile 호출
-# input: pk(33) + seed(32) + beta(32) + pi(81) = 178 bytes
 cast call 0x0000000000000000000000000000000000000101 \
   <178_bytes_hex> \
-  --rpc-url http://localhost:8545
+  --rpc-url "$L2_RPC_URL"
 ```
 
-출력이 `0x01`이면 검증 성공.
+Expected output is `0x01` for a valid tuple.
 
----
+## 7. Troubleshooting
 
-## 3. Demo Script
+### `NoRandomnessAvailable`
 
-데모용 CoinFlip 컨트랙트를 배포하고 호출하는 스크립트입니다.
-
-### 3.1 CoinFlip 컨트랙트 배포
-
-```solidity
-// CoinFlip.sol
-pragma solidity ^0.8.0;
-
-interface IEnshrainedVRF {
-    function getRandomness() external returns (uint256);
-}
-
-contract CoinFlip {
-    IEnshrainedVRF constant VRF = IEnshrainedVRF(0x42000000000000000000000000000000000000f0);
-    
-    event FlipResult(address indexed player, bool heads, uint256 randomness);
-    
-    function flip() external returns (bool heads) {
-        uint256 randomness = VRF.getRandomness();
-        heads = (randomness % 2 == 0);
-        emit FlipResult(msg.sender, heads, randomness);
-    }
-}
-```
-
-### 3.2 배포 & 호출
+The current block has no committed randomness. Check:
 
 ```bash
-# 배포
-forge create CoinFlip \
-  --rpc-url http://localhost:8545 \
-  --private-key <TEST_PRIVATE_KEY>
-
-# 결과에서 Deployed to: <COINFLIP_ADDR> 확인
-
-# Flip 호출
-cast send <COINFLIP_ADDR> "flip()(bool)" \
-  --rpc-url http://localhost:8545 \
-  --private-key <TEST_PRIVATE_KEY>
-
-# 이벤트 로그 확인
-cast logs --from-block latest \
-  --address <COINFLIP_ADDR> \
-  --rpc-url http://localhost:8545
+cast call "$VRF" "commitNonce()(uint256)" --rpc-url "$L2_RPC_URL"
+tail -n 100 .devnet/sepolia/logs/op-node.log
+tail -n 100 .devnet/sepolia/logs/geth.log
 ```
 
-### 3.3 Demo Flow 요약
+Common causes:
 
-```
-1. devnet 시작
-2. cast code 0x42...f0  → 바이트코드 존재 확인
-3. cast call commitNonce()  → sequencer가 VRF 커밋 중 확인
-4. forge create CoinFlip  → 데모 컨트랙트 배포
-5. cast send flip()  → 동전 던지기 실행
-6. cast logs  → FlipResult 이벤트에서 randomness 값 확인
-7. cast call getResult(0)  → 과거 VRF proof 조회
-8. verify precompile로 proof 검증  → 0x01 반환 확인
-```
+- op-node was started without a VRF prover while `EnshrainedVRFTime` is scheduled
+- TEE endpoint is unavailable or returning proof errors
+- op-geth was not rebuilt after VRF payload attribute changes
 
----
+### Empty `sequencerPublicKey()`
 
-## 4. Troubleshooting
-
-### "NoRandomnessAvailable" 에러
-
-sequencer가 VRF를 커밋하지 않고 있습니다.
-- `commitNonce()`가 0인지 확인
-- sequencer에 VRF private key가 설정되었는지 확인
-- `EnshrainedVRFTime`이 현재 timestamp 이전인지 확인
-
-### EnshrainedVRF에 코드가 없음
-
-genesis에 배치되지 않았습니다.
-- `just genesis` 재실행
-- `L2Genesis.s.sol`에 `setEnshrainedVRF()` 호출이 있는지 확인
-- `Predeploys.sol`에 `isSupportedPredeploy`에 `ENSHRINED_VRF` 포함 확인
-
-### op-geth 빌드 실패
+The public key was not synced from Sepolia `SystemConfig` into the L2 predeploy. Check:
 
 ```bash
-cd op-geth
-go build ./cmd/geth 2>&1 | head -20
+cast call "$VRF" "sequencerPublicKey()(bytes)" --rpc-url "$L2_RPC_URL"
 ```
 
-### Verify precompile 0x0101이 응답하지 않음
+Then inspect `.devnet/sepolia/devnet.json` for the SystemConfig address and verify `SystemConfig.vrfPublicKey()` on Sepolia. The prepare script should derive the key from `VRF_SK` and submit `setVRFPublicKey(bytes)` before the local L2 starts.
 
-fork가 활성화되지 않았습니다.
-- chain config에 `"enshrainedVRFTime": 0` 확인
-- `IsOptimismEnshrainedVRF`가 Rules에 있는지 확인
+### Verify Precompile Returns `0x00`
 
----
+The tuple does not verify under the supplied public key. Re-check byte concatenation order:
 
-## 5. Test Matrix
+```text
+pk || seed || beta || pi
+```
 
-| Layer | Test | Command | Expected |
-|-------|------|---------|----------|
-| Crypto | ECVRF round-trip | `go test ./crypto/ecvrf/ -v` | 22 PASS |
-| Crypto | Fuzz | `go test ./crypto/ecvrf/ -fuzz=FuzzProveVerify -fuzztime=30s` | 0 crashes |
-| EVM | Precompile | `go test ./core/vm/ -v` | 9 PASS |
-| L2 | EnshrainedVRF | `cd contracts && forge test --match-contract EnshrainedVRFTest` | 30 PASS |
-| L1 | VRFVerifier | `cd contracts && forge test --match-contract VRFVerifierTest` | 20 PASS |
-| Build | op-geth binary | `cd op-geth && go build ./cmd/geth` | exit 0 |
-| Build | op-node binary | `cd optimism && go build ./op-node/cmd` | exit 0 |
-| E2E | Contract exists | `cast code 0x42...f0` | non-empty |
-| E2E | VRF committing | `cast call commitNonce()` | > 0 |
-| E2E | CoinFlip demo | `cast send flip()` | FlipResult event |
+Also confirm the seed was computed as:
+
+```text
+SHA256(uint256(blockNumber) || uint256(nonce))
+```
+
+### Predeploy Code Is Missing
+
+Re-run the prepare step to regenerate genesis and initialize the local datadir:
+
+```bash
+./scripts/devnet-sepolia-stop.sh
+rm -rf .devnet/sepolia
+./scripts/devnet-sepolia-prepare.sh
+```
+
+## 8. Coverage Checklist
+
+| Layer | Command | Expected |
+|-------|---------|----------|
+| Crypto | `go test ./crypto/ecvrf/ -v` | pass |
+| L2 predeploy | `forge test --match-contract EnshrainedVRFTest -v` | pass |
+| L1 verifier helper | `forge test --match-contract VRFVerifierTest -v` | pass |
+| op-geth precompile | `go test ./core/vm/ -run ECVRF -v` | pass |
+| Engine API JSON | `go test ./beacon/engine/ -run VRF -v` | pass |
+| Payload building | `go test ./miner/ -run 'VRF|PayloadIdIncludesVRFAttributes' -v` | pass |
+| op-service JSON | `go test ./op-service/eth -run VRF -v` | pass |
+| op-node derivation | `go test ./op-node/rollup/derive -run 'VRF|SystemConfig|PreparePayloadAttributes' -v` | pass |
+| Sepolia local L2 | `./scripts/devnet-sepolia-verify-random.sh` | pass |

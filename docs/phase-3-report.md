@@ -3,6 +3,8 @@
 **Date**: 2026-04-02  
 **Status**: Complete (Core Integration)
 
+**Current implementation note (2026-05-05)**: VRF proving now happens in op-node through a local or TEE `VRFProver`. op-geth does not hold the VRF secret key; it receives VRF payload attributes and injects deposits into `EnshrainedVRF`.
+
 ---
 
 ## 1. Deliverables
@@ -21,13 +23,14 @@
 | **op-geth** | `core/vm/contracts_ecvrf.go` | ECVRF verify precompile (new file) |
 | **op-geth** | `core/vm/contracts.go` | `PrecompiledContractsEnshrainedVRF` map, registered in `activePrecompiledContracts()` and `ActivePrecompiles()` |
 | **op-geth** | `crypto/ecvrf/` | ECVRF Go library (copied from root) |
-| **op-geth** | `beacon/engine/types.go` | `VRFPublicKey` field in `PayloadAttributes` |
-| **op-geth** | `miner/vrf_config.go` | `VRFConfig` struct for sequencer VRF key management (new file) |
+| **op-geth** | `beacon/engine/types.go` | `VRFPublicKey`, `VRFSeed`, `VRFProofBeta`, `VRFProofPi`, `VRFNonce` fields in `PayloadAttributes` |
+| **op-geth** | `miner/vrf_builder.go` | ABI encoding and source hashes for public-key and randomness deposits |
+| **op-geth** | `miner/worker.go` | Deposit injection during payload building |
 | **optimism** | `op-core/forks/forks.go` | `EnshrainedVRF` fork name, added to `All` list |
 | **optimism** | `op-node/rollup/types.go` | `EnshrainedVRFTime` field, `IsEnshrainedVRF()`, `ActivationTime`, `SetActivationTime` |
 | **optimism** | `op-node/rollup/superchain.go` | Comment placeholder for hardfork mapping |
-| **optimism** | `op-node/rollup/derive/attributes.go` | `VRFPublicKey` in PayloadAttributes construction |
-| **optimism** | `op-node/rollup/derive/vrf_deposit.go` | VRF system deposit tx creation (new file) |
+| **optimism** | `op-node/rollup/derive/attributes.go` | VRF seed/proof generation and PayloadAttributes construction |
+| **optimism** | `op-node/rollup/derive/vrf_deposit.go` | Seed/proof helpers and VRF deposit decoding |
 | **optimism** | `op-service/eth/types.go` | `VRFPublicKey` in `PayloadAttributes` and `SystemConfig` |
 
 ---
@@ -53,9 +56,10 @@ rollup.json: EnshrainedVRFTime = <timestamp>
 ```
 Sequencer (op-node + op-geth):
   1. Read VRFPublicKey from SystemConfig (L1)
-  2. Include in PayloadAttributes.VRFPublicKey
-  3. If PK changed → VRFSetPublicKeyDeposit → PredeployedVRF.setSequencerPublicKey()
-  4. For each block → ecvrf.Prove(sk, seed) → VRFCommitRandomnessDeposit → PredeployedVRF.commitRandomness()
+  2. op-node computes seed and proof with local/TEE VRFProver
+  3. Include pk, seed, beta, pi, nonce in PayloadAttributes
+  4. op-geth injects EnshrinedVRF.setSequencerPublicKey(pk)
+  5. op-geth injects EnshrinedVRF.commitRandomness(nonce, seed, beta, pi)
 ```
 
 ### Precompile Map
@@ -72,11 +76,11 @@ EnshrainedVRF precompile map = Jovian map + {
 
 ### Separate Deposit TX (not L1BlockInfo extension)
 
-VRF uses its own system deposit transaction to call `PredeployedVRF` instead of extending `L1BlockInfo` marshaling. This keeps concerns separate and avoids changing the L1Block predeploy.
+VRF uses its own system deposit transactions to call `EnshrainedVRF` instead of extending `L1BlockInfo` marshaling. This keeps concerns separate and avoids changing the L1Block predeploy.
 
 ### VRF Private Key Management
 
-The sequencer's VRF private key is held in `miner.VRFConfig`, never exposed to EVM. During block building, the sequencer calls `ecvrf.Prove()` in Go code and injects the result as a deposit tx.
+The VRF secret key is behind op-node's `VRFProver` abstraction. Local mode holds the key in op-node memory for development; TEE mode delegates proof generation to the enclave. op-geth never receives the secret key.
 
 ### Fork Ordering
 
@@ -93,7 +97,7 @@ EnshrainedVRF is placed after Interop in the fork ordering, as the latest mainli
 | Component | Build | Notes |
 |-----------|-------|-------|
 | op-geth `core/vm/` | ✅ Pass | Precompile compiles and links correctly |
-| op-geth `miner/` | ✅ Pass | VRFConfig compiles |
+| op-geth `miner/` | ✅ Pass | VRF deposit builder compiles |
 | op-geth `beacon/engine/` | ✅ Pass | PayloadAttributes extension compiles |
 | op-geth `crypto/ecvrf/` | ✅ Pass | ECVRF library compiles within op-geth module |
 | optimism (not fully built) | ⚠️ Partial | Individual file changes validated; full monorepo build requires CI |
@@ -104,7 +108,7 @@ EnshrainedVRF is placed after Interop in the fork ordering, as the latest mainli
 
 ### New Files (4)
 - `op-geth/core/vm/contracts_ecvrf.go` — Verify precompile
-- `op-geth/miner/vrf_config.go` — VRF sequencer config
+- `op-geth/miner/vrf_builder.go` — VRF deposit encoding
 - `op-geth/crypto/ecvrf/` — ECVRF library (3 files copied from root)
 - `optimism/op-node/rollup/derive/vrf_deposit.go` — VRF deposit tx creation
 
@@ -125,10 +129,10 @@ EnshrainedVRF is placed after Interop in the fork ordering, as the latest mainli
 
 Phase 3 establishes the core framework. The following items require deeper integration and E2E testing:
 
-1. **op-geth worker.go**: Full integration of VRF prove + deposit tx injection during `commitWork()`
-2. **Engine API handler**: Parsing `VRFPublicKey` from `ForkchoiceUpdatedV3` and passing to worker
-3. **SystemConfig event parsing**: Reading `VRFPublicKeyUpdated` events from L1 SystemConfig
-4. **genesis allocs**: PredeployedVRF bytecode in L2 genesis
+1. **op-geth worker.go**: Deposit injection from VRF payload attributes during payload building
+2. **Engine API handler**: Parsing VRF fields from `ForkchoiceUpdatedV*` and passing to worker
+3. **SystemConfig event parsing**: Reading `ConfigUpdate(UpdateType.VRF_PUBLIC_KEY)` events from L1 SystemConfig
+4. **genesis allocs**: EnshrainedVRF bytecode in L2 genesis
 5. **E2E devnet test**: Full flow from L1 SystemConfig → op-node → op-geth → user contract
 
 ---

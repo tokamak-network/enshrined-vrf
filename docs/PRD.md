@@ -22,7 +22,7 @@
 - L2 컨트랙트가 단일 함수 호출로 검증 가능한 난수 획득
 - Sequencer 단독 조작 불가 (TEE가 sk를 격리, L1에 등록된 공개 키로 검증 가능)
 - 누구나 VRF 결과를 온체인에서 검증 가능
-- Fault proof와 완전 호환
+- Fault proof / dispute tooling에서 VRF 검증 경로 지원
 - 기존 OP Stack과 하위 호환 (fork 활성화 방식)
 
 ### Non-Goals
@@ -41,14 +41,14 @@
 │   L1 Block  │         │   op-node    │         │      op-geth         │
 │             │────────▷│  Derivation  │────────▷│  Block Building      │
 │             │         │  Pipeline    │         │                      │
-└─────────────┘         └──────────────┘         │  1. seed=sha256(blk) │
-                                                  │  2. ecvrf.Prove()    │
-                                                  │  3. Inject deposit tx│
+└─────────────┘         │  1. seed/prove│────────▷│  2. Inject deposits │
+                        │  2. Payload   │         │  - public key sync  │
+                        │     attrs     │         │  - randomness       │
                                                   └──────────┬───────────┘
                                                              │
                                                              ▼
                                                   ┌──────────────────────┐
-                                                  │   PredeployedVRF     │
+                                                  │    EnshrainedVRF     │
                                                   │   (0x42...F0)        │
                                                   │                      │
                                                   │  commitRandomness()  │
@@ -73,9 +73,9 @@
 | 재실행 불가 | Fault proof 시 verifier에 SK 없음 | Deposit tx로 결과 커밋, 재실행 시 동일 결과 재생 |
 
 **최종 아키텍처**:
-- **Prove**: Go 라이브러리 (`crypto/ecvrf`) — sequencer가 블록 빌딩 시 호출
+- **Prove**: Go 라이브러리 (`crypto/ecvrf`) — op-node가 block attributes 생성 시 호출
 - **Verify**: EVM Precompile (`0x0101`) — 누구나 온체인에서 검증 가능
-- **결과 전달**: System deposit transaction으로 `PredeployedVRF.commitRandomness()` 호출
+- **결과 전달**: Engine API `PayloadAttributes`로 proof material을 전달하고, op-geth가 system deposit transaction으로 `EnshrainedVRF`를 호출
 
 ### 3.3 Component Map
 
@@ -84,41 +84,45 @@
 | Cryptography | ECVRF-SECP256K1-SHA256-TAI | op-geth | New package |
 | Execution | ECVRF Verify Precompile | op-geth | New precompile |
 | Execution | Fork activation | op-geth | Config change |
-| L2 Contract | PredeployedVRF | optimism | New predeploy |
-| Derivation | PayloadAttributes extension | optimism | Modification |
-| Derivation | VRF deposit tx injection | optimism | New logic |
+| L2 Contract | EnshrainedVRF | optimism | New predeploy |
+| Derivation | PayloadAttributes extension | optimism/op-node + op-service | Modification |
+| Derivation | VRF proof generation + batch fields | optimism/op-node | New logic |
+| Execution | VRF deposit tx injection | op-geth/miner | New logic |
 | L1 Contract | SystemConfig VRF key mgmt | optimism | Modification |
-| Fault Proof | op-program ECVRF support | optimism | Dependency |
+| Fault Proof | op-program ECVRF precompile oracle | optimism | Modification |
 
 ### 3.4 Seed Construction
 
 ```
-seed = sha256(abi.encodePacked(block.number, nonce))
+seed = sha256(uint256(blockNumber) || uint256(nonce))
 ```
 
-Seed는 블록 번호와 nonce로 결정되며, 예측 가능합니다. 한 블록 내에서 여러
-VRF commitment가 필요할 때 nonce가 각 commitment를 구분합니다. 보안은
-seed의 비밀성이 아닌 TEE 내부에 격리된 비밀키(sk)에 의존합니다. sk 없이는
-seed를 알아도 VRF 출력을 계산할 수 없습니다.
+`blockNumber`와 `nonce`는 각각 32-byte big-endian uint256으로 인코딩합니다.
+Seed는 예측 가능하며, 보안은 seed의 비밀성이 아닌 TEE 내부에 격리된
+비밀키(sk)에 의존합니다. sk 없이는 seed를 알아도 VRF 출력을 계산할 수
+없습니다.
 
 | Field | Source | Role |
 |-------|--------|------|
 | `sequencer_sk` | TEE Enclave | ECVRF 비밀키 (엔클레이브 밖으로 노출 불가) |
 | `block.number` | L2 블록 생성 | 블록별 고유성 |
-| `nonce` | PredeployedVRF 내부 카운터 | 호출별 고유성 (블록 내 복수 commitment 지원) |
+| `nonce` | op-node VRF commitment counter | commitment별 고유성 |
 
 ---
 
 ## 4. Interfaces
 
-### 4.1 PredeployedVRF (L2)
+### 4.1 EnshrainedVRF (L2)
 
 **Address**: `0x42000000000000000000000000000000000000F0`
 
 ```solidity
 interface IEnshrainedVRF {
     /// @notice Emitted when new randomness is committed by the sequencer
-    event RandomnessCommitted(uint256 indexed nonce, bytes32 beta, bytes pi);
+    event RandomnessCommitted(uint256 indexed nonce, bytes32 beta, address indexed caller);
+
+    /// @notice Emitted when the L2 sequencer public key is synced from L1
+    event SequencerPublicKeyUpdated(bytes pk);
 
     /// @notice Returns the next available random value for the current block
     /// @dev Increments internal nonce, reads from committed randomness
@@ -127,13 +131,20 @@ interface IEnshrainedVRF {
 
     /// @notice Retrieves a historical VRF result by nonce
     /// @param nonce The nonce of the desired result
+    /// @return seed The seed used for the VRF proof
     /// @return beta The VRF output hash
     /// @return pi The VRF proof (81 bytes)
-    function getResult(uint256 nonce) external view returns (uint256 beta, bytes memory pi);
+    function getResult(uint256 nonce) external view returns (bytes32 seed, bytes32 beta, bytes memory pi);
 
     /// @notice Returns the sequencer's VRF public key
     /// @return pk Compressed SEC1 public key (33 bytes)
     function sequencerPublicKey() external view returns (bytes memory pk);
+
+    /// @notice Returns the next commitment nonce
+    function commitNonce() external view returns (uint256);
+
+    /// @notice Returns the current block's per-call derivation counter
+    function callCounter() external view returns (uint256);
 }
 ```
 
@@ -141,7 +152,7 @@ interface IEnshrainedVRF {
 
 ```solidity
 /// @notice Commits VRF randomness for the current block (system deposit tx)
-function commitRandomness(uint256 nonce, bytes32 beta, bytes calldata pi) external;
+function commitRandomness(uint256 nonce, bytes32 seed, bytes32 beta, bytes calldata pi) external;
 
 /// @notice Updates the sequencer's VRF public key (from L1 SystemConfig)
 function setSequencerPublicKey(bytes calldata pk) external;
@@ -166,8 +177,8 @@ function setVRFPublicKey(bytes calldata pk) external;
 /// @notice Returns the current VRF public key
 function vrfPublicKey() external view returns (bytes memory);
 
-/// @notice Emitted when VRF public key is updated
-event VRFPublicKeyUpdated(bytes pk);
+/// @notice Emitted through the existing SystemConfig event path
+event ConfigUpdate(uint256 indexed version, UpdateType indexed updateType, bytes data);
 ```
 
 ### 4.4 ECVRF Go Library
@@ -251,14 +262,18 @@ Based on RFC 9381 with secp256k1 curve:
 - KMS/HSM 지원 가능한 구조
 - EVM trace, calldata, 스토리지 어디에도 SK 미포함
 
-### 7.3 Fault Proof Compatibility
+### 7.3 Verification and Fault Proof Compatibility
 
-- VRF 결과가 deposit tx로 커밋되므로 재실행 시 동일 결과 재생
-- 위반 검증: L1에서 verify precompile 또는 Solidity ECVRF verify로 `(pk, seed, beta, pi)` 검증
+- VRF 결과가 deposit tx로 커밋되므로 L2 재실행은 동일한 `(nonce, seed, beta, pi)`를 재생합니다.
+- `EnshrainedVRF.commitRandomness`는 정상 실행 경로에서 ECVRF 검증을 수행하지 않습니다. 이 함수는 system caller, public-key/proof length, storage update를 담당합니다.
+- VRF 정당성은 커밋된 `(pk, seed, beta, pi)`로 외부 검증합니다.
+  - L2: ECVRF verify precompile `0x0101`
+  - L1/dispute tooling: `VRFVerifier`의 seed/proof-structure check
+  - op-program: `0x0101` precompile oracle path로 fault-proof 재실행 지원
 - 검증 가능 위반 유형:
   - 잘못된 `beta`/`pi`: `ECVRF.Verify(pk, seed, beta, pi)` 실패
-  - 잘못된 `seed`: L1 데이터로 seed 재구성 후 불일치 확인
-  - `nonce` 조작: 순차 nonce 검증
+  - 잘못된 `seed`: `sha256(uint256(blockNumber) || uint256(nonce))` 재구성 결과와 불일치
+  - 잘못된 public key 운영: L1 `SystemConfig.vrfPublicKey()`와 활성 prover key 불일치
 
 ---
 
@@ -295,7 +310,7 @@ Based on RFC 9381 with secp256k1 curve:
 - [ ] Fork activation gating works correctly
 - [ ] Phase 1 completion report (`docs/phase-1-report.md`)
 
-### Phase 2: PredeployedVRF Contract
+### Phase 2: EnshrainedVRF Contract
 **Deliverable**: Solidity predeploy contract  
 **Acceptance**:
 - [ ] `commitRandomness` only callable by DEPOSITOR_ACCOUNT
@@ -308,12 +323,13 @@ Based on RFC 9381 with secp256k1 curve:
 - [ ] Phase 2 completion report (`docs/phase-2-report.md`)
 
 ### Phase 3: Derivation Pipeline
-**Deliverable**: VRF public key propagation, VRF deposit tx injection  
+**Deliverable**: VRF public key propagation, VRF proof payload attributes, VRF deposit tx injection
 **Acceptance**:
-- [ ] PayloadAttributes includes VRF public key
-- [ ] Sequencer builds blocks with VRF deposit tx
-- [ ] VRF deposit tx contains correct `(nonce, beta, pi)`
-- [ ] Seed constructed from correct `sha256(block.number, nonce)`
+- [ ] PayloadAttributes includes VRF public key, seed, beta, pi, and nonce
+- [ ] op-node computes proof through local or TEE `VRFProver`
+- [ ] op-geth builds blocks with public-key and randomness deposit txs
+- [ ] VRF deposit tx contains correct `(nonce, seed, beta, pi)`
+- [ ] Seed constructed from correct `sha256(uint256(blockNumber) || uint256(nonce))`
 - [ ] Follower nodes accept and verify VRF deposit txs
 - [ ] Phase 3 completion report (`docs/phase-3-report.md`)
 
@@ -361,19 +377,22 @@ contract CoinFlip {
 | `core/vm/contracts.go` | Mod | Register precompile in fork map |
 | `params/config.go` | Mod | EnshrainedVRFTime fork config |
 | `params/protocol_params.go` | Mod | Gas constants |
-| `miner/worker.go` | Mod | VRF prove + deposit tx injection |
-| `core/vm/evm.go` | Mod | BlockContext VRF fields |
+| `beacon/engine/types.go` | Mod | VRF PayloadAttributes fields |
+| `eth/catalyst/api.go` | Mod | Engine API VRF attribute handoff |
+| `miner/worker.go` | Mod | VRF deposit tx injection |
+| `miner/vrf_builder.go` | Mod | Public-key and randomness deposit encoding |
 
 ### optimism monorepo (New/Modified)
 | File | Type | Description |
 |------|------|-------------|
-| `packages/contracts-bedrock/src/L2/PredeployedVRF.sol` | New | Predeploy contract |
-| `packages/contracts-bedrock/src/L2/interfaces/IEnshrainedVRF.sol` | New | Interface |
-| `packages/contracts-bedrock/test/L2/PredeployedVRF.t.sol` | New | Contract tests |
+| `packages/contracts-bedrock/src/L2/EnshrainedVRF.sol` | New | Predeploy contract |
+| `packages/contracts-bedrock/interfaces/L2/IEnshrainedVRF.sol` | New | Interface |
 | `packages/contracts-bedrock/src/libraries/Predeploys.sol` | Mod | Address registration |
 | `packages/contracts-bedrock/src/L1/SystemConfig.sol` | Mod | VRF key management |
 | `op-node/rollup/types.go` | Mod | Fork config |
-| `op-node/rollup/derive/attributes.go` | Mod | PayloadAttributes |
-| `op-node/rollup/derive/l1_block_info.go` | Mod | VRF deposit tx |
+| `op-node/rollup/derive/attributes.go` | Mod | VRF proof generation and PayloadAttributes |
+| `op-node/rollup/derive/vrf_deposit.go` | New | Seed/proof helpers and deposit decoding |
+| `op-node/rollup/derive/singular_batch.go` | Mod | VRF batch fields |
+| `op-node/rollup/derive/span_batch.go` | Mod | VRF span-batch fields |
 | `op-service/eth/types.go` | Mod | PayloadAttributes fields |
 | `op-chain-ops/genesis/` | Mod | Genesis allocs |

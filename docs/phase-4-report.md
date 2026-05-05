@@ -3,6 +3,8 @@
 **Date**: 2026-04-03  
 **Status**: Complete
 
+**Current implementation note (2026-05-05)**: `VRFVerifier` is a dispute helper for seed construction and proof-structure / proof-to-hash checks. Full ECVRF verification is provided by the L2 `0x0101` precompile and the op-program precompile oracle path.
+
 ---
 
 ## 1. Deliverables
@@ -27,10 +29,9 @@
 
 | Function | Gas | Description |
 |----------|-----|-------------|
-| `verify(pk, seed, beta, pi)` | ~17K | Verifies VRF proof validity (beta consistency check) |
-| `verifySeed(blockNumber, seed)` | ~7K | Verifies seed construction |
-| `verifyNonceSequence(prev, current)` | ~4K | Checks nonce is sequential |
-| `computeSeed(blockNumber)` | ~7K | Computes seed from block number |
+| `verifyProofStructure(pk, seed, beta, pi)` | ~17K | Validates lengths, `s < N`, and beta consistency |
+| `verifySeed(blockNumber, nonce, seed)` | ~7K | Verifies seed construction |
+| `computeSeed(blockNumber, nonce)` | ~7K | Computes seed from block number and nonce |
 | `proofToHash(pi)` | ~15K | Extracts beta from proof via SHA-256 |
 
 **Verification strategy**: The `verify()` function performs proof-to-hash consistency check (beta matches pi). Full elliptic curve verification is delegated to the fault proof VM (op-program with ECVRF precompile), which is more gas-efficient than implementing secp256k1 point arithmetic in Solidity.
@@ -56,7 +57,7 @@ test_proofToHash_deterministic        PASS   Same pi → same beta
 test_proofToHash_differentProof       PASS   Different pi → different beta
 
 === computeSeed (3 tests) ===
-test_computeSeed                      PASS   sha256(blockNumber, nonce)
+test_computeSeed                      PASS   sha256(uint256(blockNumber) || uint256(nonce))
 test_computeSeed_differentInputs      PASS   Different inputs → different seeds
 testFuzz_computeSeed_deterministic    PASS   256 fuzz runs, deterministic
 
@@ -65,16 +66,12 @@ test_verifySeed_valid                 PASS
 test_verifySeed_invalid               PASS
 test_verifySeed_wrongNonce            PASS
 
-=== verifyNonceSequence (2 tests) ===
-test_verifyNonceSequence_valid        PASS   Sequential nonces accepted
-test_verifyNonceSequence_invalid      PASS   Gaps/duplicates rejected
-
-=== verify (5 tests) ===
-test_verify_betaMatchesProof          PASS   Valid proof + correct beta
-test_verify_betaMismatch              PASS   Valid proof + wrong beta rejected
-test_verify_invalidPKLength           PASS   Non-33-byte PK rejected
-test_verify_invalidProofLength        PASS   Non-81-byte proof rejected
-test_verify_invalidS                  PASS   s >= curve order rejected
+=== verifyProofStructure (5 tests) ===
+test_verifyProofStructure_betaMatchesProof PASS   Valid structure + correct beta
+test_verifyProofStructure_betaMismatch     PASS   Valid structure + wrong beta rejected
+test_verifyProofStructure_invalidPKLength  PASS   Non-33-byte PK rejected
+test_verifyProofStructure_invalidProofLength PASS Non-81-byte proof rejected
+test_verifyProofStructure_invalidS         PASS   s >= curve order rejected
 
 === Gas Measurement (3 tests) ===
 test_gas_proofToHash                  PASS   14,956 gas
@@ -98,11 +95,10 @@ The Solidity SHA-256 output matches the Go implementation, confirming cross-lang
 
 | Function | Gas | Notes |
 |----------|-----|-------|
-| `verify` | 16,656 | Beta consistency + input validation |
+| `verifyProofStructure` | 16,656 | Beta consistency + input validation |
 | `proofToHash` | 14,956 | SHA-256 of gamma bytes |
-| `computeSeed` | 7,364 | keccak256 of packed inputs |
-| `verifySeed` | ~7,000 | keccak256 + comparison |
-| `verifyNonceSequence` | ~4,000 | Simple arithmetic |
+| `computeSeed` | 7,364 | SHA-256 of packed uint256 inputs |
+| `verifySeed` | ~7,000 | SHA-256 + comparison |
 
 All operations are pure/view with no state changes, suitable for L1 dispute games.
 
@@ -118,7 +114,6 @@ All operations are pure/view with no state changes, suitable for L1 dispute game
   ─────────────          ──────────────               ────────
   Wrong beta/pi    →     proofToHash(pi) ≠ beta   →  VRFVerifier.verify()
   Wrong seed       →     Reconstruct from L1 data →  VRFVerifier.verifySeed()
-  Nonce skip       →     previousNonce+1 ≠ nonce  →  VRFVerifier.verifyNonceSequence()
   Full proof fraud →     Re-execute L2 block       →  Cannon/Asterisc + ECVRF precompile
 
 
@@ -158,7 +153,7 @@ All four phases are now complete:
 | Phase | Status | Key Deliverables |
 |-------|--------|-----------------|
 | 1 | ✅ Complete | ECVRF Go library + verify precompile |
-| 2 | ✅ Complete | PredeployedVRF Solidity contract (L2) |
+| 2 | ✅ Complete | EnshrainedVRF Solidity contract (L2) |
 | 3 | ✅ Complete | Fork config + derivation pipeline |
 | 4 | ✅ Complete | SystemConfig VRF key + VRFVerifier (L1) |
 
@@ -167,7 +162,7 @@ All four phases are now complete:
 |-----------|-------|--------|
 | ECVRF Go library | 22 + 2 fuzz | All PASS |
 | ECVRF Verify precompile (Go) | 9 | All PASS |
-| PredeployedVRF (Solidity) | 31 | All PASS |
+| EnshrainedVRF (Solidity) | 31 | All PASS |
 | VRFVerifier (Solidity) | 20 | All PASS |
 | **Total** | **84** | **All PASS** |
 
@@ -176,8 +171,8 @@ All four phases are now complete:
 ## 7. Remaining Work (Post-Phase 4)
 
 1. **E2E devnet testing**: Full flow L1→op-node→op-geth→user contract
-2. **op-geth worker.go integration**: VRF prove + deposit tx in block building
-3. **SystemConfig event parsing**: Read VRFPublicKeyUpdated from L1
-4. **Genesis allocs**: PredeployedVRF bytecode in L2 genesis
+2. **op-geth worker.go integration**: VRF payload attributes converted into deposit txs during block building
+3. **SystemConfig event parsing**: Read `ConfigUpdate(UpdateType.VRF_PUBLIC_KEY)` from L1
+4. **Genesis allocs**: EnshrainedVRF bytecode in L2 genesis
 5. **Security audit**: ECVRF implementation, access control, storage layout
 6. **Performance optimization**: big.Int → ModNScalar for ~20% speedup

@@ -1,7 +1,9 @@
-# Phase 2 Completion Report — PredeployedVRF Contract
+# Phase 2 Completion Report — EnshrinedVRF Contract
 
 **Date**: 2026-04-02  
 **Status**: Complete
+
+**Current implementation note (2026-05-05)**: the canonical OP Stack predeploy is now `optimism/packages/contracts-bedrock/src/L2/EnshrainedVRF.sol`. Earlier drafts used the working name `PredeployedVRF`; the current interface is `IEnshrainedVRF`.
 
 ---
 
@@ -11,9 +13,9 @@
 
 | File | Description |
 |------|-------------|
-| `contracts/src/interfaces/IEnshrainedVRF.sol` | Public interface: getRandomness, getResult, sequencerPublicKey, commitNonce |
-| `contracts/src/PredeployedVRF.sol` | Full implementation with access control, storage, events |
-| `contracts/test/PredeployedVRF.t.sol` | 31 Foundry test cases including integration test |
+| `optimism/packages/contracts-bedrock/interfaces/L2/IEnshrainedVRF.sol` | Public interface: getRandomness, getResult, sequencerPublicKey, commitNonce, callCounter |
+| `optimism/packages/contracts-bedrock/src/L2/EnshrainedVRF.sol` | Canonical L2 predeploy implementation |
+| `contracts/test/EnshrainedVRF.t.sol` | Foundry tests for the EnshrainedVRF interface and behavior |
 
 ### Contract Details
 
@@ -66,9 +68,7 @@ test_commitRandomness_revertNotDepositor         PASS
 test_commitRandomness_success                   PASS
 test_commitRandomness_emitsEvent                PASS
 test_commitRandomness_sequential                PASS
-test_commitRandomness_revertNonceMismatch       PASS
 test_commitRandomness_revertInvalidProofLength  PASS
-test_commitRandomness_skipNonceReverts          PASS
 
 === Get Randomness (4 tests) ===
 test_getRandomness_success                      PASS
@@ -120,7 +120,7 @@ test_gasGetResult                               PASS
 |----------|-------------|------|
 | System-only commitment | `onlyDepositor` modifier | test_commitRandomness_revertNotDepositor |
 | System-only key update | `onlyDepositor` modifier | test_setSequencerPublicKey_revertNotDepositor |
-| Sequential nonce | `NonceMismatch` revert | test_commitRandomness_skipNonceReverts |
+| Internal nonce monotonicity | `_commitNonce` increments per accepted commitment | test_commitRandomness_sequential |
 | Proof length validation | 81 bytes required | test_commitRandomness_revertInvalidProofLength |
 | PK length validation | 33 bytes required | test_setSequencerPublicKey_revertInvalidLength |
 | Exhaustion protection | `NoRandomnessAvailable` | test_getRandomness_revertExhausted |
@@ -135,7 +135,6 @@ test_gasGetResult                               PASS
 | `OnlyDepositor()` | Non-DEPOSITOR calls system function |
 | `NoRandomnessAvailable()` | All committed randomness consumed |
 | `NonceNotCommitted()` | Query for non-existent nonce |
-| `NonceMismatch()` | Commitment nonce doesn't match expected |
 | `InvalidPublicKeyLength()` | PK != 33 bytes |
 | `InvalidProofLength()` | Proof != 81 bytes |
 
@@ -150,9 +149,9 @@ contracts/
 ├── src/
 │   ├── interfaces/
 │   │   └── IEnshrainedVRF.sol    # Public interface
-│   └── PredeployedVRF.sol        # Implementation
+│   └── EnshrainedVRF.sol         # Canonical implementation in contracts-bedrock
 └── test/
-    └── PredeployedVRF.t.sol      # 31 test cases
+    └── EnshrainedVRF.t.sol       # Interface behavior tests
 ```
 
 ---
@@ -162,6 +161,6 @@ contracts/
 1. Derivation Pipeline 수정 (op-node):
    - `EnshrainedVRFTime` fork config
    - PayloadAttributes에 VRF public key 필드 추가
-   - VRF deposit tx 생성 로직
+   - VRF proof material을 PayloadAttributes에 포함
 2. Engine API (op-geth):
-   - Sequencer 블록 빌딩 시 VRF 결과 계산 + deposit tx 주입
+   - PayloadAttributes를 deposit tx로 변환하여 public-key sync와 randomness commit 주입
