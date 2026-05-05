@@ -2,9 +2,13 @@ sealed/
 bin/
 out/
 cache/
+.DS_Store
+.omc/
+.devnet/
 contracts/out/
 contracts/cache/
 .next/
+docs-site/.mintlify-home*/
 
 # Built binaries
 vrf-enclave/vrf-enclave
@@ -15,6 +19,9 @@ contracts/broadcast/
 
 # Arcade demo config — written by scripts/arcade.sh on every run
 arcade/shared/config.js
+
+# Local devnet secrets/config
+devnet/*/.env
 
 # HyperFrames render outputs and preview thumbnails
 **/.thumbnails/
