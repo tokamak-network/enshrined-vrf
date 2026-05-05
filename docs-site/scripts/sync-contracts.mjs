@@ -48,7 +48,7 @@ const TARGETS = [
     slug: 'vrf-verifier',
     address: null,
     title: 'VRFVerifier (L1)',
-    description: 'Pure-Solidity ECVRF verifier used on L1 during fault-proof disputes.',
+    description: 'L1 dispute helper for VRF seed construction and proof-structure checks.',
   },
 ];
 

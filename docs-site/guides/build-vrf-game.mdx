@@ -20,7 +20,7 @@ interface IGameRegistry {
 
 contract DiceGame {
     IEnshrainedVRF public constant VRF =
-        IEnshrainedVRF(0x4200000000000000000000000000000000000000F0);
+        IEnshrainedVRF(0x42000000000000000000000000000000000000f0);
 
     uint256 public constant BET = 0.01 ether;
 
@@ -81,14 +81,19 @@ The repo ships a deterministic `MockVRF` that satisfies `IEnshrainedVRF` so you 
 import {Test} from "forge-std/Test.sol";
 import {MockVRF} from "../src/mocks/MockVRF.sol";
 import {GameRegistry} from "../src/aa/GameRegistry.sol";
-import {DiceGame} from "../src/examples/DiceGame.sol";
+import {DiceGame, IGameRegistry} from "../src/examples/DiceGame.sol";
 
 contract DiceGameTest is Test {
+    address constant VRF_PREDEPLOY =
+        0x42000000000000000000000000000000000000f0;
+
     function test_rollDistribution() public {
         GameRegistry reg = new GameRegistry();
         MockVRF vrf = new MockVRF();
-        // swap MockVRF at the VRF predeploy address
-        vm.etch(address(vrf), address(vrf).code);
+
+        // Put MockVRF code at the fixed predeploy address used by DiceGame.
+        vm.etch(VRF_PREDEPLOY, address(vrf).code);
+
         DiceGame dice = new DiceGame(IGameRegistry(address(reg)));
 
         for (uint256 i; i < 10; ++i) {

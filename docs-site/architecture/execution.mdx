@@ -1,54 +1,89 @@
 ---
 title: "Execution path"
-description: "Block building, predeploy calls, and how `op-geth` threads VRF commitments and session-account state through the EVM."
+description: "How `op-node` prepares VRF payload attributes, how `op-geth` commits them through system deposits, and how games consume the predeploy."
 ---
 
-The execution client is a modified `op-geth`. This page walks through the two modifications that matter: **committing randomness per block** and **serving session-account transactions without extra protocol privilege**.
+The randomness protocol crosses both OP Stack components:
+
+- `op-node` prepares the VRF proof material while building `PayloadAttributes`.
+- `op-geth` validates those attributes and injects deposit transactions into the payload.
+
+Session accounts are different: they require no sequencer hook and execute as ordinary EVM calls.
 
 ## Per-block VRF commitment
 
-Every block, before it finalizes, the sequencer embeds one ECVRF proof into a deposit-style transaction and pushes it to the top of the block.
+Every Enshrined VRF block contains a `commitRandomness` system deposit before user transactions.
 
 <Steps>
+  <Step title="Read the public key">
+    `op-node` carries the 33-byte `vrfPublicKey` from L1 `SystemConfig` into `PayloadAttributes`. `op-geth` mirrors that key into the L2 predeploy by inserting:
+
+    ```solidity
+    EnshrainedVRF.setSequencerPublicKey(pk)
+    ```
+  </Step>
   <Step title="Derive the seed">
-    `seed = sha256(block.number || nonce)` — deterministic, visible to all validators.
+    `op-node` computes:
+
+    ```text
+    seed = sha256(uint256(blockNumber) || uint256(nonce))
+    ```
+
+    The 32-byte big-endian encoding matches `abi.encodePacked(uint256,uint256)`, making the seed reproducible in tests, derivation, and dispute helpers.
   </Step>
-  <Step title="Compute the proof inside the enclave">
-    The TEE enclave holding the VRF secret key returns `(beta, pi) = ECVRF.Prove(sk, seed)`.
-    `op-geth` never sees `sk`; it only receives the proof.
+  <Step title="Compute the proof through VRFProver">
+    `op-node` calls `VRFProver.Prove(seed)` and receives `(beta, pi)`. In production the prover is TEE-backed; in development it can be a local key. `op-geth` never receives the secret key.
   </Step>
-  <Step title="Emit a commit deposit tx">
-    The block builder prepends a synthetic deposit transaction from `DEPOSITOR_ACCOUNT` calling:
+  <Step title="Pass proof material through Engine API">
+    The payload attributes include `VRFPublicKey`, `VRFSeed`, `VRFProofBeta`, `VRFProofPi`, and `VRFNonce`. If the proof fields are missing or malformed after the fork is active, `op-geth` refuses to build the payload.
+  </Step>
+  <Step title="Insert the commit deposit">
+    `op-geth` prepends a synthetic deposit transaction from `DEPOSITOR_ACCOUNT` calling:
 
     ```solidity
     EnshrainedVRF.commitRandomness(nonce, seed, beta, pi)
     ```
 
-    This stores the proof on-chain and increments `commitNonce`. Because it is a deposit transaction, it cannot be reordered by an attacker or skipped by the sequencer.
+    The predeploy stores `(seed, beta, pi)` at its internal `commitNonce`, records the current block number, resets `callCounter`, and increments `commitNonce`.
   </Step>
-  <Step title="Reset the call counter">
-    `callCounter` is zeroed at commit time. Game calls to `getRandomness()` within the block each increment it, ensuring per-call uniqueness.
+  <Step title="Carry the same data to verifiers">
+    When the batcher encodes the block, derivation extracts the VRF commit deposit and stores seed, beta, pi, nonce, and an enabled flag in the batch. Verifier nodes use that batch data to reconstruct the same payload attributes without a prover.
   </Step>
 </Steps>
 
 <Note>
-  If a block has no game activity, the commit still happens. Determinism across replays matters more than saving a cheap `SSTORE`.
+  If proof generation fails after retries, `op-node` fails attribute construction. The chain should not build a post-fork block that cannot commit randomness.
 </Note>
 
 ## Serving `getRandomness()`
 
 ```solidity
 function getRandomness() external returns (uint256) {
-    callCounter += 1;
-    return uint256(keccak256(abi.encode(beta, callCounter)));
+    if (_currentBlock != block.number) revert NoRandomnessAvailable();
+    randomness = uint256(keccak256(abi.encodePacked(_currentBeta, _callCounter)));
+    unchecked {
+        _callCounter++;
+    }
 }
 ```
 
-No enclave round-trip. The sequencer already committed this block's `beta`. Every game consuming randomness in the same block shares that commit, with the counter guaranteeing uniqueness. Gas is on the order of two `SLOAD`s plus a hash.
+No prover round-trip happens during a game call. The sequencer already committed this block's `beta`. Every game consuming randomness in the same block shares that commitment, with `callCounter` giving each call a distinct derived value.
 
 <Warning>
   `callCounter` and `beta` live in predeploy storage. A buggy game cannot clobber them because the predeploy only exposes increments through `getRandomness` and commit-time writes through `commitRandomness` (callable only by `DEPOSITOR_ACCOUNT`).
 </Warning>
+
+## Payload attribute fields
+
+| Field | Set by | Used by |
+| ----- | ------ | ------- |
+| `VRFPublicKey` | `op-node` from `SystemConfig` | `op-geth` public-key sync deposit |
+| `VRFSeed` | `op-node` from block number and nonce | `commitRandomness` calldata and derivation replay |
+| `VRFProofBeta` | `VRFProver` | `EnshrainedVRF.currentBeta` and game randomness derivation |
+| `VRFProofPi` | `VRFProver` | Historical proof data and dispute checks |
+| `VRFNonce` | `op-node` monotonic counter | Seed domain separation and commit calldata |
+
+The payload ID includes VRF attributes, so two otherwise identical payloads with different randomness material do not collide.
 
 ## Session-account execution
 
@@ -117,8 +152,8 @@ There is no proxy, no upgradeability admin. The chain itself is the upgrade auth
 ## Related
 
 <CardGroup cols={2}>
-  <Card title="Sequencer & TEE" href="/architecture/sequencer" icon="lock">
-    Where the VRF proof comes from and why the operator can't forge it.
+  <Card title="Sequencer & Prover" href="/architecture/sequencer" icon="lock">
+    Where the VRF proof comes from and how the secret key stays behind the prover boundary.
   </Card>
   <Card title="Fault proof" href="/architecture/fault-proof" icon="gavel">
     What happens on L1 if the sequencer publishes a bogus commitment.

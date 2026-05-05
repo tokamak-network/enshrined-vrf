@@ -1,93 +1,93 @@
 ---
 title: "Fault proof"
-description: "How L1 re-verifies a disputed VRF commitment via the `VRFVerifier` contract."
+description: "How VRF commitments remain replayable in disputes, and what the L1 helper checks today."
 ---
 
-The fault proof path ensures that **a dishonest sequencer cannot rewrite history with fake randomness**. It extends the OP Stack dispute game with one additional opcode: verify an ECVRF proof on L1.
+The fault-proof path ensures that a dishonest sequencer cannot finalize state built from fake randomness. The important property is replayability: verifier nodes and fault-proof programs can reconstruct the same VRF deposit transaction from public data, without access to the VRF secret key.
 
-## Where VRF fits in the dispute game
+## Where VRF fits in derivation
 
 <Steps>
-  <Step title="A proposer posts an output root">
-    Output roots commit to the L2 state, including `EnshrainedVRF` storage (every commit proof that has ever been published).
-  </Step>
-  <Step title="A challenger disputes a specific transaction">
-    The dispute game bisects execution to find the disputed state transition. Eventually it reduces to a single L2 transaction to re-execute on L1.
-  </Step>
-  <Step title="If that transaction is a `commitRandomness`...">
-    The dispute game replays it through L1 `VRFVerifier`:
+  <Step title="The sequencer commits randomness in the block">
+    `op-geth` inserts a deposit transaction that calls:
 
     ```solidity
-    verify(pk, seed, beta, pi) → bool
+    EnshrainedVRF.commitRandomness(nonce, seed, beta, pi)
     ```
 
-    - `pk` comes from `SystemConfig.vrfPublicKey()` — the L1 anchor.
-    - `seed`, `beta`, `pi` come from the disputed commit.
-
-    If `verify` returns `false`, the commit was forged. The challenger wins; the proposer's bond is slashed.
+    The resulting L2 state includes the current block's beta and the historical `(seed, beta, pi)` record.
   </Step>
-  <Step title="If that transaction is anything else">
-    Standard OP Stack dispute semantics apply. Session-account logic is pure EVM and re-executes identically on L1.
+  <Step title="The batch carries VRF evidence">
+    During batch creation, derivation scans deposit transactions for the VRF commit and records `VRFSeed`, `VRFProofBeta`, `VRFProofPi`, `VRFNonce`, and `VRFEnabled`.
+  </Step>
+  <Step title="Verifier nodes reconstruct attributes">
+    Verifier nodes do not have a `VRFProver`. When a batch has `VRFEnabled`, derivation copies the batch's VRF fields back into `PayloadAttributes` so `op-geth` reconstructs the same commit deposit.
+  </Step>
+  <Step title="Fault-proof execution checks the same transition">
+    The dispute game eventually narrows to an execution step. The fault-proof VM re-executes the L2 transition with the same payload attributes and predeploy code.
   </Step>
 </Steps>
 
-## `VRFVerifier` contract
+## L1 helper contract
 
-Pure Solidity ECVRF verifier for `ECVRF-SECP256K1-SHA256-TAI`. Two responsibilities:
+`VRFVerifier` is a dispute helper, not the normal production path. The current contract exposes:
 
-1. Hash-to-curve the seed using the suite string `0xFE`.
-2. Verify `(gamma, c, s)` against the public key using an `ecrecover` trick for the scalar multiplication.
+| Function | Check |
+| -------- | ----- |
+| `verifySeed(blockNumber, nonce, expectedSeed)` | Recomputes `sha256(abi.encodePacked(blockNumber, nonce))`. |
+| `verifyProofStructure(pk, seed, beta, pi)` | Checks public-key length, proof length, scalar bounds, and `proofToHash(pi) == beta`. |
+| `proofToHash(pi)` | Extracts gamma from the 81-byte proof and computes the ECVRF proof-to-hash output. |
+| `computeSeed(blockNumber, nonce)` | Convenience function for seed reconstruction. |
 
-It is **never called during normal operation** — L2 `getRandomness()` does not trigger it. It only runs during a dispute, which keeps gas costs on the fast path minimal.
-
-<Info>
-  Source: [`contracts/src/L1/VRFVerifier.sol`](https://github.com/tokamak-network/enshrined-vrf/blob/main/contracts/src/L1/VRFVerifier.sol).
-</Info>
+<Warning>
+  `verifyProofStructure` does not perform full elliptic-curve verification. Full ECVRF verification is delegated to fault-proof re-execution, where the L2 ECVRF verify precompile at `0x0101` is available to the program.
+</Warning>
 
 ## Threat model addressed
 
 <CardGroup cols={2}>
-  <Card title="Forged beta" icon="shield-halved">
-    Sequencer computes a `beta` not derived from `ECVRF.Prove(sk, seed)`.
-    **Caught by:** `VRFVerifier.verify` returns false on replay.
+  <Card title="Wrong seed" icon="shield-halved">
+    Sequencer commits a seed that does not match the block number and nonce.
+    **Caught by:** `verifySeed` or deterministic derivation replay.
   </Card>
-  <Card title="Wrong public key" icon="shield-halved">
-    Sequencer uses a different `sk` whose `pk` differs from the anchored `SystemConfig.vrfPublicKey`.
-    **Caught by:** verifier compares against the L1 value, not whatever the sequencer claims.
+  <Card title="Wrong beta for proof" icon="shield-halved">
+    Sequencer commits a beta that is not the proof-to-hash value of `pi`.
+    **Caught by:** `verifyProofStructure` / `proofToHash`.
   </Card>
-  <Card title="Replayed old proof" icon="shield-halved">
-    Sequencer reuses a valid `(beta, pi)` for a new seed.
-    **Caught by:** seeds include `block.number` and `commitNonce`, so old proofs verify against the wrong seed.
+  <Card title="Malformed proof" icon="shield-halved">
+    Sequencer commits proof material with invalid length or scalar bounds.
+    **Caught by:** `verifyProofStructure` and `op-geth` payload validation.
   </Card>
-  <Card title="Silent skip" icon="shield-halved">
-    Sequencer omits the commit for a block.
-    **Caught by:** block validity rules — blocks without a valid commit deposit tx are rejected by honest nodes.
+  <Card title="Missing commitment" icon="shield-halved">
+    Sequencer tries to build a post-fork block without VRF proof fields.
+    **Caught by:** `op-node` attribute construction and `op-geth` payload-building validation.
   </Card>
 </CardGroup>
 
-## What `VRFVerifier` does NOT prove
+## What remains outside the L1 helper
 
-The verifier only proves that **a given beta matches the committed pk and seed**. It does not, and cannot, prove:
+The helper does not prove every part of the security model on its own:
 
-- That the sequencer did not selectively reveal the beta early (this is prevented by TEE confidentiality, not by L1).
-- That the block ordering is optimal — censorship-resistance is the OP Stack's force-inclusion mechanism, not a VRF property.
-- That the TEE enclave itself is honest — attestation review is a governance process, not an on-chain proof.
+- **Full ECVRF relation:** checked through fault-proof VM re-execution with the ECVRF precompile path, not by the Solidity helper alone.
+- **Secret-key confidentiality:** depends on the prover deployment. TEE-backed mode is the production target; local mode is for development only.
+- **Transaction censorship or ordering:** handled by the OP Stack sequencing and force-inclusion model, not by VRF.
+- **Attestation review:** accepting a `vrfPublicKey` in L1 `SystemConfig` is a governance/deployment decision.
 
-## Slashing and economic security
+## Dispute outcome
 
-If a fault proof lands:
+If a fault proof shows that the proposed output root depends on an invalid VRF transition:
 
-1. The proposer's bond is forfeited.
-2. The disputed output root is invalidated; the canonical L2 head rolls back to the last undisputed state.
-3. Game state affected by the forged randomness is also rolled back — this is why games must not rely on off-chain caching of VRF results.
+1. The disputed output root is invalidated according to the OP Stack dispute game.
+2. The proposer's bond is subject to the dispute game's normal penalties.
+3. L2 state rolls back to the last valid output. Game state that depended on the invalid randomness rolls back with it.
 
 ## Related
 
 <CardGroup cols={2}>
   <Card title="Execution path" href="/architecture/execution" icon="microchip">
-    Where the commit is written and how it's consumed in normal operation.
+    How proof material becomes a deposit transaction in normal block production.
   </Card>
-  <Card title="Sequencer & TEE" href="/architecture/sequencer" icon="lock">
-    Why the sequencer operator cannot produce a forged proof in the first place.
+  <Card title="VRFVerifier reference" href="/contracts/vrf-verifier" icon="file-code">
+    Function-level reference for the L1 helper contract.
   </Card>
 </CardGroup>

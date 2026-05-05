@@ -1,0 +1,6 @@
+.forge-doc/
+.mintlify/
+node_modules/
+out/
+.build.zip
+.vercel/

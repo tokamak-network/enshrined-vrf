@@ -1,14 +1,16 @@
 ---
 title: "EnshrainedVRF"
-description: "Per-block randomness predeploy. Interface, call semantics, and events."
+description: "The L2 randomness predeploy: system-only commitments, synchronous game calls, public-key sync, events, and errors."
 ---
 
 <Info>
-  **Predeploy address:** `0x4200000000000000000000000000000000000000F0`
+  **Predeploy address:** `0x42000000000000000000000000000000000000f0`
 </Info>
 
+`EnshrainedVRF` is the L2 predeploy that stores one VRF commitment per block and derives per-call randomness for games.
+
 <Note>
-  This reference page will be auto-generated from Solidity NatSpec in a later pass. For now it mirrors [`IEnshrainedVRF.sol`](https://github.com/tokamak-network/enshrined-vrf/blob/enshrined-vrf/packages/contracts-bedrock/interfaces/L2/IEnshrainedVRF.sol) by hand.
+  The implementation lives in `optimism/packages/contracts-bedrock/src/L2/EnshrainedVRF.sol`; the public interface is `optimism/packages/contracts-bedrock/interfaces/L2/IEnshrainedVRF.sol`.
 </Note>
 
 ## Interface
@@ -28,7 +30,105 @@ interface IEnshrainedVRF {
 }
 ```
 
+## Constants
+
+| Name | Value |
+| ---- | ----- |
+| `version` | `1.1.0` |
+| `DEPOSITOR_ACCOUNT` | `0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001` |
+
+Only `DEPOSITOR_ACCOUNT` can call `commitRandomness` and `setSequencerPublicKey`. In practice those calls are synthetic OP Stack deposit transactions inserted by `op-geth`, not user-submitted transactions.
+
+## Functions
+
+### `getRandomness`
+
+```solidity
+function getRandomness() external returns (uint256 randomness);
+```
+
+Returns a synchronous `uint256` for the current block. The predeploy requires a commitment for `block.number`, then derives:
+
+```solidity
+randomness = uint256(keccak256(abi.encodePacked(_currentBeta, _callCounter)));
+unchecked {
+    _callCounter++;
+}
+```
+
+Reverts with `NoRandomnessAvailable()` if the current block has not received a VRF commitment.
+
+<Warning>
+  This function mutates `callCounter`; it cannot be called through `STATICCALL` or from a Solidity `view` function.
+</Warning>
+
+### `commitRandomness`
+
+```solidity
+function commitRandomness(
+    uint256 nonce,
+    bytes32 seed,
+    bytes32 beta,
+    bytes calldata pi
+) external;
+```
+
+Stores the block commitment. The proof `pi` must be 81 bytes. The calldata `nonce` is emitted and used as protocol evidence; storage is indexed by the contract's internal `commitNonce`, which increments after every accepted commit.
+
+Effects:
+
+1. Stores `(seed, beta, pi, block.number)` under the current internal `commitNonce`.
+2. Sets the current block's `beta`.
+3. Sets the current commitment block to `block.number`.
+4. Resets `callCounter` to zero.
+5. Emits `RandomnessCommitted(nonce, beta, msg.sender)`.
+6. Increments `commitNonce`.
+
+### `setSequencerPublicKey`
+
+```solidity
+function setSequencerPublicKey(bytes calldata pk) external;
+```
+
+Stores the compressed 33-byte secp256k1 public key mirrored from L1 `SystemConfig.vrfPublicKey()`. Reverts with `InvalidPublicKeyLength()` unless `pk.length == 33`.
+
+### `getResult`
+
+```solidity
+function getResult(uint256 nonce) external view returns (bytes32 seed, bytes32 beta, bytes memory pi);
+```
+
+Returns historical proof material stored at the internal commit index. Reverts with `NonceNotCommitted()` if `nonce >= commitNonce`.
+
+### Views
+
+| Function | Meaning |
+| -------- | ------- |
+| `sequencerPublicKey()` | Current 33-byte compressed public key mirrored into L2. |
+| `commitNonce()` | Next internal commit index. Also the number of accepted commitments. |
+| `callCounter()` | Number of `getRandomness()` calls served from the current block commitment. |
+
+## Events
+
+```solidity
+event RandomnessCommitted(uint256 indexed nonce, bytes32 beta, address indexed caller);
+event SequencerPublicKeyUpdated(bytes pk);
+```
+
+`RandomnessCommitted` includes the calldata nonce, not the internal storage index. Honest sequencing keeps the two aligned, but the contract still uses its own monotonic index for storage safety.
+
+## Errors
+
+| Error | Meaning |
+| ----- | ------- |
+| `OnlyDepositor()` | Caller is not the OP Stack `DEPOSITOR_ACCOUNT`. |
+| `NoRandomnessAvailable()` | No commitment exists for the current `block.number`. |
+| `NonceNotCommitted()` | `getResult` was called for a future commit index. |
+| `InvalidPublicKeyLength()` | Public key is not exactly 33 bytes. |
+| `InvalidProofLength()` | VRF proof is not exactly 81 bytes. |
+
 ## Related
 
 - [Enshrined VRF concept](/concepts/enshrined-vrf)
+- [Execution path](/architecture/execution)
 - [Build a VRF-backed game](/guides/build-vrf-game)

@@ -1,6 +1,6 @@
 ---
 title: "VRFVerifier (L1)"
-description: "Pure-Solidity ECVRF verifier used on L1 during fault-proof disputes."
+description: "L1 dispute helper for VRF seed construction and proof-structure checks."
 ---
 
 <Note>
@@ -8,19 +8,20 @@ description: "Pure-Solidity ECVRF verifier used on L1 during fault-proof dispute
   Run `npm run sync-contracts` from `docs-site/` to regenerate.
 </Note>
 
-On-chain ECVRF proof verifier for L1 dispute resolution.
-Verifies ECVRF-SECP256K1-SHA256-TAI proofs without requiring
-the L2 precompile, enabling fault proof challenges on L1.
+L1 dispute helper for Enshrined VRF commitments.
+Checks seed construction and proof-to-hash consistency for
+ECVRF-SECP256K1-SHA256-TAI proof material.
 
-This contract provides a pure Solidity implementation of ECVRF
-verification. It is used during fault proof disputes to verify
-that the sequencer's VRF output was correctly computed.
-The verification checks:
-1. The proof (pi) is valid for the given (pk, seed) pair
-2. The output (beta) matches what was committed on L2
-This is NOT used during normal operation — only during disputes.
-For gas efficiency, it uses the secp256k1 ecrecover trick for
-scalar multiplication verification.
+This contract intentionally performs partial verification only.
+It validates:
+1. public-key and proof lengths
+2. the proof scalar bound
+3. proof-to-hash(pi) == beta
+4. seed reconstruction from blockNumber and nonce
+Full elliptic-curve ECVRF verification is delegated to the
+fault-proof VM via op-program re-execution, which has access to
+the L2 ECVRF verify precompile at 0x0101.
+This is NOT used during normal operation.
 
 
 ## State Variables
@@ -175,7 +176,7 @@ error InvalidProofLength();
 
 ## Structs
 ### VrfProof
-Result of a VRF verification.
+Decoded structure of an ECVRF proof.
 
 
 ```solidity
