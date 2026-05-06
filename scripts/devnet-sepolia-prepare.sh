@@ -132,6 +132,10 @@ run_op_deployer inspect rollup --workdir "$DEPLOYER_WORKDIR" --outfile "$WORKDIR
 run_op_deployer inspect deploy-config --workdir "$DEPLOYER_WORKDIR" --outfile "$WORKDIR/deploy-config.json" "$L2_CHAIN_ID"
 run_op_deployer inspect l1 --workdir "$DEPLOYER_WORKDIR" --outfile "$WORKDIR/l1-addresses.json" "$L2_CHAIN_ID"
 
+if [ ! -f "$WORKDIR/depset.json" ]; then
+  printf '{"dependencies":{"%s":{}}}\n' "$L2_CHAIN_ID" > "$WORKDIR/depset.json"
+fi
+
 if [ ! -f "$WORKDIR/jwt.txt" ]; then
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 32 > "$WORKDIR/jwt.txt"
@@ -143,7 +147,7 @@ fi
 GETH_DATADIR="$WORKDIR/geth"
 if [ ! -d "$GETH_DATADIR/geth/chaindata" ]; then
   echo "[prepare] initializing op-geth datadir"
-  "$ROOT/bin/geth" init --datadir "$GETH_DATADIR" "$WORKDIR/genesis.json"
+  "$ROOT/bin/geth" init --state.scheme hash --datadir "$GETH_DATADIR" "$WORKDIR/genesis.json"
 fi
 
 SYSTEM_CONFIG_PROXY="$(jq -r '.SystemConfigProxy // .systemConfigProxy' "$WORKDIR/l1-addresses.json")"

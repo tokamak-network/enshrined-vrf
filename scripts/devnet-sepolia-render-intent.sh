@@ -34,7 +34,9 @@ l2ContractsLocator = "$ARTIFACTS_LOCATOR"
   Challenger = "$CHALLENGER_ADDR"
 
 [globalDeployOverrides]
-  l2GenesisEnshrinedVRFTimeOffset = "0x0"
+  l2GenesisKarstTimeOffset = "0x0"
+  l2GenesisInteropTimeOffset = "0x0"
+  l2GenesisEnshrainedVRFTimeOffset = "0x0"
 
 [[chains]]
   id = "$L2_CHAIN_ID_HEX"
