@@ -87,7 +87,7 @@ The payload ID includes VRF attributes, so two otherwise identical payloads with
 
 ## Session-account execution
 
-Unlike VRF, the session-account predeploys require **zero protocol privilege**. Every piece of enforcement lives in ordinary EVM state:
+Unlike VRF, session-account execution requires no sequencer hook. Every piece of enforcement lives in ordinary EVM state:
 
 ```mermaid
 sequenceDiagram
@@ -110,7 +110,7 @@ sequenceDiagram
     Hub-->>Relayer: result
 ```
 
-Everything above runs entirely inside the EVM. There is no sequencer hook, no special transaction type, no privileged message sender. This means **session accounts work identically on any OP-Stack fork** as long as the four predeploys exist — a property that matters for the eventual `op-geth → op-reth` migration and for downstream L3s.
+Everything above runs entirely inside the EVM. There is no sequencer hook, no special transaction type, no privileged message sender. In the current demo, these contracts are deployed normally by `DeploySessionAccounts.s.sol`. The protocol docs reserve fixed `0x4200…` addresses for a later enshrined deployment.
 
 ## State layout
 
@@ -121,14 +121,14 @@ Everything above runs entirely inside the EVM. There is no sequencer hook, no sp
     - `lastBeta`, `lastSeed`, `lastPi` — current block's commit, overwritten each commit.
     - `sequencerPublicKey` — set by L1 SystemConfig; used during disputes.
   </Accordion>
-  <Accordion title="GameHubFactory (0x42…A0)">
-    Stateless apart from immutable predeploy addresses (`SessionKeyManager`, `GameRegistry`).
+  <Accordion title="GameHubFactory (target 0x42…A0)">
+    Stateless apart from immutable `SessionKeyManager` and `GameRegistry` addresses.
   </Accordion>
-  <Accordion title="SessionKeyManager (0x42…A1)">
+  <Accordion title="SessionKeyManager (target 0x42…A1)">
     - `_scopes[hub][key]` → `Scope` struct (gameAddr, cap, expiry, selectors).
     - `_active[hub][key]` → `bool`.
   </Accordion>
-  <Accordion title="GameRegistry (0x42…A2)">
+  <Accordion title="GameRegistry (target 0x42…A2)">
     - `_registered[game]` → `bool`.
     - `_owner[game]` → `address` (tx.origin at register time).
   </Accordion>
@@ -141,7 +141,7 @@ Everything above runs entirely inside the EVM. There is no sequencer hook, no sp
 
 ## Upgrade path
 
-Predeploys upgrade via hardfork:
+Enshrined predeploys upgrade via hardfork:
 
 1. A spec change bumps the contract bytecode at a named fork block.
 2. `op-geth` and `op-node` release tagged versions encoding the fork.

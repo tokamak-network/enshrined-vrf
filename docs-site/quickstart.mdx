@@ -1,9 +1,9 @@
 ---
 title: "Quickstart"
-description: "Stand up a local devnet, deploy the session-account stack, and play a VRF-backed game — all from scratch in under ten minutes."
+description: "Start a local Anvil chain, deploy the session-account demo stack, and play a VRF-backed game."
 ---
 
-By the end of this guide, you'll have a local chain running, two example games deployed (`DrawGame` and `CoinFlipGame`), and a browser demo in which you sign **once** to start a session and then play indefinitely without any further wallet popups.
+By the end of this guide, you'll have a local Anvil chain running, two example games deployed (`DrawGame` and `CoinFlipGame`), and a browser demo where gameplay runs from a scoped session key instead of your main wallet. The first session currently uses two wallet signatures: one for deposit/registration and one to fund the session key's gas. Session extension is one signature.
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
 ```
 </CodeGroup>
 
-The script deploys five contracts and prints their addresses under `=== Frontend config ===`:
+The script deploys the demo stack and prints addresses under `=== Frontend config ===`. The browser demo needs these five values:
 
 | Address            | Contract              |
 | ------------------ | --------------------- |
@@ -43,9 +43,8 @@ The script deploys five contracts and prints their addresses under `=== Frontend
 | `factory`          | `GameHubFactory`      |
 | `drawGame`         | `DrawGame`            |
 | `coinFlipGame`     | `CoinFlipGame`        |
-| `vrf`              | `MockVRF`             |
 
-Copy these five values — you'll paste them into the demo.
+The script also prints `vrf` for debugging. The current demo UI does not require that value.
 
 ## 3. Add the Anvil network to MetaMask
 
@@ -96,7 +95,7 @@ http://localhost:8000/session-play.html
     In the DrawGame card, click **Start Session (0.05 ETH)**. Two MetaMask popups appear — the first registers the session on-chain, the second pre-funds the session key with gas.
   </Step>
   <Step title="Play silently">
-    Click **Draw × 10**. Watch five tiers appear with no MetaMask popup. Once the session's 0.05 ETH cap is consumed, the demo stops and tells you to **Extend** the session.
+    Click **Draw × 10**. Watch five draw results appear with no MetaMask popup. Once the session's 0.05 ETH cap is consumed, the demo stops and tells you to **Extend** the session.
   </Step>
   <Step title="Extend in one signature">
     Click **Extend (+0.05 ETH)**. A single MetaMask popup extends the session in place without rotating the key.
@@ -111,7 +110,7 @@ http://localhost:8000/session-play.html
 
 <CardGroup cols={2}>
   <Card title="Enshrined VRF" icon="dice" href="/concepts/enshrined-vrf">
-    Each draw called the VRF predeploy. Against a real deployment, this resolves on the sequencer's per-block commitment — no oracle round-trip.
+    Each draw called the VRF interface. In this quickstart it is backed by `MockVRF`; on an Enshrined VRF L2 it resolves on the sequencer's per-block commitment — no oracle round-trip.
   </Card>
   <Card title="Session scopes held the line" icon="shield-check" href="/concepts/session-accounts">
     After five plays your session ran out of cap, not because the client gave up but because `SessionKeyManager.canCall` refused a sixth draw.

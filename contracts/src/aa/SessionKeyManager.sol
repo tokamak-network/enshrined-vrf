@@ -5,7 +5,8 @@ pragma solidity 0.8.28;
 /// @notice Tracks scoped session keys for GameHub accounts.
 ///         Only the Hub itself may register/revoke keys for its own address.
 ///         Validation is pure view — callers (Hubs) enforce the result.
-///         Designed to be a predeploy (address TBD).
+///         Currently deployed by the demo script; intended for a fixed
+///         predeploy address once session accounts are enshrined.
 contract SessionKeyManager {
     struct Scope {
         address gameAddr;      // target game contract

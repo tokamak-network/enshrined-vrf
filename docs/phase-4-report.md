@@ -168,11 +168,14 @@ All four phases are now complete:
 
 ---
 
-## 7. Remaining Work (Post-Phase 4)
+## 7. Open Audit and Hardening Work
 
-1. **E2E devnet testing**: Full flow L1→op-node→op-geth→user contract
-2. **op-geth worker.go integration**: VRF payload attributes converted into deposit txs during block building
-3. **SystemConfig event parsing**: Read `ConfigUpdate(UpdateType.VRF_PUBLIC_KEY)` from L1
-4. **Genesis allocs**: EnshrainedVRF bytecode in L2 genesis
-5. **Security audit**: ECVRF implementation, access control, storage layout
-6. **Performance optimization**: big.Int → ModNScalar for ~20% speedup
+The OP Stack wiring for worker deposit injection, Engine API handoff,
+SystemConfig event parsing, genesis allocs, and the Sepolia local L2 verification
+flow is now part of the main implementation. Remaining work is focused on
+release hardening:
+
+1. **External security audit**: ECVRF implementation, deposit construction, access control, storage layout, and fault-proof boundary.
+2. **Production prover policy**: TEE attestation, sealing, key rotation, and monitoring that L1 `SystemConfig.vrfPublicKey()` matches the active prover.
+3. **Performance optimization**: replace remaining `big.Int` scalar operations where `ModNScalar` can reduce allocations and latency.
+4. **Operational replay drills**: run the Sepolia-backed local L2 verifier after OP Stack rebases and before release candidates.

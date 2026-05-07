@@ -92,15 +92,21 @@ EnshrainedVRF is placed after Interop in the fork ordering, as the latest mainli
 
 ---
 
-## 4. Build Status
+## 4. Current Verification Surface
 
-| Component | Build | Notes |
-|-----------|-------|-------|
-| op-geth `core/vm/` | ✅ Pass | Precompile compiles and links correctly |
-| op-geth `miner/` | ✅ Pass | VRF deposit builder compiles |
-| op-geth `beacon/engine/` | ✅ Pass | PayloadAttributes extension compiles |
-| op-geth `crypto/ecvrf/` | ✅ Pass | ECVRF library compiles within op-geth module |
-| optimism (not fully built) | ⚠️ Partial | Individual file changes validated; full monorepo build requires CI |
+The earlier draft of this report left the optimism integration as "partial" and
+listed worker, Engine API, SystemConfig parsing, genesis allocs, and E2E flow as
+remaining. Those items have since moved into the main implementation and are now
+tracked by the current testing guide.
+
+| Component | Verification command |
+|-----------|----------------------|
+| op-geth precompile | `cd op-geth && go test ./core/vm/ -run ECVRF -v` |
+| op-geth Engine API | `cd op-geth && go test ./beacon/engine/ -run VRF -v` |
+| op-geth miner / payload building | `cd op-geth && go test ./miner/ -run 'VRF|PayloadIdIncludesVRFAttributes' -v` |
+| op-service payload JSON | `cd optimism && go test ./op-service/eth -run VRF -v` |
+| op-node derivation | `cd optimism && go test ./op-node/rollup/derive -run 'VRF|SystemConfig|PreparePayloadAttributes' -v` |
+| Sepolia local L2 | `./scripts/devnet-sepolia-verify-random.sh` |
 
 ---
 
@@ -125,20 +131,15 @@ EnshrainedVRF is placed after Interop in the fork ordering, as the latest mainli
 
 ---
 
-## 6. Remaining Work for Full Integration
+## 6. Follow-on Work
 
-Phase 3 establishes the core framework. The following items require deeper integration and E2E testing:
+Phase 3's remaining implementation items have been folded into the later OP
+Stack integration work. Active follow-on work is now operational rather than
+structural:
 
-1. **op-geth worker.go**: Deposit injection from VRF payload attributes during payload building
-2. **Engine API handler**: Parsing VRF fields from `ForkchoiceUpdatedV*` and passing to worker
-3. **SystemConfig event parsing**: Reading `ConfigUpdate(UpdateType.VRF_PUBLIC_KEY)` events from L1 SystemConfig
-4. **genesis allocs**: EnshrainedVRF bytecode in L2 genesis
-5. **E2E devnet test**: Full flow from L1 SystemConfig → op-node → op-geth → user contract
-
----
-
-## 7. Next Steps (Phase 4)
-
-1. L1 SystemConfig contract modifications (Solidity)
-2. Fault proof op-program integration
-3. E2E testing with devnet
+1. Keep the Sepolia-backed local L2 verification script green after every
+   op-geth or optimism rebase.
+2. Monitor the registered L1 `SystemConfig.vrfPublicKey()` against the active
+   prover key before production use.
+3. Re-run the command matrix in [testing-guide.md](testing-guide.md) before
+   audit or release candidates.

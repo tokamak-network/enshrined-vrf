@@ -1,9 +1,9 @@
 ---
 title: "Architecture overview"
-description: "How VRF and session accounts live inside the execution, consensus, and dispute layers of this L2."
+description: "How protocol VRF and session-account contracts fit into the execution, consensus, and dispute layers of this L2."
 ---
 
-This chain is an OP Stack fork with two protocol-level additions: randomness and session-based accounts. Randomness changes the derivation and payload-building pipeline; session accounts stay inside ordinary EVM state.
+This chain is an OP Stack fork with protocol-level randomness and a session-account contract layer for games. Randomness changes the derivation and payload-building pipeline; session accounts stay inside ordinary EVM state.
 
 ## System diagram
 
@@ -46,7 +46,7 @@ flowchart TB
 
 <CardGroup cols={3}>
   <Card title="Execution" icon="microchip" href="/architecture/execution">
-    `op-geth` hosts the predeploys and injects VRF system deposits from payload attributes.
+    `op-geth` hosts the EnshrinedVRF predeploy, executes session-account contracts, and injects VRF system deposits from payload attributes.
   </Card>
   <Card title="Sequencer / TEE" icon="lock" href="/architecture/sequencer">
     `op-node` requests one proof per block from a `VRFProver`; production deployments use a TEE-backed prover.
@@ -56,12 +56,12 @@ flowchart TB
   </Card>
 </CardGroup>
 
-## Two protocol additions, one pattern
+## Two additions, different boundaries
 
-Both additions follow the same playbook:
+The two additions have different integration boundaries:
 
-1. **Put the primitive in a predeploy.** The EVM can resolve it in one `SLOAD`/`CALL`, and frontends hard-code a single address.
-2. **Hook the sequencer when necessary.** VRF needs one proof in `PayloadAttributes` and one `commitRandomness` deposit transaction per block; session accounts need nothing extra from the sequencer, because they're pure EVM state.
+1. **VRF is protocol-wired.** The EVM resolves randomness through the `EnshrainedVRF` predeploy. `op-node` supplies proof material in `PayloadAttributes`, and `op-geth` commits it with a system deposit each block.
+2. **Session accounts are ordinary EVM contracts today.** They need no sequencer hook, special transaction type, or privileged sender. The docs reserve fixed `0x4200...` addresses for a later enshrined deployment.
 3. **Keep derivation replayable.** VRF seed, beta, proof, and nonce are carried through batches so verifier nodes can rebuild the same system deposit without access to the prover.
 4. **Use L1 as the anchor.** `SystemConfig` stores the accepted VRF public key. The L1 `VRFVerifier` helps disputes check seed construction and proof-to-hash consistency, while full ECVRF verification is available through fault-proof re-execution with the `0x0101` precompile.
 
@@ -80,6 +80,6 @@ This keeps the trust boundary small. A user trusts the chain; the chain trusts t
     Dispute flow: batch evidence, L1 helper checks, and fault-proof re-execution.
   </Card>
   <Card title="Predeploys" href="/concepts/predeploys" icon="box">
-    Quick-reference addresses and upgrade path for the four core predeploys.
+    Quick-reference for the current VRF predeploy and target session-account addresses.
   </Card>
 </CardGroup>

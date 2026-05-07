@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Enshrined VRF",
-  "description": "A gaming Layer 2 with verifiable randomness and session accounts enshrined at the protocol level.",
+  "description": "A gaming Layer 2 with protocol VRF and scoped session-account contracts.",
   "colors": {
     "primary": "#2A72E5",
     "light": "#5B8DEF",

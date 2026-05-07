@@ -1,24 +1,24 @@
 ---
 title: "Predeploys"
-description: "Contracts that ship inside the chain itself, providing VRF, game registration, and session accounts as native primitives."
+description: "Current and target fixed-address contracts for VRF, game registration, and session accounts."
 ---
 
-A **predeploy** is a contract deployed at genesis at a fixed address. On this L2, predeploys give every game and frontend a shared foundation for randomness, account management, and scope enforcement.
+A **predeploy** is a contract deployed at genesis at a fixed address. Enshrined VRF is implemented this way today. Session-account contracts are currently deployed by the demo script and reserved for fixed predeploy addresses once that feature is enshrined.
 
-## The predeploy set
+## Target fixed-address set
 
 <CardGroup cols={2}>
   <Card title="EnshrainedVRF" icon="dice" href="/contracts/enshrined-vrf">
     `0x42…00F0` — per-block randomness used by every game.
   </Card>
   <Card title="GameHubFactory" icon="hammer" href="/contracts/game-hub-factory">
-    `0x42…00A0` — CREATE2 deployer for per-user GameHubs. Atomic onboarding and refill flows.
+    `0x42…00A0` — planned fixed address for the CREATE2 deployer for per-user GameHubs.
   </Card>
   <Card title="SessionKeyManager" icon="key" href="/contracts/session-key-manager">
-    `0x42…00A1` — registry and validator for scoped session keys.
+    `0x42…00A1` — planned fixed address for the registry and validator for scoped session keys.
   </Card>
   <Card title="GameRegistry" icon="shield-check" href="/contracts/game-registry">
-    `0x42…00A2` — whitelist of contracts recognized as games.
+    `0x42…00A2` — planned fixed address for the whitelist of contracts recognized as games.
   </Card>
 </CardGroup>
 
@@ -26,7 +26,7 @@ A **predeploy** is a contract deployed at genesis at a fixed address. On this L2
   `GameHubAccount` is not a predeploy — it is deployed per user by the factory. Its code is identical across all users because it is created via CREATE2 with a fixed init-code hash.
 </Info>
 
-## Why enshrine rather than deploy
+## Why reserve fixed addresses
 
 Three reasons.
 
@@ -38,7 +38,7 @@ Three reasons.
 
 ## Predeploy upgrade path
 
-Predeploys follow the standard L2 hardfork flow:
+Enshrined predeploys follow the standard L2 hardfork flow:
 
 1. A proposal changes the predeploy's bytecode at a specific block.
 2. Sequencer and challenger nodes adopt the new code.
@@ -48,7 +48,7 @@ See [Architecture › Execution](/architecture/execution) for the exact upgrade 
 
 ## Addressing convention
 
-Predeploys use the same `0x4200…` prefix as standard OP Stack predeploys. The low-order suffix identifies the specific contract:
+The target addresses use the same `0x4200…` prefix as standard OP Stack predeploys. The low-order suffix identifies the specific contract:
 
 | Suffix | Contract             |
 | ------ | -------------------- |
@@ -57,4 +57,4 @@ Predeploys use the same `0x4200…` prefix as standard OP Stack predeploys. The 
 | `00A1` | `SessionKeyManager`  |
 | `00A2` | `GameRegistry`       |
 
-Addresses are final only after mainnet launch; devnet may rotate them.
+Only `EnshrinedVRF` is already wired as an OP Stack predeploy in the current implementation. The session-account addresses are reserved by spec until their enshrinement work lands.

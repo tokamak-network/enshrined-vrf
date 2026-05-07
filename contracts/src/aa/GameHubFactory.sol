@@ -8,8 +8,9 @@ import {GameRegistry} from "./GameRegistry.sol";
 /// @title GameHubFactory
 /// @notice Deterministically deploys one GameHubAccount per EOA via CREATE2.
 ///         Also provides an atomic deposit + session-registration flow so
-///         first-time users complete onboarding in a single signature.
-///         Designed to be a predeploy (address TBD).
+///         deposit and session registration share one owner transaction.
+///         Currently deployed by the demo script; intended for a fixed
+///         predeploy address once session accounts are enshrined.
 contract GameHubFactory {
     SessionKeyManager public immutable sessionKeys;
     GameRegistry public immutable registry;

@@ -13,7 +13,7 @@ const CONTRACTS_ROOT = resolve(DOCS_ROOT, '..', 'contracts');
 const FORGE_OUT = resolve(DOCS_ROOT, '.forge-doc');
 const MDX_OUT = resolve(DOCS_ROOT, 'contracts');
 
-// Map forge-doc source paths → (output slug, predeploy address, short description override)
+// Map forge-doc source paths -> (output slug, target fixed address, short description override)
 const TARGETS = [
   {
     src: 'src/aa/GameRegistry.sol/contract.GameRegistry.md',
@@ -73,7 +73,7 @@ function transform(raw, target) {
   body = body.replace(/^\s+/, '');
 
   const predeployBlock = target.address
-    ? `<Info>\n  **Predeploy address:** \`${target.address}\`\n</Info>\n\n`
+    ? `<Info>\n  **Target fixed address:** \`${target.address}\`\n</Info>\n\n`
     : '';
 
   const frontmatter = [

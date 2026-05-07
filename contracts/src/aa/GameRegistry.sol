@@ -4,7 +4,8 @@ pragma solidity 0.8.28;
 /// @title GameRegistry
 /// @notice Whitelist of contracts recognized as "games" on the L2.
 ///         Session keys may only call contracts registered here.
-///         Designed to be a predeploy (address TBD).
+///         Currently deployed by the demo script; intended for a fixed
+///         predeploy address once session accounts are enshrined.
 contract GameRegistry {
     mapping(address => bool) private _registered;
     mapping(address => address) private _owner;
