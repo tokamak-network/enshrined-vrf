@@ -3,13 +3,10 @@ package enclave
 import (
 	"context"
 	"crypto/rand"
-	"net"
 	"testing"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	pb "github.com/tokamak-network/enshrined-vrf/vrf-enclave/proto"
@@ -84,23 +81,8 @@ func TestDevAttestationOverGRPC(t *testing.T) {
 	sk, _ := secp256k1.GeneratePrivateKey()
 	srv := NewServerFromKey(sk, AttestDev)
 
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	grpcServer := grpc.NewServer()
-	pb.RegisterVRFEnclaveServer(grpcServer, srv)
-	go grpcServer.Serve(lis)
-	defer grpcServer.Stop()
-
-	conn, err := grpc.NewClient(lis.Addr().String(),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
+	conn, client := startTestGRPCClient(t, srv)
 	defer conn.Close()
-	client := pb.NewVRFEnclaveClient(conn)
 
 	// Send challenge and get attestation
 	challenge := make([]byte, 32)

@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/tokamak-network/enshrined-vrf/crypto/ecvrf"
@@ -111,25 +112,8 @@ func TestServerOverGRPC(t *testing.T) {
 		t.Fatalf("NewServer: %v", err)
 	}
 
-	// Start gRPC server on random port
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	grpcServer := grpc.NewServer()
-	pb.RegisterVRFEnclaveServer(grpcServer, srv)
-	go grpcServer.Serve(lis)
-	defer grpcServer.Stop()
-
-	// Connect as client
-	conn, err := grpc.NewClient(lis.Addr().String(),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
+	conn, client := startTestGRPCClient(t, srv)
 	defer conn.Close()
-	client := pb.NewVRFEnclaveClient(conn)
 
 	// GetPublicKey
 	pkResp, err := client.GetPublicKey(context.Background(), &pb.GetPublicKeyRequest{})
@@ -161,6 +145,32 @@ func TestServerOverGRPC(t *testing.T) {
 	if !valid {
 		t.Fatal("proof from gRPC should be valid")
 	}
+}
+
+func startTestGRPCClient(t *testing.T, srv pb.VRFEnclaveServer) (*grpc.ClientConn, pb.VRFEnclaveClient) {
+	t.Helper()
+
+	lis := bufconn.Listen(1024 * 1024)
+	grpcServer := grpc.NewServer()
+	pb.RegisterVRFEnclaveServer(grpcServer, srv)
+	go func() {
+		_ = grpcServer.Serve(lis)
+	}()
+	t.Cleanup(func() {
+		grpcServer.Stop()
+		_ = lis.Close()
+	})
+
+	conn, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return lis.Dial()
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	return conn, pb.NewVRFEnclaveClient(conn)
 }
 
 // TestServerCloseZeroesKey checks that Server.Close zeros the scalar and
