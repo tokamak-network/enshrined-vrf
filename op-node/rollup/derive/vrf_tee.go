@@ -26,9 +26,11 @@ type TEEVRFProver struct {
 // and fetches the public key. The endpoint can be a Unix socket
 // (unix:///var/run/vrf-enclave.sock) or TCP address (localhost:50051).
 func NewTEEVRFProver(endpoint string) (*TEEVRFProver, error) {
-	conn, err := grpc.NewClient(endpoint,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	return newTEEVRFProver(endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+}
+
+func newTEEVRFProver(endpoint string, dialOptions ...grpc.DialOption) (*TEEVRFProver, error) {
+	conn, err := grpc.NewClient(endpoint, dialOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to TEE enclave at %s: %w", endpoint, err)
 	}

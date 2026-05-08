@@ -1,6 +1,7 @@
 package derive
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync/atomic"
@@ -10,6 +11,8 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/tokamak-network/enshrined-vrf/crypto/ecvrf"
 	"github.com/tokamak-network/enshrined-vrf/vrf-enclave/enclave"
@@ -18,7 +21,7 @@ import (
 
 // startTestEnclave starts a gRPC enclave server on a random port and
 // returns the address and a cleanup function.
-func startTestEnclave(t *testing.T) (addr string, pk *secp256k1.PublicKey) {
+func startTestEnclave(t *testing.T) (addr string, dialer func(context.Context, string) (net.Conn, error), pk *secp256k1.PublicKey) {
 	t.Helper()
 
 	var sealKey [32]byte
@@ -31,15 +34,14 @@ func startTestEnclave(t *testing.T) (addr string, pk *secp256k1.PublicKey) {
 		t.Fatalf("NewServer: %v", err)
 	}
 
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-
+	lis := bufconn.Listen(1024 * 1024)
 	grpcServer := grpc.NewServer()
 	pb.RegisterVRFEnclaveServer(grpcServer, srv)
 	go grpcServer.Serve(lis)
-	t.Cleanup(grpcServer.Stop)
+	t.Cleanup(func() {
+		grpcServer.Stop()
+		_ = lis.Close()
+	})
 
 	// Parse the public key for verification
 	pkResp, _ := srv.GetPublicKey(nil, &pb.GetPublicKeyRequest{})
@@ -48,17 +50,23 @@ func startTestEnclave(t *testing.T) (addr string, pk *secp256k1.PublicKey) {
 		t.Fatalf("ParsePubKey: %v", err)
 	}
 
-	return lis.Addr().String(), pubKey
+	dialer = func(context.Context, string) (net.Conn, error) {
+		return lis.Dial()
+	}
+	return "passthrough:///bufnet", dialer, pubKey
 }
 
 // TestTEEVRFProverEndToEnd tests the full op-node → TEE enclave path:
 // TEEVRFProver connects to enclave, ComputeVRFProof generates block-level
 // proof, and ecvrf.Verify confirms correctness.
 func TestTEEVRFProverEndToEnd(t *testing.T) {
-	addr, pk := startTestEnclave(t)
+	addr, dialer, pk := startTestEnclave(t)
 
 	// Create TEEVRFProver (this is what op-node uses)
-	prover, err := NewTEEVRFProver(addr)
+	prover, err := newTEEVRFProver(addr,
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		t.Fatalf("NewTEEVRFProver: %v", err)
 	}
@@ -95,9 +103,12 @@ func TestTEEVRFProverEndToEnd(t *testing.T) {
 // TestTEEVRFProverMultipleBlocks simulates sequential block production
 // to ensure each block gets a unique, valid proof.
 func TestTEEVRFProverMultipleBlocks(t *testing.T) {
-	addr, pk := startTestEnclave(t)
+	addr, dialer, pk := startTestEnclave(t)
 
-	prover, err := NewTEEVRFProver(addr)
+	prover, err := newTEEVRFProver(addr,
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		t.Fatalf("NewTEEVRFProver: %v", err)
 	}
@@ -139,17 +150,22 @@ func TestTEEVRFProverMatchesLocal(t *testing.T) {
 
 	// Start enclave with this specific key
 	srv := enclave.NewServerFromKey(sk, enclave.AttestNone)
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
+	lis := bufconn.Listen(1024 * 1024)
 	grpcServer := grpc.NewServer()
 	pb.RegisterVRFEnclaveServer(grpcServer, srv)
 	go grpcServer.Serve(lis)
-	defer grpcServer.Stop()
+	defer func() {
+		grpcServer.Stop()
+		_ = lis.Close()
+	}()
 
 	// TEE prover
-	teeProver, err := NewTEEVRFProver(lis.Addr().String())
+	teeProver, err := newTEEVRFProver("passthrough:///bufnet",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return lis.Dial()
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		t.Fatalf("NewTEEVRFProver: %v", err)
 	}
