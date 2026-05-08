@@ -8,6 +8,7 @@ DEPLOYER_CACHE_DIR="${OP_DEPLOYER_CACHE_DIR:-$WORKDIR/op-deployer-cache}"
 ARTIFACTS_DIR="$ROOT/optimism/packages/contracts-bedrock/forge-artifacts"
 L2_CHAIN_ID="${L2_CHAIN_ID:-901005}"
 VRF_SK="${VRF_SK:-0xc9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721}"
+VRF_MODE="${VRF_MODE:-local}"
 SKIP_L1_RPC_CHECK="${SKIP_L1_RPC_CHECK:-0}"
 
 if [ -f "$ENV_FILE" ]; then
@@ -115,16 +116,37 @@ else
 fi
 
 if [ -x "$ROOT/bin/vrf-prove" ]; then
-  if vrf_pk="$("$ROOT/bin/vrf-prove" -sk "$VRF_SK" -seed "0000000000000000000000000000000000000000000000000000000000000000" 2>/dev/null | awk -F= '/^pk=/{print $2; exit}')"; then
-    vrf_pk="0x${vrf_pk#0x}"
-    if [ "${#vrf_pk}" -eq 68 ]; then
-      ok "VRF_SK derives 33-byte public key $vrf_pk"
-    else
-      fail "VRF_SK did not derive a 33-byte public key"
-    fi
-  else
-    fail "vrf-prove failed to derive public key from VRF_SK"
-  fi
+  case "$VRF_MODE" in
+    local)
+      if vrf_pk="$("$ROOT/bin/vrf-prove" -sk "$VRF_SK" -public-key-only 2>/dev/null | awk -F= '/^pk=/{print $2; exit}')"; then
+        vrf_pk="0x${vrf_pk#0x}"
+        if [ "${#vrf_pk}" -eq 68 ]; then
+          ok "VRF_SK derives 33-byte public key $vrf_pk"
+        else
+          fail "VRF_SK did not derive a 33-byte public key"
+        fi
+      else
+        fail "vrf-prove failed to derive public key from VRF_SK"
+      fi
+      ;;
+    tee)
+      if [ -z "${VRF_TEE_ENDPOINT:-}" ]; then
+        fail "VRF_TEE_ENDPOINT is required when VRF_MODE=tee"
+      elif vrf_pk="$("$ROOT/bin/vrf-prove" -tee-endpoint "$VRF_TEE_ENDPOINT" -public-key-only 2>/dev/null | awk -F= '/^pk=/{print $2; exit}')"; then
+        vrf_pk="0x${vrf_pk#0x}"
+        if [ "${#vrf_pk}" -eq 68 ]; then
+          ok "TEE enclave returns 33-byte public key $vrf_pk"
+        else
+          fail "TEE enclave did not return a 33-byte public key"
+        fi
+      else
+        fail "vrf-prove failed to read public key from TEE endpoint $VRF_TEE_ENDPOINT"
+      fi
+      ;;
+    *)
+      fail "unsupported VRF_MODE=$VRF_MODE (expected local or tee)"
+      ;;
+  esac
 fi
 
 mkdir -p "$DEPLOYER_CACHE_DIR"

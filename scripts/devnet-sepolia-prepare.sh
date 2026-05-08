@@ -49,11 +49,43 @@ normalize_bytes_output() {
   cast abi-decode "f()(bytes)" "$value" | awk 'NF { print $1; exit }'
 }
 
+derive_vrf_public_key() {
+  if [ -n "${VRF_PUBLIC_KEY:-}" ]; then
+    printf '0x%s\n' "${VRF_PUBLIC_KEY#0x}"
+    return 0
+  fi
+
+  if [ ! -x "$ROOT/bin/vrf-prove" ]; then
+    (cd "$ROOT" && go build -o "$ROOT/bin/vrf-prove" ./vrf-enclave/cmd/vrf-prove)
+  fi
+
+  case "$VRF_MODE" in
+    local)
+      "$ROOT/bin/vrf-prove" \
+        -sk "$VRF_SK" \
+        -public-key-only \
+        2>/dev/null | awk -F= '/^pk=/{print $2; exit}'
+      ;;
+    tee)
+      : "${VRF_TEE_ENDPOINT:?set VRF_TEE_ENDPOINT when VRF_MODE=tee}"
+      "$ROOT/bin/vrf-prove" \
+        -tee-endpoint "$VRF_TEE_ENDPOINT" \
+        -public-key-only \
+        2>/dev/null | awk -F= '/^pk=/{print $2; exit}'
+      ;;
+    *)
+      echo "unsupported VRF_MODE=$VRF_MODE (expected local or tee)" >&2
+      return 1
+      ;;
+  esac
+}
+
 : "${L1_RPC_URL:?set L1_RPC_URL in $ENV_FILE}"
 : "${PRIVATE_KEY:?set PRIVATE_KEY in $ENV_FILE}"
 
 L2_CHAIN_ID="${L2_CHAIN_ID:-901005}"
 VRF_SK="${VRF_SK:-0xc9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721}"
+VRF_MODE="${VRF_MODE:-local}"
 BUILD_BINARIES="${BUILD_BINARIES:-1}"
 BUILD_CONTRACTS="${BUILD_CONTRACTS:-1}"
 SET_L1_VRF_PUBLIC_KEY="${SET_L1_VRF_PUBLIC_KEY:-1}"
@@ -157,13 +189,10 @@ if [ -z "$SYSTEM_CONFIG_PROXY" ] || [ "$SYSTEM_CONFIG_PROXY" = "null" ]; then
 fi
 
 if [ "$SET_L1_VRF_PUBLIC_KEY" = "1" ]; then
-  if [ ! -x "$ROOT/bin/vrf-prove" ]; then
-    (cd "$ROOT" && go build -o "$ROOT/bin/vrf-prove" ./vrf-enclave/cmd/vrf-prove)
-  fi
-  VRF_PK_RAW="$("$ROOT/bin/vrf-prove" -sk "$VRF_SK" -seed "0000000000000000000000000000000000000000000000000000000000000000" 2>/dev/null | awk -F= '/^pk=/{print $2; exit}')"
+  VRF_PK_RAW="$(derive_vrf_public_key)"
   VRF_PUBLIC_KEY="0x${VRF_PK_RAW#0x}"
   if [ "${#VRF_PUBLIC_KEY}" -ne 68 ]; then
-    echo "failed to derive 33-byte VRF public key from VRF_SK" >&2
+    echo "failed to derive 33-byte VRF public key for VRF_MODE=$VRF_MODE" >&2
     exit 1
   fi
   CURRENT_VRF_PK_RAW="$(cast call "$SYSTEM_CONFIG_PROXY" "vrfPublicKey()(bytes)" --rpc-url "$L1_RPC_URL" 2>/dev/null || true)"

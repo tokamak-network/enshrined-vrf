@@ -31,6 +31,8 @@ VRF_MODE=tee
 VRF_TEE_ENDPOINT=localhost:50051
 ```
 
+When `VRF_MODE=tee`, the prepare step reads the VRF public key from the enclave's `GetPublicKey` RPC and registers that key on Sepolia `SystemConfig`. If the platform has already verified an enclave key out of band, set `VRF_PUBLIC_KEY=0x...` to register that exact 33-byte compressed SEC1 key instead.
+
 ## Preflight
 
 Run a non-destructive readiness check before deploying anything to Sepolia:
@@ -67,7 +69,7 @@ This step:
 - Renders `.devnet/sepolia/genesis.json`, `rollup.json`, `deploy-config.json`, and `l1-addresses.json`
 - Stores op-deployer cache data under `.devnet/sepolia/op-deployer-cache`
 - Initializes the local op-geth datadir
-- Derives the VRF public key from `VRF_SK`
+- Derives the VRF public key from `VRF_SK`, `VRF_TEE_ENDPOINT`, or `VRF_PUBLIC_KEY`
 - Sends `SystemConfig.setVRFPublicKey(bytes)` on Sepolia unless it is already set
 - Writes `.devnet/sepolia/devnet.json`
 
