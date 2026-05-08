@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vrf-enclave-seal-key
+  labels:
+    app.kubernetes.io/name: enshrained-vrf
+    app.kubernetes.io/component: vrf-enclave
+type: Opaque
+stringData:
+  key.hex: REPLACE_WITH_32_BYTE_HEX_SEAL_KEY
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vrf-enclave-sealed
+  labels:
+    app.kubernetes.io/name: enshrained-vrf
+    app.kubernetes.io/component: vrf-enclave
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thanos-sequencer-vrf-example
+  labels:
+    app.kubernetes.io/name: thanos-sequencer
+    app.kubernetes.io/component: sequencer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thanos-sequencer
+      app.kubernetes.io/component: sequencer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: thanos-sequencer
+        app.kubernetes.io/component: sequencer
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: op-node
+          image: registry.example/tokamak/op-node:vrf-enabled
+          args:
+            - --sequencer.enabled=true
+            - --sequencer.vrf-mode=tee
+            - --sequencer.vrf-tee-endpoint=unix:///var/run/vrf-enclave/vrf.sock
+          volumeMounts:
+            - name: vrf-enclave-socket
+              mountPath: /var/run/vrf-enclave
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+        - name: vrf-enclave
+          image: tokamaknetwork/vrf-enclave:dev
+          args:
+            - --listen
+            - unix:///var/run/vrf-enclave/vrf.sock
+            - --seal-dir
+            - /secure/sealed
+            - --seal-key-file
+            - /secure/seal-key/key.hex
+            - --attestation
+            - dev
+          volumeMounts:
+            - name: vrf-enclave-socket
+              mountPath: /var/run/vrf-enclave
+            - name: vrf-enclave-sealed
+              mountPath: /secure/sealed
+            - name: vrf-enclave-seal-key
+              mountPath: /secure/seal-key
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      volumes:
+        - name: vrf-enclave-socket
+          emptyDir: {}
+        - name: vrf-enclave-sealed
+          persistentVolumeClaim:
+            claimName: vrf-enclave-sealed
+        - name: vrf-enclave-seal-key
+          secret:
+            secretName: vrf-enclave-seal-key

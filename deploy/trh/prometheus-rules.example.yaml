@@ -1,0 +1,56 @@
+groups:
+  - name: enshrined-vrf
+    rules:
+      - alert: EnshrinedVRFPredeployMissing
+        expr: enshrined_vrf_predeploy_code_present == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: EnshrinedVRF predeploy code is missing
+          description: The game L2 does not have code at the EnshrinedVRF predeploy address.
+
+      - alert: EnshrinedVRFCommitmentStalled
+        expr: changes(enshrined_vrf_commit_nonce[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: EnshrinedVRF commit nonce stopped advancing
+          description: The sequencer is not committing new VRF results. Check op-node TEE prover connectivity and op-geth VRF deposit injection.
+
+      - alert: EnshrinedVRFPublicKeyMissing
+        expr: enshrined_vrf_l2_public_key_set == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: EnshrinedVRF public key is not set on L2
+          description: The L2 predeploy has no 33-byte sequencer public key.
+
+      - alert: EnshrinedVRFPublicKeyMismatch
+        expr: enshrined_vrf_public_key_match == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: EnshrinedVRF public key mismatch
+          description: L2 EnshrinedVRF.sequencerPublicKey() does not match the expected or L1 SystemConfig VRF public key.
+
+      - alert: EnshrinedVRFRandomnessUnavailable
+        expr: enshrined_vrf_randomness_call_ok == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: EnshrinedVRF getRandomness call failed
+          description: eth_call to EnshrinedVRF.getRandomness() reverted or failed. Check that the current L2 block has a committed VRF result.
+
+      - alert: EnshrinedVRFProofVerificationFailed
+        expr: enshrined_vrf_proof_verify_ok == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: EnshrinedVRF committed tuple failed precompile verification
+          description: The latest committed VRF tuple did not verify through the L2 0x0101 ECVRF precompile.

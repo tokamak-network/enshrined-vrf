@@ -1,0 +1,132 @@
+diff --git a/pkg/api/dtos/thanos.go b/pkg/api/dtos/thanos.go
+index da0cf6e..80d9a1c 100644
+--- a/pkg/api/dtos/thanos.go
++++ b/pkg/api/dtos/thanos.go
+@@ -17,7 +17,74 @@ import (
+ 	"go.uber.org/zap"
+ )
+ 
+-var chainNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9 ]*$`)
++var (
++	chainNameRegex              = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9 ]*$`)
++	enshrinedVrfCompressedKeyRe = regexp.MustCompile(`^0x(02|03)[0-9a-fA-F]{64}$`)
++)
++
++type EnshrinedVrfRequest struct {
++	Enabled                          bool   `json:"enabled"`
++	Mode                             string `json:"mode"`
++	TeeEndpoint                      string `json:"teeEndpoint"`
++	PublicKey                        string `json:"publicKey"`
++	EnshrinedVrfTime                 uint64 `json:"enshrinedVrfTime"`
++	L2GenesisEnshrainedVRFTimeOffset string `json:"l2GenesisEnshrainedVRFTimeOffset"`
++	Predeploy                        string `json:"predeploy"`
++	VerifyPrecompile                 string `json:"verifyPrecompile"`
++	SetL1VRFPublicKey                bool   `json:"setL1VrfPublicKey"`
++	AttestationPolicyID              string `json:"attestationPolicyId,omitempty"`
++	VRFEnclaveImageRepository        string `json:"vrfEnclaveImageRepository,omitempty"`
++	VRFEnclaveImageTag               string `json:"vrfEnclaveImageTag,omitempty"`
++}
++
++func (r *EnshrinedVrfRequest) Validate() error {
++	if r == nil || !r.Enabled {
++		return nil
++	}
++	if r.Mode != "tee" {
++		return errors.New("enshrinedVrf.mode must be tee")
++	}
++	if r.TeeEndpoint == "" {
++		return errors.New("enshrinedVrf.teeEndpoint is required")
++	}
++	if !enshrinedVrfCompressedKeyRe.MatchString(r.PublicKey) {
++		return errors.New("enshrinedVrf.publicKey must be a 33-byte compressed SEC1 key")
++	}
++	if !r.SetL1VRFPublicKey {
++		return errors.New("enshrinedVrf.setL1VrfPublicKey must be true")
++	}
++	return nil
++}
++
++func (r *EnshrinedVrfRequest) ToSDKConfig() *trhSdkTypes.EnshrinedVrfConfig {
++	if r == nil || !r.Enabled {
++		return nil
++	}
++	cfg := &trhSdkTypes.EnshrinedVrfConfig{
++		Enabled:                          true,
++		Mode:                             r.Mode,
++		TeeEndpoint:                      r.TeeEndpoint,
++		PublicKey:                        r.PublicKey,
++		EnshrinedVrfTime:                 r.EnshrinedVrfTime,
++		L2GenesisEnshrainedVRFTimeOffset: r.L2GenesisEnshrainedVRFTimeOffset,
++		Predeploy:                        r.Predeploy,
++		VerifyPrecompile:                 r.VerifyPrecompile,
++		SetL1VRFPublicKey:                r.SetL1VRFPublicKey,
++		AttestationPolicyID:              r.AttestationPolicyID,
++		VRFEnclaveImageRepository:        r.VRFEnclaveImageRepository,
++		VRFEnclaveImageTag:               r.VRFEnclaveImageTag,
++	}
++	if cfg.L2GenesisEnshrainedVRFTimeOffset == "" {
++		cfg.L2GenesisEnshrainedVRFTimeOffset = "0x0"
++	}
++	if cfg.Predeploy == "" {
++		cfg.Predeploy = "0x42000000000000000000000000000000000000f0"
++	}
++	if cfg.VerifyPrecompile == "" {
++		cfg.VerifyPrecompile = "0x0000000000000000000000000000000000000101"
++	}
++	return cfg
++}
+ 
+ type RegisterCandidateRequest struct {
+ 	Amount   float64 `json:"amount" binding:"required" validate:"min=0"`
+@@ -59,6 +126,7 @@ type DeployThanosRequest struct {
+ 	DeploymentPath           string                     `json:"deploymentPath"`
+ 	RegisterCandidate        bool                       `json:"registerCandidate"`
+ 	RegisterCandidateParams  *RegisterCandidateRequest  `json:"registerCandidateParams,omitempty"`
++	EnshrinedVrf             *EnshrinedVrfRequest       `json:"enshrinedVrf,omitempty"`
+ }
+ 
+ func (request *DeployThanosRequest) Validate() error {
+@@ -131,6 +199,11 @@ func (request *DeployThanosRequest) Validate() error {
+ 		return err
+ 	}
+ 
++	if err := request.EnshrinedVrf.Validate(); err != nil {
++		logger.Error("invalid enshrinedVrf", zap.String("enshrinedVrf", err.Error()))
++		return err
++	}
++
+ 	return nil
+ }
+ 
+@@ -146,6 +219,7 @@ type DeployL1ContractsRequest struct {
+ 	ProposerAccount          string                    `json:"proposerAccount"          binding:"required" validate:"eth_address"`
+ 	RegisterCandidate        bool                      `json:"registerCandidate"`
+ 	RegisterCandidateParams  *RegisterCandidateRequest `json:"registerCandidateParams,omitempty"`
++	EnshrinedVrf             *EnshrinedVrfRequest      `json:"enshrinedVrf,omitempty"`
+ }
+ 
+ type DeployThanosAWSInfraRequest struct {
+diff --git a/pkg/services/thanos/helpers.go b/pkg/services/thanos/helpers.go
+index 864b90c..ce68a4f 100644
+--- a/pkg/services/thanos/helpers.go
++++ b/pkg/services/thanos/helpers.go
+@@ -47,6 +47,7 @@ func (s *ThanosStackDeploymentService) getThanosStackDeployments(
+ 			ProposerAccount:          config.ProposerAccount,
+ 			RegisterCandidate:        config.RegisterCandidate,
+ 			RegisterCandidateParams:  registerCandidateParams,
++			EnshrinedVrf:             config.EnshrinedVrf,
+ 		})
+ 		if err != nil {
+ 			return nil, err
+diff --git a/pkg/stacks/thanos/thanos_stack.go b/pkg/stacks/thanos/thanos_stack.go
+index b2b67b3..b189e6f 100644
+--- a/pkg/stacks/thanos/thanos_stack.go
++++ b/pkg/stacks/thanos/thanos_stack.go
+@@ -106,6 +106,7 @@ func DeployL1Contracts(ctx context.Context, sdkClient *thanosStack.ThanosStack,
+ 		L1RPCurl:           req.L1RpcUrl,
+ 		ChainConfiguration: &chainConfig,
+ 		Operators:          &operators,
++		EnshrinedVrf:       req.EnshrinedVrf.ToSDKConfig(),
+ 	}
+ 
+ 	if req.RegisterCandidate {

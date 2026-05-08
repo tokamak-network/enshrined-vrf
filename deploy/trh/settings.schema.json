@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tokamak.network/schemas/trh/enshrained-vrf-settings.schema.json",
+  "title": "TRH Enshrained VRF settings",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["stack", "features", "enshrinedVrf"],
+  "properties": {
+    "stack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "features": {
+      "type": "object",
+      "required": ["enshrinedVrf"],
+      "properties": {
+        "enshrinedVrf": {
+          "const": true
+        }
+      }
+    },
+    "enshrinedVrf": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "mode",
+        "teeEndpoint",
+        "publicKey",
+        "enshrinedVrfTime",
+        "l2GenesisEnshrainedVRFTimeOffset",
+        "predeploy",
+        "verifyPrecompile",
+        "setL1VRFPublicKey"
+      ],
+      "properties": {
+        "mode": {
+          "const": "tee"
+        },
+        "teeEndpoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publicKey": {
+          "type": "string",
+          "pattern": "^0x(02|03)[0-9a-fA-F]{64}$"
+        },
+        "enshrinedVrfTime": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "l2GenesisEnshrainedVRFTimeOffset": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]+$"
+        },
+        "predeploy": {
+          "const": "0x42000000000000000000000000000000000000f0"
+        },
+        "verifyPrecompile": {
+          "const": "0x0000000000000000000000000000000000000101"
+        },
+        "setL1VRFPublicKey": {
+          "const": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,218 @@
+name: TRH VRF readiness
+
+on:
+  pull_request:
+    paths:
+      - 'crypto/**'
+      - 'contracts/src/examples/TRHGameRandomness.sol'
+      - 'contracts/test/TRHGameRandomness.t.sol'
+      - 'deploy/trh/**'
+      - 'devnet/sepolia/**'
+      - 'docs/trh-tee-game-l2.md'
+      - 'docs/sepolia-devnet.md'
+      - 'scripts/trh-*.sh'
+      - 'scripts/devnet-sepolia-*.sh'
+      - 'vrf-enclave/**'
+      - '.github/workflows/trh-vrf-readiness.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crypto/**'
+      - 'contracts/src/examples/TRHGameRandomness.sol'
+      - 'contracts/test/TRHGameRandomness.t.sol'
+      - 'deploy/trh/**'
+      - 'devnet/sepolia/**'
+      - 'docs/trh-tee-game-l2.md'
+      - 'docs/sepolia-devnet.md'
+      - 'scripts/trh-*.sh'
+      - 'scripts/devnet-sepolia-*.sh'
+      - 'vrf-enclave/**'
+      - '.github/workflows/trh-vrf-readiness.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: trh-vrf-readiness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Check shell syntax
+        run: |
+          scripts=(
+            scripts/devnet-sepolia-preflight.sh
+            scripts/devnet-sepolia-prepare.sh
+            scripts/devnet-sepolia-start.sh
+            scripts/devnet-sepolia-verify-random.sh
+            scripts/trh-attest-vrf-enclave.sh
+            scripts/trh-build-vrf-enclave-image.sh
+            scripts/trh-export-vrf-metrics.sh
+            scripts/trh-production-vrf-gate.sh
+            scripts/trh-render-vrf-metadata.sh
+            scripts/trh-render-vrf-settings.sh
+            scripts/trh-tee-readiness.sh
+            scripts/trh-validate-attestation-policy.sh
+            scripts/trh-validate-k8s-vrf-sidecar.sh
+            scripts/trh-validate-vrf-settings.sh
+            scripts/trh-apply-external-patches.sh
+            scripts/trh-check-external-patches.sh
+            scripts/trh-verify-external-patches-compile.sh
+            scripts/trh-validate-thanos-stack-chart.sh
+            scripts/trh-check-external-integration.sh
+            scripts/test-trh-attestation-policy.sh
+            scripts/test-trh-validate-thanos-stack-chart.sh
+            scripts/test-trh-render-vrf-settings.sh
+            scripts/test-trh-export-vrf-metrics.sh
+            scripts/trh-verify-vrf-chain.sh
+            scripts/trh-verify-vrf-proof.sh
+          )
+          for script in "${scripts[@]}"; do
+            bash -n "$script"
+          done
+
+      - name: Check TRH manifest
+        run: |
+          jq -e '
+            .feature.id == "enshrined-vrf" and
+            .sdkSettings.forbiddenInProduction.vrf_mode == "local" and
+            .enclave.dockerfile == "vrf-enclave/Dockerfile" and
+            .enclave.attestation.implementationGate == "VRF_PLATFORM_ATTESTATION_IMPLEMENTED=1" and
+            .enclave.kubernetesSidecarExample == "./deploy/trh/kubernetes-vrf-sidecar.example.yaml" and
+            .enclave.kubernetesSidecarValidator == "./scripts/trh-validate-k8s-vrf-sidecar.sh" and
+            .enclave.attestation.preflightCommand == "./scripts/trh-attest-vrf-enclave.sh" and
+            .enclave.attestation.policyValidator == "./scripts/trh-validate-attestation-policy.sh" and
+            .sdkSettings.schema == "./deploy/trh/settings.schema.json" and
+            .sdkSettings.validator == "./scripts/trh-validate-vrf-settings.sh" and
+            .metadata.renderer == "./scripts/trh-render-vrf-metadata.sh" and
+            .metadata.validator == "./scripts/trh-validate-vrf-metadata.sh" and
+            .audit.completionAudit == "./docs/trh-tee-game-l2-completion-audit.md" and
+            (.verificationCommands | index("./scripts/trh-production-vrf-gate.sh") != null) and
+            (.verificationCommands | index("./scripts/trh-attest-vrf-enclave.sh") != null) and
+            (.verificationCommands | index("./scripts/trh-validate-attestation-policy.sh") != null) and
+            (.verificationCommands | index("./scripts/trh-verify-vrf-proof.sh") != null) and
+            (.verificationCommands | index("./scripts/trh-validate-k8s-vrf-sidecar.sh") != null) and
+            (.verificationCommands | index("./scripts/trh-validate-vrf-settings.sh") != null) and
+            .externalIntegration.trhSdkPatch == "./deploy/trh/external-integration/trh-sdk-enshrined-vrf.patch" and
+            .externalIntegration.trhBackendPatch == "./deploy/trh/external-integration/trh-backend-enshrined-vrf.patch" and
+            .externalIntegration.trhPlatformUiPatch == "./deploy/trh/external-integration/trh-platform-ui-enshrined-vrf.patch" and
+            .externalIntegration.tokamakThanosStackChartContract == "./deploy/trh/external-integration/tokamak-thanos-stack-chart-contract.md" and
+            .externalIntegration.trhBackend == "../trh-backend" and
+            .externalIntegration.trhPlatformUi == "../trh-platform-ui" and
+            .externalIntegration.patchChecker == "./scripts/trh-check-external-patches.sh" and
+            .externalIntegration.patchApplier == "./scripts/trh-apply-external-patches.sh" and
+            .externalIntegration.patchCompileVerifier == "./scripts/trh-verify-external-patches-compile.sh" and
+            .externalIntegration.thanosStackChartValidator == "./scripts/trh-validate-thanos-stack-chart.sh" and
+            .externalIntegration.checker == "./scripts/trh-check-external-integration.sh" and
+            (.monitoring.metrics | index("enshrined_vrf_commit_nonce") != null) and
+            (.monitoring.metrics | index("enshrined_vrf_proof_verify_ok") != null)
+          ' deploy/trh/enshrined-vrf.manifest.json
+
+      - name: Check TRH settings example
+        run: ./scripts/trh-validate-vrf-settings.sh deploy/trh/settings.example.json
+
+      - name: Check attestation policy example
+        run: ./scripts/trh-validate-attestation-policy.sh deploy/trh/attestation-policy.example.json
+
+      - name: Test attestation policy guards
+        run: ./scripts/test-trh-attestation-policy.sh
+
+      - name: Check TRH values overlay
+        run: |
+          ruby -ryaml -e '
+            values = YAML.load_file("deploy/trh/thanos-stack-vrf-values.example.yaml")
+            fork = values.fetch("enshrinedVrf").fetch("fork")
+            abort "missing l2GenesisEnshrainedVRFTimeOffset" unless fork.key?("l2GenesisEnshrainedVRFTimeOffset")
+          '
+
+      - name: Check Kubernetes sidecar example
+        run: ./scripts/trh-validate-k8s-vrf-sidecar.sh deploy/trh/kubernetes-vrf-sidecar.example.yaml
+
+      - name: Test Thanos chart validator
+        run: ./scripts/test-trh-validate-thanos-stack-chart.sh
+
+      - name: Check TRH metadata example
+        run: ./scripts/trh-validate-vrf-metadata.sh deploy/trh/metadata.example.json
+
+      - name: Check TRH metadata renderer
+        run: |
+          ENV_FILE=/dev/null \
+          CHAIN_NAME=ci-game-l2 \
+          CHAIN_ID=901005 \
+          VRF_PUBLIC_KEY=0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645 \
+          ./scripts/trh-render-vrf-metadata.sh \
+            | tee /tmp/vrf-metadata.json \
+            | jq -e '.name == "ci-game-l2" and .features.enshrinedVrf == true'
+          ./scripts/trh-validate-vrf-metadata.sh /tmp/vrf-metadata.json
+
+      - name: Check static readiness
+        run: REQUIRE_TEE=0 ./scripts/trh-tee-readiness.sh
+
+      - name: Check settings renderer
+        run: |
+          ENV_FILE=/dev/null \
+          VRF_MODE=tee \
+          VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
+          VRF_PUBLIC_KEY=0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645 \
+          ./scripts/trh-render-vrf-settings.sh \
+            | tee /tmp/vrf-settings.json \
+            | jq -e '.stack == "thanos" and .features.enshrinedVrf == true and .enshrinedVrf.mode == "tee" and .enshrinedVrf.l2GenesisEnshrainedVRFTimeOffset == "0x0"'
+          ./scripts/trh-validate-vrf-settings.sh /tmp/vrf-settings.json
+
+      - name: Test settings renderer guards
+        run: ./scripts/test-trh-render-vrf-settings.sh
+
+      - name: Test metrics exporter
+        run: ./scripts/test-trh-export-vrf-metrics.sh
+
+      - name: Check production gate
+        run: |
+          set +e
+          VRF_MODE=tee \
+          VRF_ATTESTATION_MODE=tdx \
+          VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
+          VRF_PUBLIC_KEY=0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645 \
+          IMAGE_TAG=v0.1.0 \
+          EXTERNAL_AUDIT_ID=audit-2026-ci \
+          VRF_ATTESTATION_POLICY_ID=tdx-game-l2-vrf-policy-v1 \
+          ./scripts/trh-production-vrf-gate.sh
+          gate_status=$?
+          set -e
+          test "$gate_status" -ne 0
+
+          VRF_MODE=tee \
+          VRF_ATTESTATION_MODE=tdx \
+          VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
+          VRF_PUBLIC_KEY=0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645 \
+          VRF_PLATFORM_ATTESTATION_IMPLEMENTED=1 \
+          IMAGE_TAG=v0.1.0 \
+          EXTERNAL_AUDIT_ID=audit-2026-ci \
+          VRF_ATTESTATION_POLICY_ID=tdx-game-l2-vrf-policy-v1 \
+          ./scripts/trh-production-vrf-gate.sh
+
+      - name: Test VRF packages
+        run: go test ./crypto/ecvrf ./vrf-enclave/enclave ./vrf-enclave/cmd/vrf-prove
+
+      - name: Test op-node TEE prover path
+        working-directory: optimism
+        run: go test ./op-node/rollup/derive -run 'TestTEEVRFProver|TestComputeVRFProofWithRetry'
+
+      - name: Test game randomness consumer
+        working-directory: contracts
+        run: forge test --offline --match-contract TRHGameRandomnessTest
+
+      - name: Build VRF enclave image
+        run: docker build -f vrf-enclave/Dockerfile -t enshrined-vrf/vrf-enclave:ci .

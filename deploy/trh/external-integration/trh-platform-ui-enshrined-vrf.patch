@@ -1,0 +1,374 @@
+diff --git a/src/features/rollup/components/steps/NetworkAndChainStep.tsx b/src/features/rollup/components/steps/NetworkAndChainStep.tsx
+index 0917e19..f2eb145 100644
+--- a/src/features/rollup/components/steps/NetworkAndChainStep.tsx
++++ b/src/features/rollup/components/steps/NetworkAndChainStep.tsx
+@@ -35,6 +35,7 @@ export function NetworkAndChainStep() {
+   const formData = watch();
+   const advancedConfig = watch("networkAndChain.advancedConfig");
+   const selectedNetwork = watch("networkAndChain.network");
++  const enshrinedVrfEnabled = watch("networkAndChain.enshrinedVrf.enabled");
+ 
+   // Get RPC URLs from configuration
+   const { rpcUrls, addRpcUrl } = useRpcUrls();
+@@ -125,6 +126,33 @@ export function NetworkAndChainStep() {
+     await trigger("networkAndChain.challengePeriod" as const);
+   };
+ 
++  const handleEnshrinedVrfChange = async (checked: boolean) => {
++    setValue("networkAndChain.enshrinedVrf.enabled", checked);
++    setValue("networkAndChain.enshrinedVrf.mode", "tee");
++    if (!checked) {
++      setValue("networkAndChain.enshrinedVrf.teeEndpoint", "");
++      setValue("networkAndChain.enshrinedVrf.publicKey", "");
++      setValue("networkAndChain.enshrinedVrf.attestationPolicyId", "");
++      setValue("networkAndChain.enshrinedVrf.vrfEnclaveImageRepository", "");
++      setValue("networkAndChain.enshrinedVrf.vrfEnclaveImageTag", "");
++    }
++    await trigger("networkAndChain.enshrinedVrf" as const);
++  };
++
++  const handleVrfTeeEndpointChange = async (
++    e: React.ChangeEvent<HTMLInputElement>
++  ) => {
++    setValue("networkAndChain.enshrinedVrf.teeEndpoint", e.target.value);
++    await trigger("networkAndChain.enshrinedVrf.teeEndpoint" as const);
++  };
++
++  const handleVrfPublicKeyChange = async (
++    e: React.ChangeEvent<HTMLInputElement>
++  ) => {
++    setValue("networkAndChain.enshrinedVrf.publicKey", e.target.value);
++    await trigger("networkAndChain.enshrinedVrf.publicKey" as const);
++  };
++
+   return (
+     <div className="space-y-6">
+       {/* Header */}
+@@ -298,6 +326,144 @@ export function NetworkAndChainStep() {
+               />
+             </div>
+ 
++            {/* Enshrined VRF Toggle */}
++            <div className="flex items-center space-x-2">
++              <Checkbox
++                id="enshrined-vrf"
++                checked={enshrinedVrfEnabled}
++                onCheckedChange={handleEnshrinedVrfChange}
++              />
++              <Label htmlFor="enshrined-vrf" className="text-sm font-medium">
++                Enable TEE randomness
++              </Label>
++            </div>
++
++            {enshrinedVrfEnabled && (
++              <Card className="bg-slate-50 border-slate-200">
++                <CardHeader className="pb-4">
++                  <div className="flex items-center gap-2">
++                    <Database className="w-4 h-4 text-blue-600" />
++                    <CardTitle className="text-base font-medium">
++                      TEE Randomness
++                    </CardTitle>
++                  </div>
++                </CardHeader>
++                <CardContent className="space-y-4">
++                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
++                    <div>
++                      <Label
++                        htmlFor="vrfTeeEndpoint"
++                        className="text-sm font-medium text-slate-700"
++                      >
++                        TEE Endpoint <span className="text-red-500">*</span>
++                      </Label>
++                      <Input
++                        id="vrfTeeEndpoint"
++                        placeholder="unix:///var/run/vrf-enclave/vrf.sock"
++                        value={
++                          formData.networkAndChain?.enshrinedVrf
++                            ?.teeEndpoint || ""
++                        }
++                        onChange={handleVrfTeeEndpointChange}
++                        className={`mt-1 ${
++                          errors.networkAndChain?.enshrinedVrf?.teeEndpoint
++                            ? "border-red-500"
++                            : ""
++                        }`}
++                      />
++                      {errors.networkAndChain?.enshrinedVrf?.teeEndpoint && (
++                        <p className="text-xs text-red-500 mt-1">
++                          {
++                            errors.networkAndChain.enshrinedVrf.teeEndpoint
++                              .message
++                          }
++                        </p>
++                      )}
++                    </div>
++
++                    <div>
++                      <Label
++                        htmlFor="vrfPublicKey"
++                        className="text-sm font-medium text-slate-700"
++                      >
++                        VRF Public Key <span className="text-red-500">*</span>
++                      </Label>
++                      <Input
++                        id="vrfPublicKey"
++                        placeholder="0x03..."
++                        value={
++                          formData.networkAndChain?.enshrinedVrf?.publicKey ||
++                          ""
++                        }
++                        onChange={handleVrfPublicKeyChange}
++                        className={`mt-1 ${
++                          errors.networkAndChain?.enshrinedVrf?.publicKey
++                            ? "border-red-500"
++                            : ""
++                        }`}
++                      />
++                      {errors.networkAndChain?.enshrinedVrf?.publicKey && (
++                        <p className="text-xs text-red-500 mt-1">
++                          {
++                            errors.networkAndChain.enshrinedVrf.publicKey
++                              .message
++                          }
++                        </p>
++                      )}
++                    </div>
++
++                    <div>
++                      <Label
++                        htmlFor="vrfAttestationPolicy"
++                        className="text-sm font-medium text-slate-700"
++                      >
++                        Attestation Policy
++                      </Label>
++                      <Input
++                        id="vrfAttestationPolicy"
++                        placeholder="tdx-game-l2-vrf-policy-v1"
++                        value={
++                          formData.networkAndChain?.enshrinedVrf
++                            ?.attestationPolicyId || ""
++                        }
++                        onChange={(event) =>
++                          setValue(
++                            "networkAndChain.enshrinedVrf.attestationPolicyId",
++                            event.target.value
++                          )
++                        }
++                        className="mt-1"
++                      />
++                    </div>
++
++                    <div>
++                      <Label
++                        htmlFor="vrfEnclaveImageTag"
++                        className="text-sm font-medium text-slate-700"
++                      >
++                        Enclave Image Tag
++                      </Label>
++                      <Input
++                        id="vrfEnclaveImageTag"
++                        placeholder="v0.1.0"
++                        value={
++                          formData.networkAndChain?.enshrinedVrf
++                            ?.vrfEnclaveImageTag || ""
++                        }
++                        onChange={(event) =>
++                          setValue(
++                            "networkAndChain.enshrinedVrf.vrfEnclaveImageTag",
++                            event.target.value
++                          )
++                        }
++                        className="mt-1"
++                      />
++                    </div>
++                  </div>
++                </CardContent>
++              </Card>
++            )}
++
+             {/* Advanced Configuration Toggle */}
+             <div className="flex items-center space-x-2">
+               <Checkbox
+@@ -547,6 +713,14 @@ export function NetworkAndChainStep() {
+                     : "Not set"}
+                 </span>
+               </div>
++              <div>
++                <span className="font-medium text-slate-700">
++                  TEE Randomness:
++                </span>
++                <span className="ml-2 text-slate-900">
++                  {enshrinedVrfEnabled ? "Enabled" : "Off"}
++                </span>
++              </div>
+               {advancedConfig && (
+                 <>
+                   <div>
+diff --git a/src/features/rollup/context/RollupCreationContext.tsx b/src/features/rollup/context/RollupCreationContext.tsx
+index fe617fc..0f83605 100644
+--- a/src/features/rollup/context/RollupCreationContext.tsx
++++ b/src/features/rollup/context/RollupCreationContext.tsx
+@@ -28,6 +28,15 @@ const defaultFormData: CreateRollupFormData = {
+     batchSubmissionFreq: "1440",
+     outputRootFreq: "240",
+     challengePeriod: "12",
++    enshrinedVrf: {
++      enabled: false,
++      mode: "tee",
++      teeEndpoint: "",
++      publicKey: "",
++      attestationPolicyId: "",
++      vrfEnclaveImageRepository: "",
++      vrfEnclaveImageTag: "",
++    },
+   },
+   accountAndAws: {
+     seedPhrase: Array(12).fill(""),
+diff --git a/src/features/rollup/hooks/useCreateRollup.ts b/src/features/rollup/hooks/useCreateRollup.ts
+index c63f6ca..fb75b2e 100644
+--- a/src/features/rollup/hooks/useCreateRollup.ts
++++ b/src/features/rollup/hooks/useCreateRollup.ts
+@@ -140,12 +140,22 @@ export function useCreateRollup() {
+           "networkAndChain.outputRootFreq",
+           "networkAndChain.challengePeriod",
+         ] as const;
++        const enshrinedVrfFields = [
++          "networkAndChain.enshrinedVrf.teeEndpoint",
++          "networkAndChain.enshrinedVrf.publicKey",
++          "networkAndChain.enshrinedVrf.attestationPolicyId",
++          "networkAndChain.enshrinedVrf.vrfEnclaveImageRepository",
++          "networkAndChain.enshrinedVrf.vrfEnclaveImageTag",
++        ] as const;
+ 
+         isValid = await form.trigger([
+           ...baseFields,
+           ...(form.getValues("networkAndChain.advancedConfig")
+             ? advancedFields
+             : []),
++          ...(form.getValues("networkAndChain.enshrinedVrf.enabled")
++            ? enshrinedVrfFields
++            : []),
+         ]);
+         break;
+       case 2: // Account & AWS step
+diff --git a/src/features/rollup/schemas/create-rollup.ts b/src/features/rollup/schemas/create-rollup.ts
+index d6f6d83..cca547c 100644
+--- a/src/features/rollup/schemas/create-rollup.ts
++++ b/src/features/rollup/schemas/create-rollup.ts
+@@ -1,5 +1,48 @@
+ import { z } from "zod";
+ 
++const compressedVrfPublicKeyRegex = /^0x(02|03)[0-9a-fA-F]{64}$/;
++
++const enshrinedVrfFormSchema = z
++  .object({
++    enabled: z.boolean(),
++    mode: z.literal("tee"),
++    teeEndpoint: z.string().optional(),
++    publicKey: z.string().optional(),
++    attestationPolicyId: z.string().optional(),
++    vrfEnclaveImageRepository: z.string().optional(),
++    vrfEnclaveImageTag: z.string().optional(),
++  })
++  .refine((data) => !data.enabled || !!data.teeEndpoint, {
++    message: "TEE endpoint is required when TEE randomness is enabled",
++    path: ["teeEndpoint"],
++  })
++  .refine(
++    (data) =>
++      !data.enabled ||
++      (!!data.publicKey && compressedVrfPublicKeyRegex.test(data.publicKey)),
++    {
++      message: "Public key must be a 33-byte compressed SEC1 key",
++      path: ["publicKey"],
++    }
++  );
++
++const enshrinedVrfDeploymentSchema = z
++  .object({
++    enabled: z.boolean(),
++    mode: z.literal("tee"),
++    teeEndpoint: z.string(),
++    publicKey: z.string().regex(compressedVrfPublicKeyRegex),
++    enshrinedVrfTime: z.number().int().nonnegative(),
++    l2GenesisEnshrainedVRFTimeOffset: z.string(),
++    predeploy: z.string(),
++    verifyPrecompile: z.string(),
++    setL1VrfPublicKey: z.boolean(),
++    attestationPolicyId: z.string().optional(),
++    vrfEnclaveImageRepository: z.string().optional(),
++    vrfEnclaveImageTag: z.string().optional(),
++  })
++  .optional();
++
+ // Network & Chain Schema
+ export const networkAndChainSchema = z
+   .object({
+@@ -25,6 +68,7 @@ export const networkAndChainSchema = z
+     batchSubmissionFreq: z.string().optional(),
+     outputRootFreq: z.string().optional(),
+     challengePeriod: z.string().optional(),
++    enshrinedVrf: enshrinedVrfFormSchema.optional(),
+   })
+   .refine(
+     (data) => {
+@@ -173,6 +217,7 @@ export const rollupDeploymentSchema = z.object({
+   awsRegion: z.string(),
+   chainName: z.string(),
+   registerCandidate: z.boolean(),
++  enshrinedVrf: enshrinedVrfDeploymentSchema,
+   registerCandidateParams: z
+     .object({
+       amount: z.number().min(1000.1),
+@@ -218,6 +263,26 @@ export const convertFormToDeploymentRequest = (
+     awsSecretAccessKey: accountAndAws.awsSecretKey,
+     awsRegion: accountAndAws.awsRegion,
+     chainName: networkAndChain.chainName,
++    enshrinedVrf: networkAndChain.enshrinedVrf?.enabled
++      ? {
++          enabled: true,
++          mode: "tee",
++          teeEndpoint: networkAndChain.enshrinedVrf.teeEndpoint || "",
++          publicKey: networkAndChain.enshrinedVrf.publicKey || "",
++          enshrinedVrfTime: 0,
++          l2GenesisEnshrainedVRFTimeOffset: "0x0",
++          predeploy: "0x42000000000000000000000000000000000000f0",
++          verifyPrecompile: "0x0000000000000000000000000000000000000101",
++          setL1VrfPublicKey: true,
++          attestationPolicyId:
++            networkAndChain.enshrinedVrf.attestationPolicyId || undefined,
++          vrfEnclaveImageRepository:
++            networkAndChain.enshrinedVrf.vrfEnclaveImageRepository ||
++            undefined,
++          vrfEnclaveImageTag:
++            networkAndChain.enshrinedVrf.vrfEnclaveImageTag || undefined,
++        }
++      : undefined,
+     registerCandidate: !!daoCandidate,
+     registerCandidateParams: daoCandidate
+       ? {
+diff --git a/src/features/rollup/schemas/thanos.ts b/src/features/rollup/schemas/thanos.ts
+index 8b4f5c8..173691f 100644
+--- a/src/features/rollup/schemas/thanos.ts
++++ b/src/features/rollup/schemas/thanos.ts
+@@ -55,6 +55,20 @@ export interface ThanosStackConfig {
+   awsSecretAccessKey: string;
+   outputRootFrequency: number;
+   batchSubmissionFrequency: number;
++  enshrinedVrf?: {
++    enabled: boolean;
++    mode: "tee";
++    teeEndpoint: string;
++    publicKey: string;
++    enshrinedVrfTime: number;
++    l2GenesisEnshrainedVRFTimeOffset: string;
++    predeploy: string;
++    verifyPrecompile: string;
++    setL1VrfPublicKey: boolean;
++    attestationPolicyId?: string;
++    vrfEnclaveImageRepository?: string;
++    vrfEnclaveImageTag?: string;
++  };
+ }
+ 
+ export interface ThanosStack {

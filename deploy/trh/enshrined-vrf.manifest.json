@@ -1,0 +1,170 @@
+{
+  "schemaVersion": "enshrined-vrf.trh.v1",
+  "feature": {
+    "id": "enshrined-vrf",
+    "displayName": "Enshrained VRF",
+    "targetUseCase": "TEE-backed synchronous randomness for game L2 chains",
+    "stackCompatibility": ["thanos"],
+    "productionMode": "tee"
+  },
+  "fork": {
+    "name": "EnshrainedVRF",
+    "rollupConfigField": "enshrined_vrf_time",
+    "opGethChainConfigField": "enshrinedVRFTime",
+    "opDeployerOverride": "l2GenesisEnshrainedVRFTimeOffset",
+    "defaultGenesisOffset": "0x0"
+  },
+  "contracts": {
+    "l1SystemConfigMethods": [
+      "setVRFPublicKey(bytes)",
+      "vrfPublicKey()(bytes)"
+    ],
+    "l2Predeploy": {
+      "name": "EnshrainedVRF",
+      "address": "0x42000000000000000000000000000000000000f0",
+      "consumerMethod": "getRandomness()(uint256)",
+      "publicKeyMethod": "sequencerPublicKey()(bytes)",
+      "commitNonceMethod": "commitNonce()(uint256)"
+    },
+    "verifyPrecompile": {
+      "address": "0x0000000000000000000000000000000000000101",
+      "inputLayout": "pk(33) || seed(32) || beta(32) || pi(81)"
+    }
+  },
+  "sdkSettings": {
+    "schema": "./deploy/trh/settings.schema.json",
+    "example": "./deploy/trh/settings.example.json",
+    "renderer": "./scripts/trh-render-vrf-settings.sh",
+    "validator": "./scripts/trh-validate-vrf-settings.sh",
+    "required": [
+      "enable_enshrined_vrf",
+      "vrf_mode",
+      "vrf_tee_endpoint",
+      "vrf_public_key",
+      "enshrined_vrf_time"
+    ],
+    "forbiddenInProduction": {
+      "vrf_mode": "local"
+    },
+    "recommendedDefaults": {
+      "enable_enshrined_vrf": true,
+      "vrf_mode": "tee",
+      "enshrined_vrf_time": 0,
+      "set_l1_vrf_public_key": true
+    }
+  },
+  "sequencer": {
+    "opNodeArgs": [
+      "--sequencer.vrf-mode=tee",
+      "--sequencer.vrf-tee-endpoint=${VRF_TEE_ENDPOINT}"
+    ],
+    "publicKeySource": "VRF enclave GetPublicKey RPC or pre-verified VRF_PUBLIC_KEY",
+    "l1Registration": "SystemConfig.setVRFPublicKey(bytes)"
+  },
+  "enclave": {
+    "binary": "vrf-enclave",
+    "dockerfile": "vrf-enclave/Dockerfile",
+    "defaultImage": "tokamaknetwork/vrf-enclave:dev",
+    "buildCommand": "./scripts/trh-build-vrf-enclave-image.sh",
+    "kubernetesSidecarExample": "./deploy/trh/kubernetes-vrf-sidecar.example.yaml",
+    "kubernetesSidecarValidator": "./scripts/trh-validate-k8s-vrf-sidecar.sh",
+    "recommendedEndpoint": "unix:///var/run/vrf-enclave/vrf.sock",
+    "sealedKeyStorage": {
+      "required": true,
+      "mountPath": "/secure/sealed",
+      "productionRequirement": "derive seal key from platform identity or mount a protected seal key file"
+    },
+    "attestation": {
+      "currentDevModes": ["none", "dev"],
+      "productionRequired": ["sgx", "tdx", "sev-snp"],
+      "policyExample": "./deploy/trh/attestation-policy.example.json",
+      "policySchema": "./deploy/trh/attestation-policy.schema.json",
+      "policyValidator": "./scripts/trh-validate-attestation-policy.sh",
+      "preflightCommand": "./scripts/trh-attest-vrf-enclave.sh",
+      "implementationGate": "VRF_PLATFORM_ATTESTATION_IMPLEMENTED=1"
+    }
+  },
+  "metadata": {
+    "example": "./deploy/trh/metadata.example.json",
+    "renderer": "./scripts/trh-render-vrf-metadata.sh",
+    "validator": "./scripts/trh-validate-vrf-metadata.sh",
+    "recommendedFields": [
+      "features.enshrinedVrf",
+      "vrfPredeploy",
+      "vrfVerifyPrecompile",
+      "vrfPublicKey"
+    ]
+  },
+  "audit": {
+    "completionAudit": "./docs/trh-tee-game-l2-completion-audit.md"
+  },
+  "externalIntegration": {
+    "readme": "./deploy/trh/external-integration/README.md",
+    "trhSdkPatch": "./deploy/trh/external-integration/trh-sdk-enshrined-vrf.patch",
+    "trhBackendPatch": "./deploy/trh/external-integration/trh-backend-enshrined-vrf.patch",
+    "trhPlatformUiPatch": "./deploy/trh/external-integration/trh-platform-ui-enshrined-vrf.patch",
+    "tokamakThanosStackChartContract": "./deploy/trh/external-integration/tokamak-thanos-stack-chart-contract.md",
+    "trhBackend": "../trh-backend",
+    "trhPlatformUi": "../trh-platform-ui",
+    "patchChecker": "./scripts/trh-check-external-patches.sh",
+    "patchApplier": "./scripts/trh-apply-external-patches.sh",
+    "patchCompileVerifier": "./scripts/trh-verify-external-patches-compile.sh",
+    "thanosStackChartValidator": "./scripts/trh-validate-thanos-stack-chart.sh",
+    "checker": "./scripts/trh-check-external-integration.sh"
+  },
+  "readinessGates": [
+    "VRF_MODE=tee",
+    "VRF_TEE_ENDPOINT or VRF_PUBLIC_KEY is set",
+    "SystemConfig.vrfPublicKey() is 33 bytes",
+    "L2 EnshrainedVRF.sequencerPublicKey() matches L1",
+    "L2 EnshrainedVRF.commitNonce() advances",
+    "CoinFlip or game consumer transaction can call getRandomness()",
+    "0x0101 verifies a committed tuple",
+    "production attestation mode is enabled before public mainnet"
+  ],
+  "verificationCommands": [
+    "./scripts/trh-production-vrf-gate.sh",
+    "./scripts/trh-attest-vrf-enclave.sh",
+    "./scripts/trh-validate-attestation-policy.sh",
+    "./scripts/trh-tee-readiness.sh",
+    "./scripts/trh-validate-k8s-vrf-sidecar.sh",
+    "./scripts/trh-validate-vrf-metadata.sh",
+    "./scripts/trh-validate-vrf-settings.sh",
+    "./scripts/trh-check-external-patches.sh",
+    "./scripts/trh-apply-external-patches.sh",
+    "./scripts/trh-verify-external-patches-compile.sh",
+    "./scripts/trh-validate-thanos-stack-chart.sh",
+    "./scripts/test-trh-validate-thanos-stack-chart.sh",
+    "./scripts/trh-verify-vrf-chain.sh",
+    "./scripts/trh-verify-vrf-proof.sh"
+  ],
+  "monitoring": {
+    "metricsCommand": "./scripts/trh-export-vrf-metrics.sh",
+    "prometheusRules": "./deploy/trh/prometheus-rules.example.yaml",
+    "metrics": [
+      "enshrined_vrf_predeploy_code_present",
+      "enshrined_vrf_commit_nonce",
+      "enshrined_vrf_l2_public_key_set",
+      "enshrined_vrf_public_key_match",
+      "enshrined_vrf_randomness_call_ok",
+      "enshrined_vrf_proof_verify_ok"
+    ]
+  },
+  "operationsCommands": [
+    "./scripts/trh-build-vrf-enclave-image.sh",
+    "./scripts/trh-attest-vrf-enclave.sh",
+    "./scripts/trh-validate-attestation-policy.sh",
+    "./scripts/trh-production-vrf-gate.sh",
+    "./scripts/trh-validate-k8s-vrf-sidecar.sh",
+    "./scripts/trh-render-vrf-metadata.sh",
+    "./scripts/trh-validate-vrf-metadata.sh",
+    "./scripts/trh-render-vrf-settings.sh",
+    "./scripts/trh-validate-vrf-settings.sh",
+    "./scripts/trh-check-external-patches.sh",
+    "./scripts/trh-apply-external-patches.sh",
+    "./scripts/trh-verify-external-patches-compile.sh",
+    "./scripts/trh-validate-thanos-stack-chart.sh",
+    "./scripts/test-trh-validate-thanos-stack-chart.sh",
+    "./scripts/trh-export-vrf-metrics.sh"
+  ]
+}

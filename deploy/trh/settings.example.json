@@ -1,0 +1,16 @@
+{
+  "stack": "thanos",
+  "features": {
+    "enshrinedVrf": true
+  },
+  "enshrinedVrf": {
+    "mode": "tee",
+    "teeEndpoint": "unix:///var/run/vrf-enclave/vrf.sock",
+    "publicKey": "0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645",
+    "enshrinedVrfTime": 0,
+    "l2GenesisEnshrainedVRFTimeOffset": "0x0",
+    "predeploy": "0x42000000000000000000000000000000000000f0",
+    "verifyPrecompile": "0x0000000000000000000000000000000000000101",
+    "setL1VRFPublicKey": true
+  }
+}

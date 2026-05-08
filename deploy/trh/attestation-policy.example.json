@@ -1,0 +1,22 @@
+{
+  "policyId": "tdx-game-l2-vrf-policy-v1",
+  "mode": "tdx",
+  "status": "example-only",
+  "publicKeyBinding": {
+    "field": "public_key",
+    "encoding": "compressed-sec1",
+    "lengthBytes": 33
+  },
+  "requiredClaims": {
+    "mrSignerOrEquivalent": "0x...",
+    "mrEnclaveOrEquivalent": "0x...",
+    "reportDataIncludesPublicKey": true,
+    "debugDisabled": true
+  },
+  "releaseRequirements": [
+    "platform quote verifier implemented",
+    "quote verifier audited",
+    "sealed key derives from platform identity",
+    "VRF public key in SystemConfig matches attested enclave key"
+  ]
+}

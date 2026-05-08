@@ -1,0 +1,68 @@
+# Reference overlay for adding Enshrined VRF to a TRH/Thanos sequencer chart.
+# Treat key names as an integration contract for the TRH chart implementation.
+
+enshrinedVrf:
+  enabled: true
+  mode: tee
+  teeEndpoint: unix:///var/run/vrf-enclave/vrf.sock
+  publicKey: "" # optional 33-byte compressed SEC1 key after platform attestation
+  predeploy: "0x42000000000000000000000000000000000000f0"
+  verifyPrecompile: "0x0000000000000000000000000000000000000101"
+  fork:
+    enshrinedVrfTime: 0
+    l2GenesisEnshrainedVRFTimeOffset: "0x0"
+
+opNode:
+  extraArgs:
+    - --sequencer.vrf-mode=tee
+    - --sequencer.vrf-tee-endpoint=unix:///var/run/vrf-enclave/vrf.sock
+  extraVolumeMounts:
+    - name: vrf-enclave-socket
+      mountPath: /var/run/vrf-enclave
+
+vrfEnclave:
+  enabled: true
+  image:
+    repository: tokamaknetwork/vrf-enclave
+    tag: "dev"
+    pullPolicy: IfNotPresent
+  imageBuild:
+    dockerfile: vrf-enclave/Dockerfile
+    command: ./scripts/trh-build-vrf-enclave-image.sh
+  args:
+    - --listen
+    - unix:///var/run/vrf-enclave/vrf.sock
+    - --seal-dir
+    - /secure/sealed
+    - --seal-key-file
+    - /secure/seal-key/key.hex
+    - --attestation
+    - dev
+  env: []
+  ports: []
+  volumeMounts:
+    - name: vrf-enclave-socket
+      mountPath: /var/run/vrf-enclave
+    - name: vrf-enclave-sealed
+      mountPath: /secure/sealed
+    - name: vrf-enclave-seal-key
+      mountPath: /secure/seal-key
+      readOnly: true
+  volumes:
+    - name: vrf-enclave-socket
+      emptyDir: {}
+    - name: vrf-enclave-sealed
+      persistentVolumeClaim:
+        claimName: vrf-enclave-sealed
+    - name: vrf-enclave-seal-key
+      secret:
+        secretName: vrf-enclave-seal-key
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+
+readiness:
+  commands:
+    - ./scripts/trh-tee-readiness.sh
+    - ./scripts/devnet-sepolia-verify-random.sh

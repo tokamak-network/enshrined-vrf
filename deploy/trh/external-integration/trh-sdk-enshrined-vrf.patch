@@ -1,0 +1,233 @@
+diff --git a/pkg/stacks/thanos/deploy_chain.go b/pkg/stacks/thanos/deploy_chain.go
+index c015d55..c5f7c40 100644
+--- a/pkg/stacks/thanos/deploy_chain.go
++++ b/pkg/stacks/thanos/deploy_chain.go
+@@ -316,6 +316,11 @@ func (t *ThanosStack) deployNetworkToAWS(ctx context.Context, inputs *DeployInfr
+ 	helmReleaseName := fmt.Sprintf("%s-%d", namespace, time.Now().Unix())
+ 	chartFile := fmt.Sprintf("%s/tokamak-thanos-stack/charts/thanos-stack", t.deploymentPath)
+ 	valueFile := fmt.Sprintf("%s/tokamak-thanos-stack/terraform/thanos-stack/thanos-stack-values.yaml", t.deploymentPath)
++	if t.deployConfig.EnshrinedVrf != nil && t.deployConfig.EnshrinedVrf.Enabled {
++		if err := t.applyEnshrinedVrfValues(valueFile); err != nil {
++			return err
++		}
++	}
+ 
+ 	// Install the PVC first
+ 	err = utils.UpdateYAMLField(valueFile, "enable_vpc", true)
+diff --git a/pkg/stacks/thanos/deploy_contracts.go b/pkg/stacks/thanos/deploy_contracts.go
+index ddd5c87..cc7e6b0 100644
+--- a/pkg/stacks/thanos/deploy_contracts.go
++++ b/pkg/stacks/thanos/deploy_contracts.go
+@@ -237,6 +237,7 @@ func (t *ThanosStack) DeployContracts(ctx context.Context, deployContractsConfig
+ 		t.deployConfig.L1RPCURL = deployContractsConfig.L1RPCurl
+ 		t.deployConfig.EnableFraudProof = false
+ 		t.deployConfig.ChainConfiguration = deployContractsConfig.ChainConfiguration
++		t.deployConfig.EnshrinedVrf = deployContractsConfig.EnshrinedVrf
+ 
+ 		deployConfigFilePath := fmt.Sprintf("%s/tokamak-thanos/packages/tokamak/contracts-bedrock/scripts/deploy-config.json", t.deploymentPath)
+ 
+diff --git a/pkg/stacks/thanos/enshrined_vrf.go b/pkg/stacks/thanos/enshrined_vrf.go
+new file mode 100644
+index 0000000..50a7f2c
+--- /dev/null
++++ b/pkg/stacks/thanos/enshrined_vrf.go
+@@ -0,0 +1,44 @@
++package thanos
++
++import (
++	"fmt"
++
++	"github.com/tokamak-network/trh-sdk/pkg/utils"
++)
++
++func (t *ThanosStack) applyEnshrinedVrfValues(valueFile string) error {
++	cfg := t.deployConfig.EnshrinedVrf
++	if cfg == nil || !cfg.Enabled {
++		return nil
++	}
++	if err := cfg.Validate(); err != nil {
++		return err
++	}
++	updates := map[string]interface{}{
++		"enshrinedVrf.enabled":                               true,
++		"enshrinedVrf.mode":                                  cfg.Mode,
++		"enshrinedVrf.teeEndpoint":                           cfg.TeeEndpoint,
++		"enshrinedVrf.publicKey":                             cfg.PublicKey,
++		"enshrinedVrf.predeploy":                             cfg.Predeploy,
++		"enshrinedVrf.verifyPrecompile":                      cfg.VerifyPrecompile,
++		"enshrinedVrf.fork.enshrinedVrfTime":                 cfg.EnshrinedVrfTime,
++		"enshrinedVrf.fork.l2GenesisEnshrainedVRFTimeOffset": cfg.L2GenesisEnshrainedVRFTimeOffset,
++		"opNode.extraArgs": []string{
++			"--sequencer.vrf-mode=tee",
++			fmt.Sprintf("--sequencer.vrf-tee-endpoint=%s", cfg.TeeEndpoint),
++		},
++		"vrfEnclave.enabled": true,
++	}
++	if cfg.VRFEnclaveImageRepository != "" {
++		updates["vrfEnclave.image.repository"] = cfg.VRFEnclaveImageRepository
++	}
++	if cfg.VRFEnclaveImageTag != "" {
++		updates["vrfEnclave.image.tag"] = cfg.VRFEnclaveImageTag
++	}
++	for path, value := range updates {
++		if err := utils.UpdateYAMLField(valueFile, path, value); err != nil {
++			return fmt.Errorf("update %s: %w", path, err)
++		}
++	}
++	return nil
++}
+diff --git a/pkg/stacks/thanos/input.go b/pkg/stacks/thanos/input.go
+index 679ef3d..3825013 100644
+--- a/pkg/stacks/thanos/input.go
++++ b/pkg/stacks/thanos/input.go
+@@ -37,6 +37,7 @@ type DeployContractsInput struct {
+ 	ChainConfiguration *types.ChainConfiguration
+ 	Operators          *types.Operators
+ 	RegisterCandidate  *RegisterCandidateInput
++	EnshrinedVrf       *types.EnshrinedVrfConfig
+ }
+ 
+ func (c *DeployContractsInput) Validate(ctx context.Context, registerCandidate bool) error {
+@@ -65,6 +66,9 @@ func (c *DeployContractsInput) Validate(ctx context.Context, registerCandidate b
+ 	if err := c.ChainConfiguration.Validate(l1ChainId.Uint64()); err != nil {
+ 		return fmt.Errorf("chain configuration is invalid: %w", err)
+ 	}
++	if err := c.EnshrinedVrf.Validate(); err != nil {
++		return fmt.Errorf("enshrined VRF configuration is invalid: %w", err)
++	}
+ 
+ 	if registerCandidate {
+ 		if c.RegisterCandidate == nil {
+@@ -405,10 +409,31 @@ func InputDeployContracts(ctx context.Context) (*DeployContractsInput, error) {
+ 			ChallengePeriod:          challengePeriod,
+ 			OutputRootFrequency:      outputFrequency,
+ 		},
+-		Operators: operators,
++		Operators:    operators,
++		EnshrinedVrf: inputEnshrinedVrfFromEnv(),
+ 	}, nil
+ }
+ 
++func inputEnshrinedVrfFromEnv() *types.EnshrinedVrfConfig {
++	if os.Getenv("TRH_ENABLE_ENSHRAINED_VRF") != "1" {
++		return nil
++	}
++	return &types.EnshrinedVrfConfig{
++		Enabled:                          true,
++		Mode:                             "tee",
++		TeeEndpoint:                      os.Getenv("VRF_TEE_ENDPOINT"),
++		PublicKey:                        os.Getenv("VRF_PUBLIC_KEY"),
++		EnshrinedVrfTime:                 0,
++		L2GenesisEnshrainedVRFTimeOffset: "0x0",
++		Predeploy:                        "0x42000000000000000000000000000000000000f0",
++		VerifyPrecompile:                 "0x0000000000000000000000000000000000000101",
++		SetL1VRFPublicKey:                true,
++		AttestationPolicyID:              os.Getenv("VRF_ATTESTATION_POLICY_ID"),
++		VRFEnclaveImageRepository:        os.Getenv("VRF_ENCLAVE_IMAGE_REPOSITORY"),
++		VRFEnclaveImageTag:               os.Getenv("VRF_ENCLAVE_IMAGE_TAG"),
++	}
++}
++
+ func inputL1RPC(ctx context.Context) (l1RPCUrl string, l1RRCKind string, l1ChainID uint64, err error) {
+ 	for {
+ 		fmt.Print("Please enter your L1 RPC URL: ")
+@@ -1450,6 +1475,9 @@ func initDeployConfigTemplate(deployConfigInputs *DeployContractsInput, l1ChainI
+ 		L2OutputOracleChallenger:                 "0x0000000000000000000000000000000000000001",
+ 		ReuseDeployment:                          true,
+ 	}
++	if deployConfigInputs.EnshrinedVrf != nil && deployConfigInputs.EnshrinedVrf.Enabled {
++		defaultTemplate.L2GenesisEnshrainedVRFTimeOffset = deployConfigInputs.EnshrinedVrf.L2GenesisEnshrainedVRFTimeOffset
++	}
+ 
+ 	return defaultTemplate
+ 
+diff --git a/pkg/types/configuration.go b/pkg/types/configuration.go
+index 2148cb5..8dcb666 100644
+--- a/pkg/types/configuration.go
++++ b/pkg/types/configuration.go
+@@ -5,6 +5,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"os"
++	"regexp"
+ 
+ 	"github.com/tokamak-network/trh-sdk/pkg/constants"
+ )
+@@ -118,9 +119,10 @@ type Config struct {
+ 	L1ChainID          uint64 `json:"l1_chain_id"`
+ 	L2ChainID          uint64 `json:"l2_chain_id"`
+ 
+-	Stack            string `json:"stack"`
+-	Network          string `json:"network"`
+-	EnableFraudProof bool   `json:"enable_fraud_proof"`
++	Stack            string              `json:"stack"`
++	Network          string              `json:"network"`
++	EnableFraudProof bool                `json:"enable_fraud_proof"`
++	EnshrinedVrf     *EnshrinedVrfConfig `json:"enshrined_vrf,omitempty"`
+ 
+ 	TxmgrCellProofTime        uint64 `json:"txmgr_cell_proof_time"`
+ 	NextPublicRollupL1BaseUrl string `json:"next_public_rollup_l1_base_url"`
+@@ -151,6 +153,51 @@ type Config struct {
+ 	MetadataPRLink string `json:"metadata_pr_link,omitempty"`
+ }
+ 
++type EnshrinedVrfConfig struct {
++	Enabled                          bool   `json:"enabled"`
++	Mode                             string `json:"mode"`
++	TeeEndpoint                      string `json:"tee_endpoint"`
++	PublicKey                        string `json:"public_key"`
++	EnshrinedVrfTime                 uint64 `json:"enshrined_vrf_time"`
++	L2GenesisEnshrainedVRFTimeOffset string `json:"l2GenesisEnshrainedVRFTimeOffset"`
++	Predeploy                        string `json:"predeploy"`
++	VerifyPrecompile                 string `json:"verify_precompile"`
++	SetL1VRFPublicKey                bool   `json:"set_l1_vrf_public_key"`
++	AttestationPolicyID              string `json:"attestation_policy_id,omitempty"`
++	VRFEnclaveImageRepository        string `json:"vrf_enclave_image_repository,omitempty"`
++	VRFEnclaveImageTag               string `json:"vrf_enclave_image_tag,omitempty"`
++}
++
++var enshrinedVrfPublicKeyRe = regexp.MustCompile(`^0x(02|03)[0-9a-fA-F]{64}$`)
++
++func (c *EnshrinedVrfConfig) Validate() error {
++	if c == nil || !c.Enabled {
++		return nil
++	}
++	if c.Mode != "tee" {
++		return fmt.Errorf("enshrined_vrf.mode must be tee")
++	}
++	if c.TeeEndpoint == "" {
++		return fmt.Errorf("enshrined_vrf.tee_endpoint is required")
++	}
++	if !enshrinedVrfPublicKeyRe.MatchString(c.PublicKey) {
++		return fmt.Errorf("enshrined_vrf.public_key must be a 33-byte compressed SEC1 key")
++	}
++	if c.L2GenesisEnshrainedVRFTimeOffset == "" {
++		c.L2GenesisEnshrainedVRFTimeOffset = "0x0"
++	}
++	if c.Predeploy == "" {
++		c.Predeploy = "0x42000000000000000000000000000000000000f0"
++	}
++	if c.VerifyPrecompile == "" {
++		c.VerifyPrecompile = "0x0000000000000000000000000000000000000101"
++	}
++	if !c.SetL1VRFPublicKey {
++		return fmt.Errorf("enshrined_vrf.set_l1_vrf_public_key must be true")
++	}
++	return nil
++}
++
+ type LoggingConfig struct {
+ 	Enabled             bool `json:"enabled"`
+ 	CloudWatchRetention int  `json:"cloudwatch_retention,omitempty"` // CloudWatch log retention period (days)
+diff --git a/pkg/types/deploy_config_template.go b/pkg/types/deploy_config_template.go
+index 3a93ebf..e1929a1 100644
+--- a/pkg/types/deploy_config_template.go
++++ b/pkg/types/deploy_config_template.go
+@@ -49,6 +49,7 @@ type DeployConfigTemplate struct {
+ 	L2GenesisDeltaTimeOffset                 string   `json:"l2GenesisDeltaTimeOffset"`
+ 	L2GenesisEcotoneTimeOffset               string   `json:"l2GenesisEcotoneTimeOffset"`
+ 	L2GenesisFjordTimeOffset                 string   `json:"l2GenesisFjordTimeOffset,omitempty"`
++	L2GenesisEnshrainedVRFTimeOffset         string   `json:"l2GenesisEnshrainedVRFTimeOffset,omitempty"`
+ 	SystemConfigStartBlock                   uint64   `json:"systemConfigStartBlock"`
+ 	RequiredProtocolVersion                  string   `json:"requiredProtocolVersion"`
+ 	RecommendedProtocolVersion               string   `json:"recommendedProtocolVersion"`

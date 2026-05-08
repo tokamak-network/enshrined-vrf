@@ -1,0 +1,19 @@
+{
+  "name": "example-game-l2",
+  "stack": "thanos",
+  "chainId": 901005,
+  "features": {
+    "enshrinedVrf": true
+  },
+  "enshrinedVrf": {
+    "mode": "tee",
+    "vrfPredeploy": "0x42000000000000000000000000000000000000f0",
+    "vrfVerifyPrecompile": "0x0000000000000000000000000000000000000101",
+    "vrfPublicKey": "0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645",
+    "systemConfigPublicKeySource": "SystemConfig.vrfPublicKey()(bytes)",
+    "sequencerPublicKeySource": "EnshrainedVRF.sequencerPublicKey()(bytes)",
+    "readinessCommand": "./scripts/trh-verify-vrf-chain.sh",
+    "proofVerificationCommand": "./scripts/trh-verify-vrf-proof.sh",
+    "monitoringCommand": "./scripts/trh-export-vrf-metrics.sh"
+  }
+}
