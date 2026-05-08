@@ -1,0 +1,15 @@
+*
+!go.mod
+!go.sum
+!crypto/**
+!vrf-enclave/**
+
+.git
+.devnet
+bin
+cache
+out
+sealed
+vrf-enclave/sealed
+vrf-enclave/vrf-enclave
+vrf-enclave/vrf-prove
