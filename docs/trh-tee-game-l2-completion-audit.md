@@ -40,6 +40,7 @@ enabled as TEE-backed Enshrined VRF.
 ## Verified Commands
 
 ```bash
+./scripts/trh-local-readiness.sh
 ./scripts/trh-check-external-patches.sh
 ./scripts/trh-verify-external-patches-compile.sh
 ./scripts/trh-validate-thanos-stack-chart.sh /path/to/tokamak-thanos-stack/charts/thanos-stack

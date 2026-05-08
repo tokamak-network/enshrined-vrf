@@ -65,8 +65,10 @@ jobs:
             scripts/trh-render-vrf-metadata.sh
             scripts/trh-render-vrf-settings.sh
             scripts/trh-tee-readiness.sh
+            scripts/trh-local-readiness.sh
             scripts/trh-validate-attestation-policy.sh
             scripts/trh-validate-k8s-vrf-sidecar.sh
+            scripts/trh-validate-vrf-metadata.sh
             scripts/trh-validate-vrf-settings.sh
             scripts/trh-apply-external-patches.sh
             scripts/trh-check-external-patches.sh

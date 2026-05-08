@@ -267,6 +267,17 @@ For static checks only, without requiring a running enclave:
 REQUIRE_TEE=0 ./scripts/trh-tee-readiness.sh
 ```
 
+To run the full local readiness bundle without live TEE or Docker image build:
+
+```bash
+./scripts/trh-local-readiness.sh
+```
+
+Set `RUN_EXTERNAL_PATCH_COMPILE=0` to skip temporary compile checks against
+local `../trh-sdk`, `../trh-backend`, and `../trh-platform-ui` checkouts. Set
+`RUN_DOCKER_BUILD=1` when Docker is available and the enclave image build
+should be included.
+
 Render a TRH settings fragment after attesting or otherwise confirming the enclave public key:
 
 ```bash
