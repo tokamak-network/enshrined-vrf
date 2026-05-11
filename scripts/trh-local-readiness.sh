@@ -24,6 +24,8 @@ scripts=(
   scripts/devnet-sepolia-verify-random.sh
   scripts/trh-attest-vrf-enclave.sh
   scripts/trh-build-vrf-enclave-image.sh
+  scripts/trh-build-vrf-enclave-eif.sh
+  scripts/trh-verify-nitro-attestation.sh
   scripts/trh-export-vrf-metrics.sh
   scripts/trh-production-vrf-gate.sh
   scripts/trh-render-vrf-metadata.sh
@@ -58,6 +60,7 @@ run "$ROOT/scripts/trh-validate-vrf-settings.sh" "$ROOT/deploy/trh/settings.exam
 run "$ROOT/scripts/trh-validate-vrf-metadata.sh" "$ROOT/deploy/trh/metadata.example.json"
 run "$ROOT/scripts/trh-validate-attestation-policy.sh" "$ROOT/deploy/trh/attestation-policy.example.json"
 run "$ROOT/scripts/trh-validate-k8s-vrf-sidecar.sh" "$ROOT/deploy/trh/kubernetes-vrf-sidecar.example.yaml"
+run "$ROOT/scripts/trh-validate-k8s-vrf-sidecar.sh" "$ROOT/deploy/trh/kubernetes-vrf-sidecar-nitro.example.yaml"
 run "$ROOT/scripts/test-trh-render-vrf-settings.sh"
 run "$ROOT/scripts/test-trh-attestation-policy.sh"
 run "$ROOT/scripts/test-trh-export-vrf-metrics.sh"
@@ -66,14 +69,51 @@ run "$ROOT/scripts/test-trh-validate-thanos-stack-chart.sh"
 log "Production gate guard"
 run env \
   VRF_MODE=tee \
-  VRF_ATTESTATION_MODE=tdx \
-  VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
+  VRF_ATTESTATION_MODE=nitro \
+  VRF_TEE_ENDPOINT=vsock://16:5000 \
   VRF_PUBLIC_KEY=0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645 \
   VRF_PLATFORM_ATTESTATION_IMPLEMENTED=1 \
   IMAGE_TAG=v0.1.0 \
   EXTERNAL_AUDIT_ID=audit-2026-ci \
-  VRF_ATTESTATION_POLICY_ID=tdx-game-l2-vrf-policy-v1 \
+  VRF_ATTESTATION_POLICY_ID=nitro-game-l2-vrf-policy-v1 \
   "$ROOT/scripts/trh-production-vrf-gate.sh"
+
+log "Nitro-mock attestation roundtrip"
+nitro_seal_dir="$(mktemp -d "${TMPDIR:-/tmp}/trh-nitro-mock.XXXXXX")"
+nitro_log="$(mktemp "${TMPDIR:-/tmp}/trh-nitro-mock.log.XXXXXX")"
+nitro_port="${NITRO_MOCK_PORT:-50461}"
+trap 'kill ${NITRO_ENCLAVE_PID:-} 2>/dev/null || true; rm -rf "$nitro_seal_dir" "$nitro_log"' EXIT
+
+(cd "$ROOT" && GOCACHE="$GOCACHE" go build -o "$ROOT/bin/vrf-enclave" ./vrf-enclave/cmd/vrf-enclave)
+(cd "$ROOT" && GOCACHE="$GOCACHE" go build -o "$ROOT/bin/vrf-prove" ./vrf-enclave/cmd/vrf-prove)
+
+"$ROOT/bin/vrf-enclave" \
+  --listen "localhost:$nitro_port" \
+  --seal-dir "$nitro_seal_dir" \
+  --dev-seal \
+  --attestation nitro-mock \
+  >"$nitro_log" 2>&1 &
+NITRO_ENCLAVE_PID=$!
+# wait briefly for the listener to come up
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if grep -q "VRF enclave server listening" "$nitro_log"; then break; fi
+  sleep 0.2
+done
+
+echo "+ trh-attest-vrf-enclave.sh (nitro-mock @ localhost:$nitro_port)"
+ENV_FILE=/dev/null \
+VRF_TEE_ENDPOINT="localhost:$nitro_port" \
+VRF_ATTESTATION_MODE=nitro-mock \
+NITRO_ALLOW_DEV=1 \
+PLATFORM_ATTESTATION_VERIFIER="$ROOT/scripts/trh-verify-nitro-attestation.sh" \
+"$ROOT/scripts/trh-attest-vrf-enclave.sh" \
+  | grep -E '^(verify_nitro|attestation_mode|attestation_pk|\[trh-)'
+
+kill "$NITRO_ENCLAVE_PID" 2>/dev/null || true
+wait "$NITRO_ENCLAVE_PID" 2>/dev/null || true
+unset NITRO_ENCLAVE_PID
+trap - EXIT
+rm -rf "$nitro_seal_dir" "$nitro_log"
 
 log "Go and contract tests"
 run env GOCACHE="$GOCACHE" go -C "$ROOT" test ./crypto/ecvrf ./vrf-enclave/enclave ./vrf-enclave/cmd/vrf-prove

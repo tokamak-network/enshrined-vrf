@@ -19,8 +19,8 @@ apply_patch_to_repo() {
     echo "[fail] missing patch: $patch" >&2
     exit 1
   fi
-  git -C "$repo" apply --check "$patch"
-  git -C "$repo" apply "$patch"
+  git -C "$repo" apply --recount --check "$patch"
+  git -C "$repo" apply --recount "$patch"
   echo "[ok] applied $label patch"
 }
 

@@ -31,7 +31,7 @@ new file mode 100644
 index 0000000..50a7f2c
 --- /dev/null
 +++ b/pkg/stacks/thanos/enshrined_vrf.go
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,59 @@
 +package thanos
 +
 +import (
@@ -69,6 +69,21 @@ index 0000000..50a7f2c
 +	if cfg.VRFEnclaveImageTag != "" {
 +		updates["vrfEnclave.image.tag"] = cfg.VRFEnclaveImageTag
 +	}
++	if cfg.AWS != nil && cfg.AWS.EnclaveType == "nitro" {
++		updates["enshrinedVrf.aws.enclaveType"] = cfg.AWS.EnclaveType
++		updates["enshrinedVrf.aws.instanceType"] = cfg.AWS.InstanceType
++		updates["enshrinedVrf.aws.enclaveCpuCount"] = cfg.AWS.EnclaveCpuCount
++		updates["enshrinedVrf.aws.enclaveMemoryMiB"] = cfg.AWS.EnclaveMemoryMiB
++		updates["enshrinedVrf.aws.enclaveCID"] = cfg.AWS.EnclaveCID
++		updates["enshrinedVrf.aws.vsockPort"] = cfg.AWS.VsockPort
++		updates["enshrinedVrf.aws.eifImageURI"] = cfg.AWS.EifImageURI
++		// Disable the plain-Linux container path; the chart's nitro
++		// variant launches the EIF on the host and runs a vsock-unix
++		// bridge sidecar instead.
++		updates["vrfEnclave.enabled"] = false
++		updates["vrfEnclaveLauncher.enabled"] = true
++		updates["vrfEnclaveBridge.enabled"] = true
++	}
 +	for path, value := range updates {
 +		if err := utils.UpdateYAMLField(valueFile, path, value); err != nil {
 +			return fmt.Errorf("update %s: %w", path, err)
@@ -98,7 +113,7 @@ index 679ef3d..3825013 100644
  
  	if registerCandidate {
  		if c.RegisterCandidate == nil {
-@@ -405,10 +409,31 @@ func InputDeployContracts(ctx context.Context) (*DeployContractsInput, error) {
+@@ -405,10 +409,54 @@ func InputDeployContracts(ctx context.Context) (*DeployContractsInput, error) {
  			ChallengePeriod:          challengePeriod,
  			OutputRootFrequency:      outputFrequency,
  		},
@@ -112,7 +127,7 @@ index 679ef3d..3825013 100644
 +	if os.Getenv("TRH_ENABLE_ENSHRAINED_VRF") != "1" {
 +		return nil
 +	}
-+	return &types.EnshrinedVrfConfig{
++	cfg := &types.EnshrinedVrfConfig{
 +		Enabled:                          true,
 +		Mode:                             "tee",
 +		TeeEndpoint:                      os.Getenv("VRF_TEE_ENDPOINT"),
@@ -126,6 +141,29 @@ index 679ef3d..3825013 100644
 +		VRFEnclaveImageRepository:        os.Getenv("VRF_ENCLAVE_IMAGE_REPOSITORY"),
 +		VRFEnclaveImageTag:               os.Getenv("VRF_ENCLAVE_IMAGE_TAG"),
 +	}
++	if et := os.Getenv("VRF_AWS_ENCLAVE_TYPE"); et == "nitro" {
++		cfg.AWS = &types.EnshrinedVrfAWSConfig{
++			EnclaveType:      et,
++			InstanceType:     os.Getenv("VRF_AWS_INSTANCE_TYPE"),
++			EnclaveCpuCount:  atoiOrDefault(os.Getenv("VRF_AWS_ENCLAVE_CPU"), 2),
++			EnclaveMemoryMiB: atoiOrDefault(os.Getenv("VRF_AWS_ENCLAVE_MEMORY_MIB"), 2048),
++			EnclaveCID:       atoiOrDefault(os.Getenv("VRF_AWS_ENCLAVE_CID"), 16),
++			VsockPort:        atoiOrDefault(os.Getenv("VRF_AWS_VSOCK_PORT"), 5000),
++			EifImageURI:      os.Getenv("VRF_AWS_EIF_IMAGE_URI"),
++		}
++	}
++	return cfg
++}
++
++func atoiOrDefault(s string, def int) int {
++	if s == "" {
++		return def
++	}
++	var n int
++	if _, err := fmt.Sscanf(s, "%d", &n); err != nil || n < 0 {
++		return def
++	}
++	return n
 +}
 +
  func inputL1RPC(ctx context.Context) (l1RPCUrl string, l1RRCKind string, l1ChainID uint64, err error) {
@@ -167,7 +205,7 @@ index 2148cb5..8dcb666 100644
  
  	TxmgrCellProofTime        uint64 `json:"txmgr_cell_proof_time"`
  	NextPublicRollupL1BaseUrl string `json:"next_public_rollup_l1_base_url"`
-@@ -151,6 +153,51 @@ type Config struct {
+@@ -151,6 +153,87 @@ type Config struct {
  	MetadataPRLink string `json:"metadata_pr_link,omitempty"`
  }
  
@@ -184,9 +222,28 @@ index 2148cb5..8dcb666 100644
 +	AttestationPolicyID              string `json:"attestation_policy_id,omitempty"`
 +	VRFEnclaveImageRepository        string `json:"vrf_enclave_image_repository,omitempty"`
 +	VRFEnclaveImageTag               string `json:"vrf_enclave_image_tag,omitempty"`
++	AWS                              *EnshrinedVrfAWSConfig `json:"aws,omitempty"`
 +}
 +
-+var enshrinedVrfPublicKeyRe = regexp.MustCompile(`^0x(02|03)[0-9a-fA-F]{64}$`)
++// EnshrinedVrfAWSConfig captures the AWS-specific deployment knobs for
++// running the VRF enclave inside an EC2 Nitro Enclave. trh-sdk wires
++// these into the Helm overlay (enshrinedVrf.aws.*) so the chart can
++// configure the EIF launcher DaemonSet, vsock-unix bridge sidecar, and
++// EC2 instance selection. EnclaveType="none" disables the AWS path.
++type EnshrinedVrfAWSConfig struct {
++	EnclaveType      string `json:"enclave_type"`
++	InstanceType     string `json:"instance_type,omitempty"`
++	EnclaveCpuCount  int    `json:"enclave_cpu_count,omitempty"`
++	EnclaveMemoryMiB int    `json:"enclave_memory_mib,omitempty"`
++	EnclaveCID       int    `json:"enclave_cid,omitempty"`
++	VsockPort        int    `json:"vsock_port,omitempty"`
++	EifImageURI      string `json:"eif_image_uri,omitempty"`
++}
++
++var (
++	enshrinedVrfPublicKeyRe   = regexp.MustCompile(`^0x(02|03)[0-9a-fA-F]{64}$`)
++	enshrinedVrfNitroInstance = regexp.MustCompile(`^(m5|m5n|m5d|m5dn|m5zn|m6i|m6in|m7i|c5|c5d|c5n|c6i|c6id|c6in|c7i|r5|r5d|r5n|r5dn|r5b|r6i|r6id|r6in|r7i|x2idn|x2iedn|x2iezn|i3en|i4i|z1d|p3dn|p4d|p4de|p5)\.(metal|((4|6|8|12|16|24|32|48)?xlarge|large))$`)
++)
 +
 +func (c *EnshrinedVrfConfig) Validate() error {
 +	if c == nil || !c.Enabled {
@@ -212,6 +269,23 @@ index 2148cb5..8dcb666 100644
 +	}
 +	if !c.SetL1VRFPublicKey {
 +		return fmt.Errorf("enshrined_vrf.set_l1_vrf_public_key must be true")
++	}
++	if c.AWS != nil {
++		switch c.AWS.EnclaveType {
++		case "", "none":
++		case "nitro":
++			if c.AWS.InstanceType == "" {
++				return fmt.Errorf("enshrined_vrf.aws.instance_type is required when aws.enclave_type=nitro")
++			}
++			if !enshrinedVrfNitroInstance.MatchString(c.AWS.InstanceType) {
++				return fmt.Errorf("enshrined_vrf.aws.instance_type %q is not a Nitro Enclaves capable EC2 type", c.AWS.InstanceType)
++			}
++			if c.AWS.EifImageURI == "" {
++				return fmt.Errorf("enshrined_vrf.aws.eif_image_uri is required when aws.enclave_type=nitro")
++			}
++		default:
++			return fmt.Errorf("enshrined_vrf.aws.enclave_type must be nitro or none (got %q)", c.AWS.EnclaveType)
++		}
 +	}
 +	return nil
 +}

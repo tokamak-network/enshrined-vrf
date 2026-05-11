@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://tokamak.network/schemas/trh/enshrained-vrf-settings.schema.json",
-  "title": "TRH Enshrained VRF settings",
+  "title": "TRH Enshrined VRF settings",
   "type": "object",
   "additionalProperties": true,
   "required": ["stack", "features", "enshrinedVrf"],
@@ -60,8 +60,74 @@
         },
         "setL1VRFPublicKey": {
           "const": true
+        },
+        "aws": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enclaveType"],
+          "properties": {
+            "enclaveType": {
+              "enum": ["nitro", "none"]
+            },
+            "instanceType": {
+              "type": "string",
+              "pattern": "^(m5|m5n|m5d|m5dn|m5zn|m6i|m6in|m7i|c5|c5d|c5n|c6i|c6id|c6in|c7i|r5|r5d|r5n|r5dn|r5b|r6i|r6id|r6in|r7i|x2idn|x2iedn|x2iezn|i3en|i4i|z1d|p3dn|p4d|p4de|p5)\\.(metal|((4|6|8|12|16|24|32|48)?xlarge|(metal-)?(large)))$"
+            },
+            "enclaveCpuCount": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 96
+            },
+            "enclaveMemoryMiB": {
+              "type": "integer",
+              "minimum": 512
+            },
+            "enclaveCID": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 4294967295
+            },
+            "vsockPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "eifImageURI": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["aws"],
+            "properties": {
+              "aws": {
+                "properties": {
+                  "enclaveType": { "const": "nitro" }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "aws": {
+                "required": [
+                  "enclaveType",
+                  "instanceType",
+                  "enclaveCpuCount",
+                  "enclaveMemoryMiB",
+                  "enclaveCID",
+                  "vsockPort",
+                  "eifImageURI"
+                ]
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

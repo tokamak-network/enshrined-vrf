@@ -2,6 +2,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if ! command -v rg >/dev/null 2>&1; then
+  echo "[skip] test-trh-validate-thanos-stack-chart: rg (ripgrep) not installed" >&2
+  exit 0
+fi
+
 tmpdir="$(mktemp -d "${TMPDIR:-/private/tmp}/trh-chart-validator.XXXXXX")"
 trap 'rm -rf "$tmpdir"' EXIT
 

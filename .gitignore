@@ -14,6 +14,9 @@ docs-site/.mintlify-home*/
 vrf-enclave/vrf-enclave
 vrf-enclave/vrf-prove
 
+# TRH EIF build outputs (Nitro Enclave image + measurements)
+deploy/trh/build/
+
 # Foundry broadcast artifacts
 contracts/broadcast/
 

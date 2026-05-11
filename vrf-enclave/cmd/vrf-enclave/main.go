@@ -22,7 +22,7 @@ func main() {
 	sealDir := flag.String("seal-dir", "./sealed", "Directory for sealed key storage")
 	sealKeyFile := flag.String("seal-key-file", "", "Path to a file containing a hex-encoded 32-byte seal key")
 	devSeal := flag.Bool("dev-seal", false, "Derive seal key from hostname (INSECURE — dev/test only)")
-	attestFlag := flag.String("attestation", "none", "Attestation mode: none | dev (platform modes not yet implemented)")
+	attestFlag := flag.String("attestation", "none", "Attestation mode: none | dev | nitro-mock | nitro")
 	flag.Parse()
 
 	sealKey, err := resolveSealKey(*sealKeyFile, *devSeal)
@@ -102,8 +102,8 @@ func resolveSealKey(keyFile string, devSeal bool) ([32]byte, error) {
 }
 
 // parseAttestationMode maps a CLI string to the enclave AttestationMode.
-// Dev mode prints a warning so an operator who flips it on by accident sees
-// that the enclave is returning HMAC reports, not a real TEE quote.
+// Dev/mock modes print a warning so an operator who flips them on by
+// accident sees that the enclave is returning a non-platform report.
 func parseAttestationMode(s string) (enclave.AttestationMode, error) {
 	switch s {
 	case "none":
@@ -111,8 +111,13 @@ func parseAttestationMode(s string) (enclave.AttestationMode, error) {
 	case "dev":
 		log.Printf("WARNING: --attestation=dev returns HMAC reports; NOT a real TEE quote")
 		return enclave.AttestDev, nil
+	case "nitro-mock":
+		log.Printf("WARNING: --attestation=nitro-mock signs a Nitro-shaped doc with the enclave's own key; NOT chained to AWS Nitro root CA")
+		return enclave.AttestNitroMock, nil
+	case "nitro":
+		return enclave.AttestNitro, nil
 	default:
-		return enclave.AttestNone, fmt.Errorf("unknown attestation mode %q (want none | dev)", s)
+		return enclave.AttestNone, fmt.Errorf("unknown attestation mode %q (want none | dev | nitro-mock | nitro)", s)
 	}
 }
 

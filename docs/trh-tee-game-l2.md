@@ -201,9 +201,93 @@ SYSTEM_CONFIG_PROXY=0x... \
 
 Use `deploy/trh/prometheus-rules.example.yaml` as the starting alert group.
 
+## AWS Nitro Enclaves Path
+
+TRH operators deploying on AWS should select Nitro Enclaves as the TEE.
+Nitro is the only first-class TEE option in the platform UI; SGX/TDX/SEV-SNP
+remain valid in the schema for on-prem deployments but are not promoted in the
+TRH wizard.
+
+Selecting "Use AWS Nitro Enclave" in the platform UI requires:
+
+- a Nitro-capable EC2 instance type (m5.xlarge or larger from the m5/m5n/m6i/c5/c6i/c7i/r5/r6i families; metal works too)
+- an ECR-pinned EIF image URI (built with `nitro-cli build-enclave`)
+- attestation policy mode `nitro` with PCR0..PCR2 (and PCR8 for signed enclaves) measurements that match the released EIF
+
+The TRH chart's Nitro variant launches the EIF on the host via a privileged
+DaemonSet, runs a `vsock-unix` bridge sidecar in the sequencer pod, and keeps
+op-node dialing the same `unix:///var/run/vrf-enclave/vrf.sock` endpoint
+contract. See:
+
+- `deploy/trh/thanos-stack-vrf-values.nitro.example.yaml`
+- `deploy/trh/kubernetes-vrf-sidecar-nitro.example.yaml`
+
+Build the EIF and write platform measurements to the policy file:
+
+```bash
+IMAGE_REPOSITORY=tokamaknetwork/vrf-enclave \
+IMAGE_TAG=nitro-v0.1.0 \
+POLICY_FILE=deploy/trh/attestation-policy.production.json \
+POLICY_ID=nitro-game-l2-vrf-policy-v1 \
+./scripts/trh-build-vrf-enclave-eif.sh
+```
+
+The script populates `requiredClaims.pcr0..pcr2` (and `pcr8` for signed EIFs)
+in `POLICY_FILE` so the production gate can match them bit-for-bit. Without
+`nitro-cli` (off-EC2), set `SKIP_IF_MISSING_NITRO_CLI=1` for a no-op pass.
+
+For full production attestation, point `PLATFORM_ATTESTATION_VERIFIER` at the
+Nitro doc verifier:
+
+```bash
+VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
+VRF_ATTESTATION_MODE=nitro \
+PLATFORM_ATTESTATION_VERIFIER=./scripts/trh-verify-nitro-attestation.sh \
+VRF_ATTESTATION_POLICY_FILE=deploy/trh/attestation-policy.production.json \
+./scripts/trh-attest-vrf-enclave.sh
+```
+
+The verifier rejects dev signatures unless the caller explicitly sets
+`NITRO_ALLOW_DEV=1` for the local nitro-mock tier described below. Real
+production runs must NOT set `NITRO_ALLOW_DEV`.
+
+### Local Nitro-mock Tier (off-platform)
+
+Off-EC2 development and CI cannot run a real Nitro Enclave. The enclave ships
+a `nitro-mock` attestation mode that emits a Nitro-shaped COSE_Sign1
+attestation document signed with the enclave's own secp256k1 key. The
+verifier path (PCR matching, public-key binding, COSE envelope parsing) is
+fully exercised; only the AWS Nitro root-CA chain is replaced with a dev
+key gated by `NITRO_ALLOW_DEV=1`.
+
+Roundtrip locally on macOS:
+
+```bash
+./bin/vrf-enclave \
+  --listen localhost:50461 \
+  --seal-dir .devnet/vrf-enclave/sealed \
+  --dev-seal \
+  --attestation nitro-mock &
+
+VRF_TEE_ENDPOINT=localhost:50461 \
+VRF_ATTESTATION_MODE=nitro-mock \
+NITRO_ALLOW_DEV=1 \
+PLATFORM_ATTESTATION_VERIFIER=$PWD/scripts/trh-verify-nitro-attestation.sh \
+ENV_FILE=/dev/null \
+./scripts/trh-attest-vrf-enclave.sh
+```
+
+`./scripts/trh-local-readiness.sh` runs this roundtrip as part of its bundle
+so the verifier path stays exercised in every PR. Production gates explicitly
+reject `VRF_ATTESTATION_MODE=nitro-mock`.
+
+The real Nitro NSM bridge (running inside the EIF on EC2) is currently a
+stub — it returns FailedPrecondition with a clear message. Wiring the
+`/dev/nsm` ioctl is left to a follow-up PR scoped to the on-EC2 runtime.
+
 ## Production Gaps Before Mainnet
 
-The current enclave supports dev attestation only. Before public production, add and audit a real platform attestation mode, such as SGX, TDX, or SEV-SNP. The production release gate should require:
+The current enclave supports dev attestation only. Before public production, add and audit a real platform attestation mode, such as Nitro, SGX, TDX, or SEV-SNP. The production release gate should require:
 
 - platform quote verification
 - key sealing tied to platform identity
@@ -223,8 +307,9 @@ For production platform modes, provide a verifier command. The script passes `VR
 
 ```bash
 VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
-VRF_ATTESTATION_MODE=tdx \
-PLATFORM_ATTESTATION_VERIFIER=./scripts/verify-tdx-quote.sh \
+VRF_ATTESTATION_MODE=nitro \
+PLATFORM_ATTESTATION_VERIFIER=./scripts/trh-verify-nitro-attestation.sh \
+VRF_ATTESTATION_POLICY_FILE=deploy/trh/attestation-policy.production.json \
 ./scripts/trh-attest-vrf-enclave.sh
 ```
 
@@ -239,17 +324,17 @@ Run the production gate before publishing a public deployment:
 
 ```bash
 VRF_MODE=tee \
-VRF_ATTESTATION_MODE=tdx \
+VRF_ATTESTATION_MODE=nitro \
 VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
 VRF_PUBLIC_KEY=0x02... \
 VRF_PLATFORM_ATTESTATION_IMPLEMENTED=1 \
-VRF_ATTESTATION_POLICY_ID=tdx-game-l2-vrf-policy-v1 \
+VRF_ATTESTATION_POLICY_ID=nitro-game-l2-vrf-policy-v1 \
 IMAGE_TAG=v0.1.0 \
 EXTERNAL_AUDIT_ID=audit-2026-... \
 ./scripts/trh-production-vrf-gate.sh
 ```
 
-The current development enclave does not implement SGX/TDX/SEV-SNP quote verification. Leave `VRF_PLATFORM_ATTESTATION_IMPLEMENTED` unset until a real platform verifier and policy have been implemented and audited.
+The current development enclave does not implement Nitro NSM / SGX / TDX / SEV-SNP quote verification end-to-end. Leave `VRF_PLATFORM_ATTESTATION_IMPLEMENTED` unset until a real platform verifier and policy have been implemented and audited.
 
 ## Readiness Command
 

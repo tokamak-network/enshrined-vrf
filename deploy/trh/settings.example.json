@@ -11,6 +11,15 @@
     "l2GenesisEnshrainedVRFTimeOffset": "0x0",
     "predeploy": "0x42000000000000000000000000000000000000f0",
     "verifyPrecompile": "0x0000000000000000000000000000000000000101",
-    "setL1VRFPublicKey": true
+    "setL1VRFPublicKey": true,
+    "aws": {
+      "enclaveType": "nitro",
+      "instanceType": "m5.xlarge",
+      "enclaveCpuCount": 2,
+      "enclaveMemoryMiB": 2048,
+      "enclaveCID": 16,
+      "vsockPort": 5000,
+      "eifImageURI": "0123456789.dkr.ecr.ap-northeast-2.amazonaws.com/tokamak/vrf-enclave:nitro-v0.1.0"
+    }
   }
 }

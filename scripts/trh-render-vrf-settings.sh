@@ -54,18 +54,46 @@ if [ "${#VRF_PUBLIC_KEY_RENDERED}" -ne 68 ]; then
   exit 1
 fi
 
+# Optional AWS Nitro Enclave block. Operators set VRF_AWS_ENCLAVE_TYPE=nitro
+# to request that the renderer emits the AWS sub-section so the SDK / chart
+# can configure an EC2 Nitro Enclave sidecar. The teeEndpoint stays a
+# unix:// path the chart's vsock-bridge container exposes; the AWS block
+# carries the upstream vsock CID / port the bridge forwards to.
+aws_block="null"
+if [ "${VRF_AWS_ENCLAVE_TYPE:-none}" = "nitro" ]; then
+  : "${VRF_AWS_INSTANCE_TYPE:?set VRF_AWS_INSTANCE_TYPE (e.g. m5.xlarge) when VRF_AWS_ENCLAVE_TYPE=nitro}"
+  : "${VRF_AWS_EIF_IMAGE_URI:?set VRF_AWS_EIF_IMAGE_URI (ECR pinned image) when VRF_AWS_ENCLAVE_TYPE=nitro}"
+  aws_block="$(jq -n \
+    --arg instance "$VRF_AWS_INSTANCE_TYPE" \
+    --argjson cpu "${VRF_AWS_ENCLAVE_CPU:-2}" \
+    --argjson mem "${VRF_AWS_ENCLAVE_MEMORY_MIB:-2048}" \
+    --argjson cid "${VRF_AWS_ENCLAVE_CID:-16}" \
+    --argjson port "${VRF_AWS_VSOCK_PORT:-5000}" \
+    --arg eif "$VRF_AWS_EIF_IMAGE_URI" \
+    '{
+      enclaveType: "nitro",
+      instanceType: $instance,
+      enclaveCpuCount: $cpu,
+      enclaveMemoryMiB: $mem,
+      enclaveCID: $cid,
+      vsockPort: $port,
+      eifImageURI: $eif
+    }')"
+fi
+
 jq -n \
   --arg stack "${TRH_STACK:-thanos}" \
   --arg vrfMode "$VRF_MODE" \
   --arg endpoint "${VRF_TEE_ENDPOINT:-}" \
   --arg publicKey "$VRF_PUBLIC_KEY_RENDERED" \
   --argjson enshrinedVrfTime "${ENSHRINED_VRF_TIME:-0}" \
+  --argjson aws "$aws_block" \
   '{
     stack: $stack,
     features: {
       enshrinedVrf: true
     },
-    enshrinedVrf: {
+    enshrinedVrf: ({
       mode: $vrfMode,
       teeEndpoint: $endpoint,
       publicKey: $publicKey,
@@ -74,5 +102,5 @@ jq -n \
       predeploy: "0x42000000000000000000000000000000000000f0",
       verifyPrecompile: "0x0000000000000000000000000000000000000101",
       setL1VRFPublicKey: true
-    }
+    } + (if $aws == null then {} else {aws: $aws} end))
   }'

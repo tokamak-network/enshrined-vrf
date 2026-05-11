@@ -2,7 +2,7 @@ diff --git a/pkg/api/dtos/thanos.go b/pkg/api/dtos/thanos.go
 index da0cf6e..80d9a1c 100644
 --- a/pkg/api/dtos/thanos.go
 +++ b/pkg/api/dtos/thanos.go
-@@ -17,7 +17,74 @@ import (
+@@ -17,7 +17,112 @@ import (
  	"go.uber.org/zap"
  )
  
@@ -25,6 +25,17 @@ index da0cf6e..80d9a1c 100644
 +	AttestationPolicyID              string `json:"attestationPolicyId,omitempty"`
 +	VRFEnclaveImageRepository        string `json:"vrfEnclaveImageRepository,omitempty"`
 +	VRFEnclaveImageTag               string `json:"vrfEnclaveImageTag,omitempty"`
++	AWS                              *EnshrinedVrfAWSRequest `json:"aws,omitempty"`
++}
++
++type EnshrinedVrfAWSRequest struct {
++	EnclaveType      string `json:"enclaveType"`
++	InstanceType     string `json:"instanceType,omitempty"`
++	EnclaveCpuCount  int    `json:"enclaveCpuCount,omitempty"`
++	EnclaveMemoryMiB int    `json:"enclaveMemoryMiB,omitempty"`
++	EnclaveCID       int    `json:"enclaveCID,omitempty"`
++	VsockPort        int    `json:"vsockPort,omitempty"`
++	EifImageURI      string `json:"eifImageURI,omitempty"`
 +}
 +
 +func (r *EnshrinedVrfRequest) Validate() error {
@@ -43,12 +54,38 @@ index da0cf6e..80d9a1c 100644
 +	if !r.SetL1VRFPublicKey {
 +		return errors.New("enshrinedVrf.setL1VrfPublicKey must be true")
 +	}
++	if r.AWS != nil {
++		switch r.AWS.EnclaveType {
++		case "", "none":
++		case "nitro":
++			if r.AWS.InstanceType == "" {
++				return errors.New("enshrinedVrf.aws.instanceType is required when aws.enclaveType=nitro")
++			}
++			if r.AWS.EifImageURI == "" {
++				return errors.New("enshrinedVrf.aws.eifImageURI is required when aws.enclaveType=nitro")
++			}
++		default:
++			return errors.New("enshrinedVrf.aws.enclaveType must be nitro or none")
++		}
++	}
 +	return nil
 +}
 +
 +func (r *EnshrinedVrfRequest) ToSDKConfig() *trhSdkTypes.EnshrinedVrfConfig {
 +	if r == nil || !r.Enabled {
 +		return nil
++	}
++	var awsCfg *trhSdkTypes.EnshrinedVrfAWSConfig
++	if r.AWS != nil && r.AWS.EnclaveType == "nitro" {
++		awsCfg = &trhSdkTypes.EnshrinedVrfAWSConfig{
++			EnclaveType:      r.AWS.EnclaveType,
++			InstanceType:     r.AWS.InstanceType,
++			EnclaveCpuCount:  r.AWS.EnclaveCpuCount,
++			EnclaveMemoryMiB: r.AWS.EnclaveMemoryMiB,
++			EnclaveCID:       r.AWS.EnclaveCID,
++			VsockPort:        r.AWS.VsockPort,
++			EifImageURI:      r.AWS.EifImageURI,
++		}
 +	}
 +	cfg := &trhSdkTypes.EnshrinedVrfConfig{
 +		Enabled:                          true,
@@ -63,6 +100,7 @@ index da0cf6e..80d9a1c 100644
 +		AttestationPolicyID:              r.AttestationPolicyID,
 +		VRFEnclaveImageRepository:        r.VRFEnclaveImageRepository,
 +		VRFEnclaveImageTag:               r.VRFEnclaveImageTag,
++		AWS:                              awsCfg,
 +	}
 +	if cfg.L2GenesisEnshrainedVRFTimeOffset == "" {
 +		cfg.L2GenesisEnshrainedVRFTimeOffset = "0x0"

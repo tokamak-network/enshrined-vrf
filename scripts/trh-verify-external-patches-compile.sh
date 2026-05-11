@@ -55,7 +55,7 @@ backend_tmp="$workdir/trh-backend"
 ui_tmp="$workdir/trh-platform-ui"
 
 if copy_repo "$TRH_SDK_PATH" "$sdk_tmp" "trh-sdk"; then
-  git -C "$sdk_tmp" apply "$ROOT/deploy/trh/external-integration/trh-sdk-enshrined-vrf.patch"
+  git -C "$sdk_tmp" apply --recount "$ROOT/deploy/trh/external-integration/trh-sdk-enshrined-vrf.patch"
   cat >"$sdk_tmp/pkg/stacks/thanos/enshrined_vrf_external_test.go" <<'EOF'
 package thanos
 
@@ -103,6 +103,68 @@ func TestExternalEnshrinedVrfValuesSmoke(t *testing.T) {
 		}
 	}
 }
+
+func TestExternalEnshrinedVrfAWSNitroSmoke(t *testing.T) {
+	valuesFile := filepath.Join(t.TempDir(), "values.yaml")
+	if err := os.WriteFile(valuesFile, []byte("opNode:\n  extraArgs: []\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stack := &ThanosStack{deployConfig: &types.Config{EnshrinedVrf: &types.EnshrinedVrfConfig{
+		Enabled:           true,
+		Mode:              "tee",
+		TeeEndpoint:       "unix:///var/run/vrf-enclave/vrf.sock",
+		PublicKey:         externalVrfPublicKey,
+		SetL1VRFPublicKey: true,
+		AWS: &types.EnshrinedVrfAWSConfig{
+			EnclaveType:      "nitro",
+			InstanceType:     "m5.xlarge",
+			EnclaveCpuCount:  2,
+			EnclaveMemoryMiB: 2048,
+			EnclaveCID:       16,
+			VsockPort:        5000,
+			EifImageURI:      "0123456789.dkr.ecr.ap-northeast-2.amazonaws.com/tokamak/vrf-enclave:nitro-v0.1.0",
+		},
+	}}}
+	if err := stack.applyEnshrinedVrfValues(valuesFile); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(valuesFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered := string(raw)
+	for _, want := range []string{
+		"enshrinedVrf:",
+		"aws:",
+		"enclaveType: nitro",
+		"instanceType: m5.xlarge",
+		"eifImageURI:",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered nitro values missing %q:\n%s", want, rendered)
+		}
+	}
+}
+
+func TestExternalEnshrinedVrfAWSValidationRejectsBadInstance(t *testing.T) {
+	cfg := &types.EnshrinedVrfConfig{
+		Enabled:           true,
+		Mode:              "tee",
+		TeeEndpoint:       "unix:///var/run/vrf-enclave/vrf.sock",
+		PublicKey:         externalVrfPublicKey,
+		SetL1VRFPublicKey: true,
+		AWS: &types.EnshrinedVrfAWSConfig{
+			EnclaveType:  "nitro",
+			InstanceType: "t2.micro",
+			EifImageURI:  "ecr/repo:tag",
+		},
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation to reject t2.micro for AWS Nitro")
+	}
+}
 EOF
   GOCACHE="$GOCACHE" go -C "$sdk_tmp" test ./pkg/types ./pkg/stacks/thanos -run 'TestExternal'
   echo "[ok] trh-sdk patched packages compile"
@@ -113,7 +175,7 @@ if copy_repo "$TRH_BACKEND_PATH" "$backend_tmp" "trh-backend"; then
     echo "[fail] trh-backend compile check requires patched trh-sdk temp copy" >&2
     exit 1
   fi
-  git -C "$backend_tmp" apply "$ROOT/deploy/trh/external-integration/trh-backend-enshrined-vrf.patch"
+  git -C "$backend_tmp" apply --recount "$ROOT/deploy/trh/external-integration/trh-backend-enshrined-vrf.patch"
   cat >"$backend_tmp/pkg/api/dtos/enshrined_vrf_external_test.go" <<'EOF'
 package dtos
 
@@ -142,6 +204,33 @@ func TestExternalEnshrinedVrfRequestSmoke(t *testing.T) {
 		t.Fatal("expected missing teeEndpoint to fail")
 	}
 }
+
+func TestExternalEnshrinedVrfRequestAWSNitroSmoke(t *testing.T) {
+	req := &EnshrinedVrfRequest{
+		Enabled:           true,
+		Mode:              "tee",
+		TeeEndpoint:       "unix:///var/run/vrf-enclave/vrf.sock",
+		PublicKey:         externalVrfPublicKey,
+		SetL1VRFPublicKey: true,
+		AWS: &EnshrinedVrfAWSRequest{
+			EnclaveType:  "nitro",
+			InstanceType: "m5.xlarge",
+			EifImageURI:  "ecr/repo:tag",
+		},
+	}
+	if err := req.Validate(); err != nil {
+		t.Fatalf("nitro Validate: %v", err)
+	}
+	cfg := req.ToSDKConfig()
+	if cfg == nil || cfg.AWS == nil || cfg.AWS.EnclaveType != "nitro" || cfg.AWS.InstanceType != "m5.xlarge" {
+		t.Fatalf("expected sdk config aws to forward, got %#v", cfg)
+	}
+
+	req.AWS.InstanceType = ""
+	if err := req.Validate(); err == nil {
+		t.Fatal("expected missing instanceType to fail")
+	}
+}
 EOF
   go -C "$backend_tmp" mod edit -replace "github.com/tokamak-network/trh-sdk=$sdk_tmp"
   cat "$sdk_tmp/go.sum" >>"$backend_tmp/go.sum"
@@ -151,7 +240,7 @@ EOF
 fi
 
 if copy_repo "$TRH_PLATFORM_UI_PATH" "$ui_tmp" "trh-platform-ui"; then
-  git -C "$ui_tmp" apply "$ROOT/deploy/trh/external-integration/trh-platform-ui-enshrined-vrf.patch"
+  git -C "$ui_tmp" apply --recount "$ROOT/deploy/trh/external-integration/trh-platform-ui-enshrined-vrf.patch"
   if [ -d "$TRH_PLATFORM_UI_PATH/node_modules" ]; then
     ln -s "$TRH_PLATFORM_UI_PATH/node_modules" "$ui_tmp/node_modules"
     "$ui_tmp/node_modules/.bin/tsc" -p "$ui_tmp/tsconfig.json" --noEmit --pretty false

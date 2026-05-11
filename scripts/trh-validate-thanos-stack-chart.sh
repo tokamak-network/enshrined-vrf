@@ -4,6 +4,11 @@ set -euo pipefail
 chart_root="${1:-${TRH_THANOS_STACK_CHART_PATH:-${TRH_THANOS_STACK_PATH:-../tokamak-thanos-stack}/charts/thanos-stack}}"
 failures=0
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "[fail] rg (ripgrep) is required by this validator. Install: brew install ripgrep (macOS) | apt-get install -y ripgrep (Debian/Ubuntu)" >&2
+  exit 1
+fi
+
 fail() {
   failures=$((failures + 1))
   echo "[fail] $*" >&2

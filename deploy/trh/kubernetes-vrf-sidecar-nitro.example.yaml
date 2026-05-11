@@ -1,0 +1,127 @@
+# AWS Nitro variant of the VRF sidecar example. The sequencer pod
+# carries op-node and a vsock-unix bridge; the actual VRF enclave runs
+# inside an AWS Nitro Enclave on the same node, started by a privileged
+# DaemonSet. op-node still dials a Unix socket so the endpoint contract
+# stays identical to the generic Linux variant.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vrf-enclave-launcher
+  labels:
+    app.kubernetes.io/name: enshrined-vrf
+    app.kubernetes.io/component: nitro-launcher
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vrf-enclave-launcher
+  labels:
+    app.kubernetes.io/name: enshrined-vrf
+    app.kubernetes.io/component: nitro-launcher
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: enshrined-vrf
+      app.kubernetes.io/component: nitro-launcher
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: enshrined-vrf
+        app.kubernetes.io/component: nitro-launcher
+    spec:
+      serviceAccountName: vrf-enclave-launcher
+      nodeSelector:
+        aws.amazon.com/nitro-enclaves: "enabled"
+      hostPID: true
+      containers:
+        - name: vrf-enclave-launcher
+          image: tokamaknetwork/vrf-enclave-launcher:nitro-dev
+          args:
+            - --eif-path
+            - /eif/vrf-enclave.eif
+            - --enclave-cid
+            - "16"
+            - --vsock-port
+            - "5000"
+            - --cpu-count
+            - "2"
+            - --memory-mib
+            - "2048"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: nitro-enclaves
+              mountPath: /dev/nitro_enclaves
+            - name: eif
+              mountPath: /eif
+              readOnly: true
+      volumes:
+        - name: nitro-enclaves
+          hostPath:
+            path: /dev/nitro_enclaves
+        - name: eif
+          hostPath:
+            path: /opt/tokamak/vrf-enclave
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thanos-sequencer-vrf-nitro-example
+  labels:
+    app.kubernetes.io/name: thanos-sequencer
+    app.kubernetes.io/component: sequencer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thanos-sequencer
+      app.kubernetes.io/component: sequencer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: thanos-sequencer
+        app.kubernetes.io/component: sequencer
+    spec:
+      nodeSelector:
+        aws.amazon.com/nitro-enclaves: "enabled"
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: op-node
+          image: registry.example/tokamak/op-node:vrf-enabled
+          args:
+            - --sequencer.enabled=true
+            - --sequencer.vrf-mode=tee
+            - --sequencer.vrf-tee-endpoint=unix:///var/run/vrf-enclave/vrf.sock
+          volumeMounts:
+            - name: vrf-enclave-socket
+              mountPath: /var/run/vrf-enclave
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+        - name: vrf-enclave-bridge
+          image: tokamaknetwork/vsock-unix-bridge:nitro-dev
+          args:
+            - --listen-unix
+            - /var/run/vrf-enclave/vrf.sock
+            - --upstream-vsock-cid
+            - "16"
+            - --upstream-vsock-port
+            - "5000"
+          volumeMounts:
+            - name: vrf-enclave-socket
+              mountPath: /var/run/vrf-enclave
+            - name: vsock
+              mountPath: /dev/vsock
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      volumes:
+        - name: vrf-enclave-socket
+          emptyDir: {}
+        - name: vsock
+          hostPath:
+            path: /dev/vsock

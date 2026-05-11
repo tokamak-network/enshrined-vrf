@@ -27,13 +27,25 @@ func main() {
 	teeEndpoint := flag.String("tee-endpoint", "", "TEE enclave gRPC endpoint (e.g. localhost:50051 or unix:///var/run/vrf-enclave.sock)")
 	publicKeyOnly := flag.Bool("public-key-only", false, "Print only pk=... without requiring a seed or proof")
 	attest := flag.Bool("attest", false, "Fetch and print TEE attestation report")
-	attestationMode := flag.String("attestation-mode", "raw", "Attestation check mode for -attest: raw | dev")
+	attestationMode := flag.String("attestation-mode", "raw", "Attestation check mode for -attest: raw | dev | nitro | nitro-mock")
 	attestationChallenge := flag.String("attestation-challenge", "", "Hex-encoded 32-byte attestation challenge (default: random)")
+	nitroAllowDev := flag.Bool("nitro-allow-dev", false, "Accept dev-signed nitro-mock documents (must NOT be set in production)")
+	nitroExpectedPCRs := flag.String("nitro-expected-pcrs", "", "Comma-separated PCR expectations for nitro/nitro-mock modes, e.g. 0=0x...,1=0x...,2=0x...,8=0x...")
+	verifyNitro := flag.Bool("verify-nitro", false, "Verify a precomputed nitro attestation report (no enclave RPC); requires -nitro-report, -nitro-public-key, -attestation-challenge")
+	nitroReportHex := flag.String("nitro-report", "", "Hex-encoded COSE_Sign1 attestation report bytes for -verify-nitro")
+	nitroPublicKeyHex := flag.String("nitro-public-key", "", "Expected enclave public key (33-byte compressed SEC1) for -verify-nitro")
 	timeout := flag.Duration("timeout", 10*time.Second, "TEE RPC timeout")
 	flag.Parse()
 
+	if *verifyNitro {
+		if err := runVerifyNitro(os.Stdout, *attestationMode, *nitroReportHex, *nitroPublicKeyHex, *attestationChallenge, *nitroAllowDev, *nitroExpectedPCRs); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	if *teeEndpoint != "" {
-		if err := runTEE(os.Stdout, *teeEndpoint, *seedHex, *publicKeyOnly, *attest, *attestationMode, *attestationChallenge, *timeout); err != nil {
+		if err := runTEE(os.Stdout, *teeEndpoint, *seedHex, *publicKeyOnly, *attest, *attestationMode, *attestationChallenge, *nitroAllowDev, *nitroExpectedPCRs, *timeout); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -80,7 +92,7 @@ func main() {
 	fmt.Printf("pi=0x%x\n", pi)
 }
 
-func runTEE(w io.Writer, endpoint string, seedHex string, publicKeyOnly bool, attest bool, attestationMode string, attestationChallenge string, timeout time.Duration, dialOptions ...grpc.DialOption) error {
+func runTEE(w io.Writer, endpoint string, seedHex string, publicKeyOnly bool, attest bool, attestationMode string, attestationChallenge string, nitroAllowDev bool, nitroExpectedPCRs string, timeout time.Duration, dialOptions ...grpc.DialOption) error {
 	if len(dialOptions) == 0 {
 		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	}
@@ -103,7 +115,7 @@ func runTEE(w io.Writer, endpoint string, seedHex string, publicKeyOnly bool, at
 	}
 	fmt.Fprintf(w, "pk=0x%x\n", pkResp.PublicKey)
 	if attest {
-		if err := runTEEAttestation(w, client, pkResp.PublicKey, attestationMode, attestationChallenge, timeout); err != nil {
+		if err := runTEEAttestation(w, client, pkResp.PublicKey, attestationMode, attestationChallenge, nitroAllowDev, nitroExpectedPCRs, timeout); err != nil {
 			return err
 		}
 		if publicKeyOnly || seedHex == "" {
@@ -139,7 +151,7 @@ func runTEE(w io.Writer, endpoint string, seedHex string, publicKeyOnly bool, at
 	return nil
 }
 
-func runTEEAttestation(w io.Writer, client pb.VRFEnclaveClient, expectedPK []byte, attestationMode string, attestationChallenge string, timeout time.Duration) error {
+func runTEEAttestation(w io.Writer, client pb.VRFEnclaveClient, expectedPK []byte, attestationMode string, attestationChallenge string, nitroAllowDev bool, nitroExpectedPCRs string, timeout time.Duration) error {
 	challenge, err := parseChallenge(attestationChallenge)
 	if err != nil {
 		return err
@@ -165,14 +177,124 @@ func runTEEAttestation(w io.Writer, client pb.VRFEnclaveClient, expectedPK []byt
 		if err := enclave.VerifyDevAttestation(resp.Report, challenge, expectedPK); err != nil {
 			return fmt.Errorf("verify dev attestation: %w", err)
 		}
+	case "nitro", "nitro-mock":
+		expectedPCRs, perr := parseExpectedPCRs(nitroExpectedPCRs)
+		if perr != nil {
+			return perr
+		}
+		opts := enclave.VerifyNitroAttestationOptions{
+			AllowDev:          nitroAllowDev || attestationMode == "nitro-mock",
+			ExpectedPublicKey: expectedPK,
+			ExpectedNonce:     challenge,
+			ExpectedPCRs:      expectedPCRs,
+		}
+		if attestationMode == "nitro" && nitroAllowDev {
+			return fmt.Errorf("nitro mode rejects -nitro-allow-dev; use -attestation-mode nitro-mock for dev signatures")
+		}
+		if _, err := enclave.VerifyNitroAttestation(resp.Report, opts); err != nil {
+			return fmt.Errorf("verify %s attestation: %w", attestationMode, err)
+		}
 	default:
-		return fmt.Errorf("unsupported attestation mode %q (want raw | dev)", attestationMode)
+		return fmt.Errorf("unsupported attestation mode %q (want raw | dev | nitro | nitro-mock)", attestationMode)
 	}
 	fmt.Fprintf(w, "attestation_mode=%s\n", attestationMode)
 	fmt.Fprintf(w, "attestation_challenge=0x%x\n", challenge)
 	fmt.Fprintf(w, "attestation_pk=0x%x\n", resp.PublicKey)
 	fmt.Fprintf(w, "attestation_report=0x%x\n", resp.Report)
 	return nil
+}
+
+// runVerifyNitro verifies a precomputed COSE_Sign1 attestation report
+// without contacting an enclave. Used by trh-verify-nitro-attestation.sh
+// as a PLATFORM_ATTESTATION_VERIFIER for the nitro / nitro-mock modes.
+func runVerifyNitro(w io.Writer, mode string, reportHex, publicKeyHex, challengeHex string, allowDev bool, expectedPCRSpec string) error {
+	if mode != "nitro" && mode != "nitro-mock" {
+		return fmt.Errorf("-verify-nitro requires -attestation-mode nitro or nitro-mock (got %q)", mode)
+	}
+	if mode == "nitro" && allowDev {
+		return fmt.Errorf("nitro mode rejects -nitro-allow-dev; use -attestation-mode nitro-mock for dev signatures")
+	}
+	report, err := decodeHexParam("nitro-report", reportHex)
+	if err != nil {
+		return err
+	}
+	publicKey, err := decodeHexParam("nitro-public-key", publicKeyHex)
+	if err != nil {
+		return err
+	}
+	if len(publicKey) != 33 {
+		return fmt.Errorf("nitro-public-key must be 33 bytes, got %d", len(publicKey))
+	}
+	challenge, err := decodeHexParam("attestation-challenge", challengeHex)
+	if err != nil {
+		return err
+	}
+	if len(challenge) != 32 {
+		return fmt.Errorf("attestation-challenge must be 32 bytes, got %d", len(challenge))
+	}
+	pcrs, err := parseExpectedPCRs(expectedPCRSpec)
+	if err != nil {
+		return err
+	}
+	doc, err := enclave.VerifyNitroAttestation(report, enclave.VerifyNitroAttestationOptions{
+		AllowDev:          allowDev || mode == "nitro-mock",
+		ExpectedPublicKey: publicKey,
+		ExpectedNonce:     challenge,
+		ExpectedPCRs:      pcrs,
+	})
+	if err != nil {
+		return fmt.Errorf("verify %s attestation: %w", mode, err)
+	}
+	fmt.Fprintf(w, "verify_nitro_mode=%s\n", mode)
+	fmt.Fprintf(w, "verify_nitro_module_id=%s\n", doc.ModuleID)
+	fmt.Fprintf(w, "verify_nitro_pk=0x%x\n", doc.PublicKey)
+	fmt.Fprintf(w, "verify_nitro_nonce=0x%x\n", doc.Nonce)
+	fmt.Fprintln(w, "verify_nitro=ok")
+	return nil
+}
+
+func decodeHexParam(name, value string) ([]byte, error) {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(value), "0x")
+	if trimmed == "" {
+		return nil, fmt.Errorf("-%s is required", name)
+	}
+	raw, err := hex.DecodeString(trimmed)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s hex: %w", name, err)
+	}
+	return raw, nil
+}
+
+// parseExpectedPCRs reads a comma-separated list of "idx=hex" entries
+// (idx in 0..31) and returns the corresponding PCR map. Empty input
+// returns nil (no PCR check). Used by -nitro-expected-pcrs to thread
+// attestation-policy values into the verifier.
+func parseExpectedPCRs(spec string) (map[uint8][]byte, error) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return nil, nil
+	}
+	out := map[uint8][]byte{}
+	for _, entry := range strings.Split(spec, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		idxStr, hexStr, ok := strings.Cut(entry, "=")
+		if !ok {
+			return nil, fmt.Errorf("nitro-expected-pcrs: bad entry %q (want idx=hex)", entry)
+		}
+		var idx uint8
+		if _, err := fmt.Sscanf(strings.TrimSpace(idxStr), "%d", &idx); err != nil {
+			return nil, fmt.Errorf("nitro-expected-pcrs: parse pcr index %q: %w", idxStr, err)
+		}
+		raw, err := hex.DecodeString(strings.TrimPrefix(strings.TrimSpace(hexStr), "0x"))
+		if err != nil {
+			return nil, fmt.Errorf("nitro-expected-pcrs: parse pcr%d hex: %w", idx, err)
+		}
+		out[idx] = raw
+	}
+	return out, nil
 }
 
 func parseSeed(seedHex string) ([]byte, error) {

@@ -1,6 +1,6 @@
 {
-  "policyId": "tdx-game-l2-vrf-policy-v1",
-  "mode": "tdx",
+  "policyId": "nitro-game-l2-vrf-policy-v1",
+  "mode": "nitro",
   "status": "example-only",
   "publicKeyBinding": {
     "field": "public_key",
@@ -8,15 +8,18 @@
     "lengthBytes": 33
   },
   "requiredClaims": {
-    "mrSignerOrEquivalent": "0x...",
-    "mrEnclaveOrEquivalent": "0x...",
+    "pcr0": "0x...",
+    "pcr1": "0x...",
+    "pcr2": "0x...",
+    "pcr8": "0x...",
     "reportDataIncludesPublicKey": true,
     "debugDisabled": true
   },
   "releaseRequirements": [
-    "platform quote verifier implemented",
-    "quote verifier audited",
-    "sealed key derives from platform identity",
-    "VRF public key in SystemConfig matches attested enclave key"
+    "AWS Nitro attestation document signature verifies against AWS Nitro root CA",
+    "EIF measurements (PCR0/PCR1/PCR2) match the released enclave image",
+    "PCR8 matches a signed-enclave certificate fingerprint",
+    "VRF public key in SystemConfig matches attested enclave key",
+    "sealed key derives from platform identity"
   ]
 }

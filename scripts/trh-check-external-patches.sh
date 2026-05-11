@@ -21,7 +21,7 @@ check_patch() {
     failures=$((failures + 1))
     return
   fi
-  if git -C "$repo" apply --check "$patch"; then
+  if git -C "$repo" apply --recount --check "$patch"; then
     echo "[ok] $label patch applies"
   else
     echo "[fail] $label patch does not apply cleanly" >&2

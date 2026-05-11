@@ -32,6 +32,8 @@ enabled as TEE-backed Enshrined VRF.
 | UI integration | `deploy/trh/external-integration/trh-platform-ui-enshrined-vrf.patch`; TypeScript check in `scripts/trh-verify-external-patches-compile.sh` | Patch applies and typechecks in temp copy; not applied to external repo |
 | Thanos chart contract | `deploy/trh/thanos-stack-vrf-values.example.yaml`, `deploy/trh/kubernetes-vrf-sidecar.example.yaml`, `deploy/trh/external-integration/tokamak-thanos-stack-chart-contract.md`, `scripts/trh-validate-thanos-stack-chart.sh` | Contract documented and validator prepared; chart repo not present locally |
 | TEE enclave preflight | `vrf-enclave/Dockerfile`, `scripts/trh-build-vrf-enclave-image.sh`, `scripts/trh-attest-vrf-enclave.sh` | Local build syntax and CLI paths covered; real platform attestation still required |
+| AWS Nitro Enclaves path | `deploy/trh/thanos-stack-vrf-values.nitro.example.yaml`, `deploy/trh/kubernetes-vrf-sidecar-nitro.example.yaml`, `scripts/trh-build-vrf-enclave-eif.sh`, `scripts/trh-verify-nitro-attestation.sh`, `vrf-enclave/enclave/attestation_nitro.go` | Nitro mode + nitro-mock simulator covered locally; live NSM bridge stubbed (returns Unimplemented) until on-EC2 wiring follow-up |
+| AWS Nitro local readiness tier | `scripts/trh-local-readiness.sh` (nitro-mock phase), `vrf-enclave/enclave/attestation_nitro_test.go`, `vrf-enclave/cmd/vrf-prove/main_test.go` | macOS-only roundtrip via `--attestation nitro-mock` + `trh-verify-nitro-attestation.sh` exercises the full verifier path with `NITRO_ALLOW_DEV=1` |
 | Deployed-chain verification | `scripts/trh-verify-vrf-chain.sh`, `scripts/trh-verify-vrf-proof.sh`, `scripts/trh-export-vrf-metrics.sh`, `deploy/trh/prometheus-rules.example.yaml` | Tooling present; requires deployed chain to run end-to-end |
 | Production gate | `scripts/trh-production-vrf-gate.sh`, `deploy/trh/attestation-policy.schema.json`, `scripts/trh-validate-attestation-policy.sh`, `scripts/test-trh-attestation-policy.sh` | Covered locally; production measurements/audit must replace examples |
 | Game consumer example | `contracts/src/examples/TRHGameRandomness.sol`, `contracts/test/TRHGameRandomness.t.sol` | Local Foundry test covered |
@@ -49,17 +51,23 @@ REQUIRE_TEE=0 ./scripts/trh-tee-readiness.sh
 ./scripts/test-trh-attestation-policy.sh
 ./scripts/test-trh-export-vrf-metrics.sh
 ./scripts/trh-validate-k8s-vrf-sidecar.sh deploy/trh/kubernetes-vrf-sidecar.example.yaml
+./scripts/trh-validate-k8s-vrf-sidecar.sh deploy/trh/kubernetes-vrf-sidecar-nitro.example.yaml
+SKIP_IF_MISSING_NITRO_CLI=1 ./scripts/trh-build-vrf-enclave-eif.sh
 ```
 
 ## Missing Before Completion
 
 - Apply patches to the actual `trh-sdk`, `trh-backend`, and `trh-platform-ui`
   repositories.
-- Implement the `tokamak-thanos-stack` chart changes and run
-  `scripts/trh-check-external-integration.sh` against the patched chart repo.
-- Build and publish a production VRF enclave image.
-- Replace example attestation policy measurements with real SGX/TDX/SEV-SNP
-  measurements and wire a production verifier.
+- Implement the `tokamak-thanos-stack` chart changes (default + nitro overlay)
+  and run `scripts/trh-check-external-integration.sh` against the patched
+  chart repo.
+- Build and publish a production VRF enclave image AND its EIF
+  (`scripts/trh-build-vrf-enclave-eif.sh`), with the spliced PCR measurements
+  baked into `attestation-policy.production.json`.
+- Wire the real Nitro NSM bridge inside the EIF (currently `AttestNitro`
+  returns Unimplemented). Optional for non-AWS: real SGX/TDX/SEV-SNP quote
+  verifiers.
 - Deploy at least one TRH game L2 with TEE randomness enabled and run
   `scripts/trh-verify-vrf-chain.sh`, `scripts/trh-verify-vrf-proof.sh`, and
   game-consumer transaction checks against that chain.

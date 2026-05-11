@@ -1,0 +1,105 @@
+# Nitro variant of the Enshrained VRF Helm overlay. The default overlay
+# (thanos-stack-vrf-values.example.yaml) runs the enclave as a plain
+# Linux container with a shared Unix socket. This variant runs the
+# enclave inside an AWS Nitro Enclave (EIF) and exposes it to op-node
+# through a vsock-to-unix bridge sidecar so op-node still dials a unix
+# socket. Treat key names as the integration contract for the Nitro
+# code path in the chart implementation.
+
+enshrinedVrf:
+  enabled: true
+  mode: tee
+  teeEndpoint: unix:///var/run/vrf-enclave/vrf.sock
+  publicKey: "" # filled in after platform attestation by trh-attest-vrf-enclave.sh
+  predeploy: "0x42000000000000000000000000000000000000f0"
+  verifyPrecompile: "0x0000000000000000000000000000000000000101"
+  fork:
+    enshrinedVrfTime: 0
+    l2GenesisEnshrainedVRFTimeOffset: "0x0"
+
+  aws:
+    enclaveType: nitro
+    instanceType: m5.xlarge
+    enclaveCpuCount: 2
+    enclaveMemoryMiB: 2048
+    enclaveCID: 16
+    vsockPort: 5000
+    eifImageURI: 0123456789.dkr.ecr.ap-northeast-2.amazonaws.com/tokamak/vrf-enclave:nitro-v0.1.0
+
+opNode:
+  extraArgs:
+    - --sequencer.vrf-mode=tee
+    - --sequencer.vrf-tee-endpoint=unix:///var/run/vrf-enclave/vrf.sock
+  extraVolumeMounts:
+    - name: vrf-enclave-socket
+      mountPath: /var/run/vrf-enclave
+
+# vrfEnclaveLauncher runs as a privileged DaemonSet on Nitro-enabled
+# nodes. It calls `nitro-cli run-enclave` with the EIF identified by
+# enshrinedVrf.aws.eifImageURI (the chart pulls the OCI image, extracts
+# the EIF artifact, and mounts it at /eif/vrf-enclave.eif). The enclave
+# binds to vsock CID/port set above. nitro-cli requires /dev/nitro_enclaves
+# from the host.
+vrfEnclaveLauncher:
+  enabled: true
+  image:
+    repository: tokamaknetwork/vrf-enclave-launcher
+    tag: "nitro-dev"
+    pullPolicy: IfNotPresent
+  nodeSelector:
+    aws.amazon.com/nitro-enclaves: "enabled"
+  hostDevices:
+    - /dev/nitro_enclaves
+  privileged: true
+  args:
+    - --eif-path
+    - /eif/vrf-enclave.eif
+    - --enclave-cid
+    - "16"
+    - --vsock-port
+    - "5000"
+    - --cpu-count
+    - "2"
+    - --memory-mib
+    - "2048"
+  volumeMounts:
+    - name: nitro-enclaves
+      mountPath: /dev/nitro_enclaves
+  volumes:
+    - name: nitro-enclaves
+      hostPath:
+        path: /dev/nitro_enclaves
+
+# vrfEnclaveBridge is a tiny sidecar that runs in the same pod as
+# op-node. It dials vsock://<cid>:<port> and proxies to a Unix socket at
+# /var/run/vrf-enclave/vrf.sock so op-node continues to use the same
+# endpoint contract on every platform.
+vrfEnclaveBridge:
+  enabled: true
+  image:
+    repository: tokamaknetwork/vsock-unix-bridge
+    tag: "nitro-dev"
+    pullPolicy: IfNotPresent
+  args:
+    - --listen-unix
+    - /var/run/vrf-enclave/vrf.sock
+    - --upstream-vsock-cid
+    - "16"
+    - --upstream-vsock-port
+    - "5000"
+  volumeMounts:
+    - name: vrf-enclave-socket
+      mountPath: /var/run/vrf-enclave
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+
+# Plain-Linux vrfEnclave container is disabled in the Nitro variant.
+vrfEnclave:
+  enabled: false
+
+readiness:
+  commands:
+    - ./scripts/trh-tee-readiness.sh
+    - ./scripts/devnet-sepolia-verify-random.sh

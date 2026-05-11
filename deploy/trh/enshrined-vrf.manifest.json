@@ -66,6 +66,7 @@
     "dockerfile": "vrf-enclave/Dockerfile",
     "defaultImage": "tokamaknetwork/vrf-enclave:dev",
     "buildCommand": "./scripts/trh-build-vrf-enclave-image.sh",
+    "eifBuildCommand": "./scripts/trh-build-vrf-enclave-eif.sh",
     "kubernetesSidecarExample": "./deploy/trh/kubernetes-vrf-sidecar.example.yaml",
     "kubernetesSidecarValidator": "./scripts/trh-validate-k8s-vrf-sidecar.sh",
     "recommendedEndpoint": "unix:///var/run/vrf-enclave/vrf.sock",
@@ -75,8 +76,8 @@
       "productionRequirement": "derive seal key from platform identity or mount a protected seal key file"
     },
     "attestation": {
-      "currentDevModes": ["none", "dev"],
-      "productionRequired": ["sgx", "tdx", "sev-snp"],
+      "currentDevModes": ["none", "dev", "nitro-mock"],
+      "productionRequired": ["nitro", "sgx", "tdx", "sev-snp"],
       "policyExample": "./deploy/trh/attestation-policy.example.json",
       "policySchema": "./deploy/trh/attestation-policy.schema.json",
       "policyValidator": "./scripts/trh-validate-attestation-policy.sh",

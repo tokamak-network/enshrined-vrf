@@ -36,7 +36,7 @@ func TestRunTEEPublicKeyOnly(t *testing.T) {
 	endpoint, dialer := startBufconnEnclave(t)
 
 	var out bytes.Buffer
-	err := runTEE(&out, endpoint, "", true, false, "raw", "", time.Second,
+	err := runTEE(&out, endpoint, "", true, false, "raw", "", false, "", time.Second,
 		grpc.WithContextDialer(dialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -55,7 +55,7 @@ func TestRunTEEProofOutput(t *testing.T) {
 	seed := "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 
 	var out bytes.Buffer
-	err := runTEE(&out, endpoint, seed, false, false, "raw", "", time.Second,
+	err := runTEE(&out, endpoint, seed, false, false, "raw", "", false, "", time.Second,
 		grpc.WithContextDialer(dialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -81,7 +81,7 @@ func TestRunTEEDevAttestationOutput(t *testing.T) {
 	challenge := "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 
 	var out bytes.Buffer
-	err := runTEE(&out, endpoint, "", true, true, "dev", challenge, time.Second,
+	err := runTEE(&out, endpoint, "", true, true, "dev", challenge, false, "", time.Second,
 		grpc.WithContextDialer(dialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -103,10 +103,48 @@ func TestRunTEEDevAttestationOutput(t *testing.T) {
 	}
 }
 
+func TestRunTEENitroMockRoundtrip(t *testing.T) {
+	endpoint, dialer := startBufconnEnclaveWithMode(t, enclave.AttestNitroMock)
+	challenge := "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+
+	// Build the all-zero PCR expectations the mock returns.
+	pcrSpec := strings.Join([]string{
+		"0=0x" + strings.Repeat("00", 48),
+		"1=0x" + strings.Repeat("00", 48),
+		"2=0x" + strings.Repeat("00", 48),
+		"8=0x" + strings.Repeat("00", 48),
+	}, ",")
+
+	var out bytes.Buffer
+	err := runTEE(&out, endpoint, "", true, true, "nitro-mock", challenge, true, pcrSpec, time.Second,
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("runTEE nitro-mock: %v", err)
+	}
+	if !regexp.MustCompile(`(?m)^attestation_mode=nitro-mock$`).MatchString(out.String()) {
+		t.Fatalf("missing attestation_mode in output:\n%s", out.String())
+	}
+}
+
+func TestRunTEENitroRejectsAllowDev(t *testing.T) {
+	endpoint, dialer := startBufconnEnclaveWithMode(t, enclave.AttestNitroMock)
+	challenge := "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+	var out bytes.Buffer
+	err := runTEE(&out, endpoint, "", true, true, "nitro", challenge, true, "", time.Second,
+		grpc.WithContextDialer(dialer),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err == nil || !strings.Contains(err.Error(), "rejects -nitro-allow-dev") {
+		t.Fatalf("expected nitro+allow-dev to be rejected, got %v", err)
+	}
+}
+
 func TestRunTEEAttestationDisabledFails(t *testing.T) {
 	endpoint, dialer := startBufconnEnclave(t)
 	var out bytes.Buffer
-	err := runTEE(&out, endpoint, "", true, true, "raw", strings.Repeat("00", 32), time.Second,
+	err := runTEE(&out, endpoint, "", true, true, "raw", strings.Repeat("00", 32), false, "", time.Second,
 		grpc.WithContextDialer(dialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

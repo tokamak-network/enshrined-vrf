@@ -60,6 +60,8 @@ jobs:
             scripts/devnet-sepolia-verify-random.sh
             scripts/trh-attest-vrf-enclave.sh
             scripts/trh-build-vrf-enclave-image.sh
+            scripts/trh-build-vrf-enclave-eif.sh
+            scripts/trh-verify-nitro-attestation.sh
             scripts/trh-export-vrf-metrics.sh
             scripts/trh-production-vrf-gate.sh
             scripts/trh-render-vrf-metadata.sh
@@ -132,16 +134,29 @@ jobs:
       - name: Test attestation policy guards
         run: ./scripts/test-trh-attestation-policy.sh
 
-      - name: Check TRH values overlay
+      - name: Check TRH values overlays (default + nitro)
         run: |
           ruby -ryaml -e '
-            values = YAML.load_file("deploy/trh/thanos-stack-vrf-values.example.yaml")
-            fork = values.fetch("enshrinedVrf").fetch("fork")
-            abort "missing l2GenesisEnshrainedVRFTimeOffset" unless fork.key?("l2GenesisEnshrainedVRFTimeOffset")
+            %w[
+              deploy/trh/thanos-stack-vrf-values.example.yaml
+              deploy/trh/thanos-stack-vrf-values.nitro.example.yaml
+            ].each do |path|
+              values = YAML.load_file(path)
+              fork = values.fetch("enshrinedVrf").fetch("fork")
+              abort "missing l2GenesisEnshrainedVRFTimeOffset in #{path}" unless fork.key?("l2GenesisEnshrainedVRFTimeOffset")
+            end
+            nitro = YAML.load_file("deploy/trh/thanos-stack-vrf-values.nitro.example.yaml")
+            aws = nitro.fetch("enshrinedVrf").fetch("aws")
+            abort "nitro overlay missing aws.enclaveType=nitro" unless aws["enclaveType"] == "nitro"
+            abort "nitro overlay missing eifImageURI"           unless aws.key?("eifImageURI")
+            abort "nitro overlay missing vrfEnclaveLauncher"    unless nitro.fetch("vrfEnclaveLauncher", {})["enabled"] == true
+            abort "nitro overlay missing vrfEnclaveBridge"      unless nitro.fetch("vrfEnclaveBridge", {})["enabled"] == true
           '
 
-      - name: Check Kubernetes sidecar example
-        run: ./scripts/trh-validate-k8s-vrf-sidecar.sh deploy/trh/kubernetes-vrf-sidecar.example.yaml
+      - name: Check Kubernetes sidecar examples (unix + nitro)
+        run: |
+          ./scripts/trh-validate-k8s-vrf-sidecar.sh deploy/trh/kubernetes-vrf-sidecar.example.yaml
+          ./scripts/trh-validate-k8s-vrf-sidecar.sh deploy/trh/kubernetes-vrf-sidecar-nitro.example.yaml
 
       - name: Test Thanos chart validator
         run: ./scripts/test-trh-validate-thanos-stack-chart.sh
@@ -184,25 +199,25 @@ jobs:
         run: |
           set +e
           VRF_MODE=tee \
-          VRF_ATTESTATION_MODE=tdx \
-          VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
+          VRF_ATTESTATION_MODE=nitro \
+          VRF_TEE_ENDPOINT=vsock://16:5000 \
           VRF_PUBLIC_KEY=0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645 \
           IMAGE_TAG=v0.1.0 \
           EXTERNAL_AUDIT_ID=audit-2026-ci \
-          VRF_ATTESTATION_POLICY_ID=tdx-game-l2-vrf-policy-v1 \
+          VRF_ATTESTATION_POLICY_ID=nitro-game-l2-vrf-policy-v1 \
           ./scripts/trh-production-vrf-gate.sh
           gate_status=$?
           set -e
           test "$gate_status" -ne 0
 
           VRF_MODE=tee \
-          VRF_ATTESTATION_MODE=tdx \
-          VRF_TEE_ENDPOINT=unix:///var/run/vrf-enclave/vrf.sock \
+          VRF_ATTESTATION_MODE=nitro \
+          VRF_TEE_ENDPOINT=vsock://16:5000 \
           VRF_PUBLIC_KEY=0x032c8c31fc9f990c6b55e3865a184a4ce50e09481f2eaeb3e60ec1cea13a6ae645 \
           VRF_PLATFORM_ATTESTATION_IMPLEMENTED=1 \
           IMAGE_TAG=v0.1.0 \
           EXTERNAL_AUDIT_ID=audit-2026-ci \
-          VRF_ATTESTATION_POLICY_ID=tdx-game-l2-vrf-policy-v1 \
+          VRF_ATTESTATION_POLICY_ID=nitro-game-l2-vrf-policy-v1 \
           ./scripts/trh-production-vrf-gate.sh
 
       - name: Test VRF packages

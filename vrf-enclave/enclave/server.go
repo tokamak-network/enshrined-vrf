@@ -26,6 +26,17 @@ const (
 	// only — NOT that the code runs inside a secure enclave. Intended for
 	// local/test use.
 	AttestDev
+	// AttestNitroMock returns a Nitro-shaped COSE_Sign1 attestation
+	// document signed with the enclave's own secp256k1 key. PCRs are
+	// all-zero. Lets the off-platform verifier path be exercised on
+	// macOS/CI without an EC2 Nitro Enclave. Verifier rejects the
+	// signature unless the caller passes AllowDev=true.
+	AttestNitroMock
+	// AttestNitro returns a Nitro NSM attestation document chained to
+	// the AWS Nitro root CA. Only available when the binary runs inside
+	// a Nitro Enclave with /dev/nsm; the NSM bridge is currently a stub
+	// (returns Unimplemented) until integrated in a follow-up.
+	AttestNitro
 )
 
 // Server implements the VRFEnclave gRPC service.
@@ -123,7 +134,7 @@ func (s *Server) GetAttestation(ctx context.Context, req *pb.GetAttestationReque
 	case AttestDev:
 		// Dev HMAC report proves key possession but NOT that the code runs
 		// inside a secure enclave. Production must select a platform mode
-		// (SGX quote, TDX report, SEV-SNP report) once integrated.
+		// (SGX quote, TDX report, SEV-SNP report, Nitro) once integrated.
 		if s.sk == nil {
 			return nil, status.Error(codes.FailedPrecondition, "enclave server closed")
 		}
@@ -133,6 +144,25 @@ func (s *Server) GetAttestation(ctx context.Context, req *pb.GetAttestationReque
 			Report:    report,
 			PublicKey: s.pk,
 		}, nil
+	case AttestNitroMock:
+		// COSE_Sign1 over the AWS Nitro attestation doc shape, signed
+		// with the enclave's own secp256k1 key under a custom alg id.
+		// Off-platform verifier path only — not production-safe.
+		if s.sk == nil {
+			return nil, status.Error(codes.FailedPrecondition, "enclave server closed")
+		}
+		skBytes := s.sk.Key.Bytes()
+		report, err := CreateMockNitroAttestation(skBytes[:], s.pk, req.Challenge)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "nitro-mock attestation: %v", err)
+		}
+		return &pb.GetAttestationResponse{
+			Report:    report,
+			PublicKey: s.pk,
+		}, nil
+	case AttestNitro:
+		return nil, status.Error(codes.Unimplemented,
+			"nitro attestation requires the NSM bridge (build inside an EIF on a Nitro Enclave); not yet integrated")
 	case AttestNone:
 		return nil, status.Error(codes.FailedPrecondition,
 			"attestation disabled; start the enclave with an explicit attestation mode")

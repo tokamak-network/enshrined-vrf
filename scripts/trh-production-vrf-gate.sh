@@ -35,17 +35,17 @@ case "${VRF_MODE:-}" in
 esac
 
 case "${VRF_ATTESTATION_MODE:-}" in
-  sgx|tdx|sev-snp)
+  sgx|tdx|sev-snp|nitro)
     ok "VRF_ATTESTATION_MODE=${VRF_ATTESTATION_MODE}"
     ;;
   "")
-    fail "VRF_ATTESTATION_MODE is required; expected sgx, tdx, or sev-snp"
+    fail "VRF_ATTESTATION_MODE is required; expected nitro, sgx, tdx, or sev-snp"
     ;;
-  none|dev)
+  none|dev|nitro-mock)
     fail "VRF_ATTESTATION_MODE=${VRF_ATTESTATION_MODE} is not production-safe"
     ;;
   *)
-    fail "unsupported VRF_ATTESTATION_MODE=${VRF_ATTESTATION_MODE}; expected sgx, tdx, or sev-snp"
+    fail "unsupported VRF_ATTESTATION_MODE=${VRF_ATTESTATION_MODE}; expected nitro, sgx, tdx, or sev-snp"
     ;;
 esac
 

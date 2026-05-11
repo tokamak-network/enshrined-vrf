@@ -18,7 +18,7 @@
       "minLength": 1
     },
     "mode": {
-      "enum": ["sgx", "tdx", "sev-snp"]
+      "enum": ["sgx", "tdx", "sev-snp", "nitro"]
     },
     "status": {
       "type": "string",
@@ -44,8 +44,6 @@
       "type": "object",
       "additionalProperties": true,
       "required": [
-        "mrSignerOrEquivalent",
-        "mrEnclaveOrEquivalent",
         "reportDataIncludesPublicKey",
         "debugDisabled"
       ],
@@ -54,6 +52,18 @@
           "type": "string"
         },
         "mrEnclaveOrEquivalent": {
+          "type": "string"
+        },
+        "pcr0": {
+          "type": "string"
+        },
+        "pcr1": {
+          "type": "string"
+        },
+        "pcr2": {
+          "type": "string"
+        },
+        "pcr8": {
           "type": "string"
         },
         "reportDataIncludesPublicKey": {
@@ -72,5 +82,38 @@
         "minLength": 1
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "mode": { "const": "nitro" } }
+      },
+      "then": {
+        "properties": {
+          "requiredClaims": {
+            "required": [
+              "pcr0",
+              "pcr1",
+              "pcr2",
+              "pcr8",
+              "reportDataIncludesPublicKey",
+              "debugDisabled"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "requiredClaims": {
+            "required": [
+              "mrSignerOrEquivalent",
+              "mrEnclaveOrEquivalent",
+              "reportDataIncludesPublicKey",
+              "debugDisabled"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

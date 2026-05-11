@@ -41,6 +41,14 @@ case "$VRF_ATTESTATION_MODE" in
   raw)
     cli_mode=raw
     ;;
+  nitro-mock)
+    cli_mode=nitro-mock
+    : "${PLATFORM_ATTESTATION_VERIFIER:?set PLATFORM_ATTESTATION_VERIFIER for nitro-mock attestation (use scripts/trh-verify-nitro-attestation.sh with NITRO_ALLOW_DEV=1)}"
+    ;;
+  nitro)
+    cli_mode=nitro
+    : "${PLATFORM_ATTESTATION_VERIFIER:?set PLATFORM_ATTESTATION_VERIFIER for nitro attestation (e.g. scripts/trh-verify-nitro-attestation.sh against AWS Nitro root CA)}"
+    ;;
   sgx|tdx|sev-snp)
     cli_mode=raw
     : "${PLATFORM_ATTESTATION_VERIFIER:?set PLATFORM_ATTESTATION_VERIFIER for $VRF_ATTESTATION_MODE attestation}"
@@ -50,7 +58,7 @@ case "$VRF_ATTESTATION_MODE" in
     exit 1
     ;;
   *)
-    echo "unsupported VRF_ATTESTATION_MODE=$VRF_ATTESTATION_MODE (expected dev, raw, sgx, tdx, or sev-snp)" >&2
+    echo "unsupported VRF_ATTESTATION_MODE=$VRF_ATTESTATION_MODE (expected dev, raw, nitro, nitro-mock, sgx, tdx, or sev-snp)" >&2
     exit 1
     ;;
 esac
